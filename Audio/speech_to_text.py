@@ -23,8 +23,7 @@ def listen_text():
             # to wait for 2 seconds before starting the recording and the recording lasts for 10 seconds
             audio_text=r.listen(source, timeout=2, phrase_time_limit=10)
             print('Thanks for speaking')
-
-        
+            
             # transcribing using google speech recognition
             full_text=f'[You]: {r.recognize_google(audio_text)}'
             print(full_text)
@@ -32,6 +31,9 @@ def listen_text():
         # if no audio is heard
         except sr.WaitTimeoutError:
             print("[Reply]: Sorry, didn't catch that")
-            return "Sorry, didn't catch that"        
+            return "Sorry, didn't catch that"   
+        except sr.UnknownValueError:
+            print("[Reply]: Sorry, didn't catch that")
+            return "Sorry, didn't catch that"   
 
 __all__=['listen_text', 'full_text']
