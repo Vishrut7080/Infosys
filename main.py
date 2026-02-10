@@ -5,6 +5,6 @@ from Audio.speech_to_text import listen_text
 heard=listen_text()
 
 with open('Audio/Transcribe.txt','a') as file:
-    file.write(heard)
+    file.write(f'{heard}\n')
     file.close()
 speak_text(f'{heard}')
