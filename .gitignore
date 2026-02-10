@@ -8,3 +8,6 @@ wheels/
 
 # Virtual environments
 .venv
+
+# Confedential files
+Transcribe.txt
