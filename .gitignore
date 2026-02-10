@@ -12,3 +12,6 @@ uv.lock
 
 # Confedential files
 Transcribe.txt
+
+# Variables
+.env
