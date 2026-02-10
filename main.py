@@ -1,6 +1,3 @@
-def main():
-    print("Hello from infosys!")
+from Audio.text_to_speech import speak_text
 
-
-if __name__ == "__main__":
-    main()
+speak_text('Hi')

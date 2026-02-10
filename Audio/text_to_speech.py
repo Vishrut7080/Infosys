@@ -21,6 +21,6 @@ def speak_text(text):
 sample_text='Welcome to the Voice Based Email Assistant.'
 
 # calling function
-speak_test(sample_text)
+speak_text(sample_text)
 
 __all__=['speak_text']
