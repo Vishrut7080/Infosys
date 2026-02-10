@@ -1,6 +1,6 @@
 import pyttsx3
 
-def speak_test(text):
+def speak_text(text):
     engine=pyttsx3.init()
 
     # Custom voice settings
@@ -22,3 +22,5 @@ sample_text='Welcome to the Voice Based Email Assistant.'
 
 # calling function
 speak_test(sample_text)
+
+__all__=['speak_text']
