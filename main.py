@@ -13,7 +13,7 @@ bye='[Reply]: Goodbye!Take care'
 # Commands
 # ----------------------
 
-
+mailing=['send','mail']
 
 # ----------------------
 # Logic
@@ -30,10 +30,14 @@ with open('Audio/Transcribe.txt','a') as file:
 
         # write to file
         file.write(f'{clean_heard}\n')
+        if all(word in clean_heard for word in mailing):
+            print('Mailing system will be incorporated in next milestone. To be continued....')
+            speak_text('Sent')
         # check if any ending word is present
-        if any(word in clean_heard for word in ending):
+        elif any(word in clean_heard for word in ending):
             print(bye)
             speak_text(bye)
             break
         speak_text(f'{clean_heard}')
+        print('Thanks for speaking')
     file.close()

@@ -29,8 +29,8 @@ def listen_text():
         print('Listening.....')
         try:
             # to wait for 2 seconds before starting the recording and the recording lasts for 10 seconds
-            audio_text=r.listen(source, timeout=2, phrase_time_limit=10)
-            print('Thanks for speaking')
+            audio_text=r.listen(source, phrase_time_limit=15)
+            # can add timeout=5; it is the Maximum time (in seconds) the system waits for you to start speaking.
             
             # transcribing using google speech recognition
             full_text=f'[You]: {r.recognize_google(audio_text)}'
