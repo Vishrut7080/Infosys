@@ -16,6 +16,9 @@ def speak_text(text):
     voices=engine.getProperty('voices')
     engine.setProperty('voice', voices[0])
 
+    # printing the text
+    print(text)
+
     # Speech part
     engine.say(text)
 
