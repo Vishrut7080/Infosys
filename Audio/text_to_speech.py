@@ -1,5 +1,10 @@
 import pyttsx3
 
+# ----------------------
+# Speaking logic
+
+# ----------------------
+
 def speak_text(text):
     engine=pyttsx3.init()
 

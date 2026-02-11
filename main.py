@@ -1,9 +1,23 @@
 from Audio.text_to_speech import speak_text
 from Audio.speech_to_text import listen_text
 
+# ----------------------
+# VARIABLES
+# ----------------------
+
 heard=""
 ending=['goodbye','bye','exit','see you later']
 bye='[Reply]: Goodbye!Take care'
+
+# ----------------------
+# Commands
+# ----------------------
+
+
+
+# ----------------------
+# Logic
+# ----------------------
 
 # Open file
 with open('Audio/Transcribe.txt','a') as file:

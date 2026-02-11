@@ -1,3 +1,7 @@
+# ----------------------
+# Importing libraries
+# ----------------------
+
 # to get the mic_index from env file
 import os
 from dotenv import load_dotenv
@@ -10,6 +14,10 @@ load_dotenv()
 
 # Get device index from env file
 DEVICE_INDEX=int(os.getenv('DEVICE_INDEX'))
+
+# ----------------------
+# Listening Logic
+# ----------------------
 
 # function to record audio
 def listen_text():
