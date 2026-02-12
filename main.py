@@ -1,5 +1,6 @@
 from Audio.text_to_speech import speak_text
 from Audio.speech_to_text import listen_text
+from Mail.email_handler import open_gmail_compose, get_top_senders
 
 # ----------------------
 # VARIABLES
@@ -13,8 +14,8 @@ bye='[System]: Goodbye!Take care.'
 # Commands
 # ----------------------
 
-mailing=['send','mail']
-inbox=['check','inbox']
+mail_req=['send','mail']
+inbox_req=['check','inbox']
 affirmation=['yes','ok', 'yah','ya']
 negation=['no', 'nah']
 mail='[System]: Email will be added in next milestone. To be continued....'
@@ -37,12 +38,13 @@ with open('Audio/Transcribe.txt','a') as file:
         file.write(f'{clean_heard}\n')
 
         # To send a mail
-        if all(word in clean_heard for word in mailing):
+        if all(word in clean_heard for word in mail_req):
             speak_text('[System]: You want to send mail?')
             heard=listen_text().lower().strip().replace('.', '')
             if any(s in heard for s in affirmation):
                 speak_text(heard)
-                speak_text(mail)
+                compose=open_gmail_compose()
+                speak_text(compose)
                 continue
             elif any(s in heard for s in negation):
                 speak_text(heard)
@@ -50,12 +52,13 @@ with open('Audio/Transcribe.txt','a') as file:
                 continue
 
         # To check inbox
-        elif all(word in clean_heard for word in inbox):
+        elif all(word in clean_heard for word in inbox_req):
             speak_text('[System]: You want to check the inbox?')
             heard=listen_text().lower().strip().replace('.','')
             if any(s in heard for s in affirmation):
                 speak_text(heard)
-                speak_text(mail)
+                inbox=get_top_senders()
+                speak_text(inbox)
                 continue
             elif any(s in heard for s in negation):
                 speak_text(heard)
