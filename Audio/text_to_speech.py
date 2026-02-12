@@ -1,8 +1,7 @@
 import pyttsx3
 
 # ----------------------
-# Speaking logic
-
+# TTS (TEXT TO SPEECH) LOGIC
 # ----------------------
 
 def speak_text(text):

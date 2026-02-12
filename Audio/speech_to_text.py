@@ -1,5 +1,5 @@
 # ----------------------
-# Importing libraries
+# STT (SPEECH TO TEXT) LOGIC
 # ----------------------
 
 # to get the mic_index from env file
@@ -31,6 +31,10 @@ def listen_text():
     # to read from mic
     with sr.Microphone(device_index=DEVICE_INDEX) as source:
         speak_text('Listening.....')
+        # ----------------------
+        # ERROR HANDLING
+        # ----------------------
+
         try:
             # to wait for 2 seconds before starting the recording and the recording lasts for 10 seconds
             audio_text=r.listen(source, phrase_time_limit=15,
