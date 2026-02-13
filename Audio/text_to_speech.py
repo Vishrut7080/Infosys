@@ -3,18 +3,16 @@ import pyttsx3
 # ----------------------
 # TTS (TEXT TO SPEECH) LOGIC
 # ----------------------
+engine=pyttsx3.init()
+# Custom voice settings
+engine.setProperty('rate', 160)
+engine.setProperty('volume', 1.0)
+
+# Get Avaialble Voices
+voices=engine.getProperty('voices')
+engine.setProperty('voice', voices[2].id)
 
 def speak_text(text):
-    engine=pyttsx3.init()
-
-    # Custom voice settings
-    engine.setProperty('rate', 160)
-    engine.setProperty('volume', 1.0)
-
-    # Get Avaialble Voices
-    voices=engine.getProperty('voices')
-    engine.setProperty('voice', voices[2].id)
-
     # printing the text
     print(text)
 

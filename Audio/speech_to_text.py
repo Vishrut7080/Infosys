@@ -35,11 +35,11 @@ def listen_text():
         # ----------------------
         # ERROR HANDLING
         # ----------------------
-        r.adjust_for_ambient_noise(source, duration=1) #This dynamically calibrates the microphone to the room noise. Without this, the recognizer often ignores speech.
+        r.adjust_for_ambient_noise(source, duration=0.5) #This dynamically calibrates the microphone to the room noise. Without this, the recognizer often ignores speech.
         try:
             # to wait for 2 seconds before starting the recording and the recording lasts for 10 seconds
             audio_text=r.listen(source, phrase_time_limit=10,
-                                timeout=5, # it is the Maximum time (in seconds) the system waits for you to start speaking.
+                                timeout=3, # it is the Maximum time (in seconds) the system waits for you to start speaking.
                                 )
             
             
