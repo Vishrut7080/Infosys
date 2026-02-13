@@ -31,18 +31,20 @@
     <button onclick="check()">Login</button>
 
     <script>
-        function checkLogin() {
+        function check() {
             fetch('/check')
-                .then(res => res.json())
-                .then(data => {
-                    if (data.success) {
-                        window.location.href = "https://mail.google.com";
+                .then(res => {
+                    if (res.redirected) {
+                        window.location = res.url;
+                    } else if (res.status === 403) {
+                        alert("Login cancelled");
+                        window.close();
                     }
                 });
         }
-
-        setInterval(checkLogin, 1000);
+        setInterval(check, 1000);
     </script>
+
 
 
 </body>

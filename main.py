@@ -8,7 +8,7 @@ import threading, webbrowser
 # ----------------------
 
 heard=""
-logged_in = False
+login_status = "waiting"   # waiting, success, failed
 send_mail='[System]: This feature will be added in the next milestone.'
 see_inbox='[System]: This feature will be added in the next milestone.'
 ending=['goodbye','bye','exit','see you later']
@@ -50,6 +50,7 @@ with open('Audio/Transcribe.txt','a') as file:
         # LOGIN COMMAND
         # ----------------------
         elif 'login' in clean_heard:
+            web_login.login_status='waiting'
             # start web server
             server_thread = threading.Thread(target=web_login.start_server)
             server_thread.daemon = True
@@ -59,11 +60,16 @@ with open('Audio/Transcribe.txt','a') as file:
             webbrowser.open("http://localhost:5000")
             continue
         
-        elif 'correct' in clean_heard:
+        elif clean_heard.strip() == 'correct':
             speak_text('[System]: Login confirmed.')
-            web_login.login_success = True
-            logged_in = True
+            web_login.login_status = "success"
             continue
+
+        elif clean_heard.strip() in ['incorrect', 'no', 'cancel']:
+            speak_text('[System]: Login cancelled.')
+            web_login.login_status = "failed"
+            continue
+
 
         elif not logged_in and (
         ('send' in clean_heard and any(word in clean_heard for word in mail_req)) or
