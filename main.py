@@ -8,7 +8,6 @@ import threading, webbrowser
 # ----------------------
 
 heard=""
-login_status = "waiting"   # waiting, success, failed
 send_mail='[System]: This feature will be added in the next milestone.'
 see_inbox='[System]: This feature will be added in the next milestone.'
 ending=['goodbye','bye','exit','see you later']
@@ -65,21 +64,20 @@ with open('Audio/Transcribe.txt','a') as file:
             web_login.login_status = "success"
             continue
 
-        elif clean_heard.strip() in ['incorrect', 'no', 'cancel']:
+        elif web_login.login_status != "success" and clean_heard.strip() in ['incorrect', 'no', 'cancel']:
             speak_text('[System]: Login cancelled.')
             web_login.login_status = "failed"
             continue
 
 
-        elif not logged_in and (
-        ('send' in clean_heard and any(word in clean_heard for word in mail_req)) or
+        elif web_login.login_status != "success" and (('send' in clean_heard and any(word in clean_heard for word in mail_req)) or
         ('check' in clean_heard and any(word in clean_heard for word in inbox_req))):
             speak_text('[System]: Please log in first.')
             continue
 
 
         # To send a mail
-        elif logged_in and 'send' in clean_heard and any(word in clean_heard for word in mail_req):
+        elif web_login.login_status == "success" and 'send' in clean_heard and any(word in clean_heard for word in mail_req):
             speak_text('[System]: You want to send mail?')
             response = listen_text()
             clean_response = response.lower().strip().replace('.', '')
@@ -94,7 +92,7 @@ with open('Audio/Transcribe.txt','a') as file:
                 continue
 
         # To check inbox
-        elif logged_in and 'check' in clean_heard and any(word in clean_heard for word in inbox_req):
+        elif web_login.login_status == "success" and 'check' in clean_heard and any(word in clean_heard for word in inbox_req):
             speak_text('[System]: You want to check the inbox?')
             response = listen_text()
             clean_response = response.lower().strip().replace('.', '')

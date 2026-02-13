@@ -31,19 +31,26 @@
     <button onclick="check()">Login</button>
 
     <script>
-        function check() {
-            fetch('/check')
-                .then(res => {
-                    if (res.redirected) {
-                        window.location = res.url;
-                    } else if (res.status === 403) {
-                        alert("Login cancelled");
-                        window.close();
-                    }
-                });
+        async function check() {
+            try {
+                const res = await fetch('/check');
+                const status = await res.text();
+
+                if (status === "success") {
+                    window.location.href = "https://mail.google.com/mail/u/0/";
+                }
+                else if (status === "failed") {
+                    alert("Login cancelled");
+                    window.close();
+                }
+            } catch (error) {
+                console.log("Server not ready yet...");
+            }
         }
+
         setInterval(check, 1000);
     </script>
+
 
 
 
