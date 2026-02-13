@@ -3,57 +3,15 @@
 
 <head>
     <title>Assistant Login</title>
-    <style>
-        body {
-            font-family: Arial;
-            background: #1e1e1e;
-            color: white;
-            text-align: center;
-            margin-top: 100px;
-        }
-
-        input {
-            padding: 10px;
-            margin: 10px;
-            width: 200px;
-        }
-
-        button {
-            padding: 10px 20px;
-        }
-    </style>
+    <link rel="stylesheet" href="./login.css">
+    <script type="module" src="./login.js"></script>
 </head>
 
 <body>
     <h2>Assistant Login</h2>
-    <input type="text" placeholder="Username"><br>
-    <input type="password" placeholder="Password"><br>
+    <input type="text" value="{{ username }}" readonly><br>
+    <input type="password" value="{{ password_mask }}" readonly><br>
     <button onclick="check()">Login</button>
-
-    <script>
-        async function check() {
-            try {
-                const res = await fetch('/check');
-                const status = await res.text();
-
-                if (status === "success") {
-                    window.location.href = "https://mail.google.com/mail/u/0/";
-                }
-                else if (status === "failed") {
-                    alert("Login cancelled");
-                    window.close();
-                }
-            } catch (error) {
-                console.log("Server not ready yet...");
-            }
-        }
-
-        setInterval(check, 1000);
-    </script>
-
-
-
-
 </body>
 
 </html>

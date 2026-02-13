@@ -1,4 +1,11 @@
 from flask import Flask, render_template, jsonify,  url_for, redirect
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
+EMAIL_USER = os.getenv("EMAIL_USER")
+EMAIL_PASS = os.getenv("EMAIL_PASS")
 
 app = Flask(__name__)
 
@@ -6,7 +13,9 @@ login_status = 'waiting'
 
 @app.route('/')
 def login_page():
-    return render_template('login.html')
+    return render_template('login.html',
+        username=EMAIL_USER,
+        password_mask="*" * len(EMAIL_PASS))
 
 @app.route('/check')
 def check_login():
