@@ -7,6 +7,8 @@ from Mail.email_handler import open_gmail_compose, get_top_senders
 # ----------------------
 
 heard=""
+send_mail='[System]: This feature will be added in the next milestone.'
+see_inboc='[System]: This feature will be added in the next milestone.'
 ending=['goodbye','bye','exit','see you later']
 bye='[System]: Goodbye!Take care.'
 
@@ -43,6 +45,7 @@ with open('Audio/Transcribe.txt','a') as file:
             heard=listen_text().lower().strip().replace('.', '')
             if any(s in heard for s in affirmation):
                 speak_text(heard)
+                speak_text(send_mail)
                 compose=open_gmail_compose()
                 speak_text(compose)
                 continue
@@ -57,6 +60,7 @@ with open('Audio/Transcribe.txt','a') as file:
             heard=listen_text().lower().strip().replace('.','')
             if any(s in heard for s in affirmation):
                 speak_text(heard)
+                speak_text(see_inboc)
                 inbox=get_top_senders()
                 speak_text(inbox)
                 continue

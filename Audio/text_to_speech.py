@@ -13,7 +13,7 @@ def speak_text(text):
 
     # Get Avaialble Voices
     voices=engine.getProperty('voices')
-    engine.setProperty('voice', voices[0])
+    engine.setProperty('voice', voices[2].id)
 
     # printing the text
     print(text)

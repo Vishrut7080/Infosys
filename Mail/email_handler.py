@@ -16,14 +16,18 @@ def get_top_senders():
         mail.login(EMAIL_USER,EMAIL_PASS)
         mail.select('inbox')
 
-        results,data=mail.search(None,'All')
+        result,data=mail.search(None,'All')
         mail_ids=data[0].split()
-        latest_ids=mail.ids[-5:]
 
+        if not mail_ids:
+            mail.logout()
+            return['Inbox is empty']
+
+        latest_ids=mail_ids[-5:]
         senders=[]
 
-        for i in reversed(latest_ids):
-            result,msg_data=mail.fetch(i, "(RFC822)")
+        for mail_id in reversed(latest_ids):
+            result,msg_data=mail.fetch(mail_id, "(RFC822)")
             raw_email=msg_data[0][1]
             msg=email.message_from_bytes(raw_email)
             senders.append(msg['From'])
