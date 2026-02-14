@@ -34,7 +34,9 @@ affirmation=['yes','ok', 'yah','ya','want to']
 negation=['no', 'nah','nope','don\'t want to']
 greeting=['hi','hello','hey']
 
+
 confirmation_words = ['correct','confirm','yes']
+logout_commands=['logout', 'log out', 'sign out', 'signout']
 
 if SECRET_AUD:
     # Add the audio password to confirmation words
@@ -123,8 +125,24 @@ with open('Audio/Transcribe.txt','a') as file:
             elif any(s in clean_response for s in negation):
                 speak_text('[System]: Ok Thanks for confirming.')
                 continue
-        
-        # To terminate Loop
+            
+        # ----------------------
+        # LOGOUT        
+        # ----------------------
+        elif any(word in clean_heard for word in logout_commands):
+            if web_login.login_status == "success":
+                speak_text('[System]: Logging you out.')
+                web_login.login_status = "waiting"
+                login_initiated = False
+                speak_text('[System]: You have been logged out successfully.')
+            else:
+                speak_text('[System]: You are not currently logged in.')
+            continue
+
+        # ----------------------
+        # TERMINATE LOOP
+        # ----------------------
+
         elif any(word in clean_heard for word in ending):
             speak_text(bye)
             break
