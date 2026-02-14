@@ -16,10 +16,13 @@ def open_gmail_compose():
 def get_top_senders():
     webbrowser.open("https://mail.google.com/mail/u/0/#inbox")
     try:
+        # commecting to an email account
         mail=imaplib.IMAP4_SSL('imap.gmail.com')
         mail.login(EMAIL_USER,EMAIL_PASS)
+        # selecting mailbox
         mail.select('inbox')
 
+        # searching email
         result,data=mail.search(None,'All')
         mail_ids=data[0].split()
 
@@ -32,6 +35,7 @@ def get_top_senders():
         senders=[]
 
         for mail_id in reversed(latest_ids):
+            # fetching email content
             result,msg_data=mail.fetch(mail_id, "(RFC822)")
             raw_email=msg_data[0][1]
             msg=email.message_from_bytes(raw_email)
