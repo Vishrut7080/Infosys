@@ -59,6 +59,9 @@ with open('Audio/Transcribe.txt','a') as file:
         # write to file
         file.write(f'{clean_heard}\n')
 
+        # ----------------------
+        # GREETING
+        # ----------------------
         if any(word in clean_heard for word in greeting):
             speak_text(greeting_response)
 
@@ -77,6 +80,10 @@ with open('Audio/Transcribe.txt','a') as file:
             webbrowser.open("http://localhost:5000")
             continue
         
+        # ----------------------
+        # LOGIN CONFIRMATION
+        # ----------------------
+
         elif login_initiated and clean_heard.strip() in confirmation_words:
             login_initiated=False
             speak_text('[System]: Login confirmed.')
@@ -89,6 +96,9 @@ with open('Audio/Transcribe.txt','a') as file:
             web_login.login_status = "failed"
             continue
 
+        # ----------------------
+        # MAIL FEATURES
+        # ----------------------
 
         elif web_login.login_status != "success" and (('send' in clean_heard and any(word in clean_heard for word in mail_req)) or
         ('check' in clean_heard and any(word in clean_heard for word in inbox_req))):
