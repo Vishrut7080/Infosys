@@ -6,14 +6,17 @@ body {
     margin-top: 100px;
 }
 
+/* Assistant Login */
 h2 {
     margin-bottom: 30px;
 }
 
+/* Form */
 #loginForm {
     display: inline-block;
 }
 
+/* for email and password */
 input {
     padding: 10px;
     margin: 10px;
@@ -30,6 +33,7 @@ input:focus {
     border-color: #4CAF50;
 }
 
+/* submit */
 button {
     padding: 10px 20px;
     background: #4CAF50;

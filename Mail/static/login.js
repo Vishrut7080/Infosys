@@ -1,4 +1,4 @@
-// Handle form submission
+// Handle form submission when passwrod is typed
 document.getElementById('loginForm').addEventListener('submit', async function (e) {
     e.preventDefault();
 
@@ -41,7 +41,7 @@ document.getElementById('loginForm').addEventListener('submit', async function (
     }
 });
 
-// Poll server for audio-based login status
+// Polls Flask server to repeatedly check voice login
 async function checkAudioLogin() {
     try {
         const res = await fetch('/check');
@@ -57,6 +57,7 @@ async function checkAudioLogin() {
     }
 }
 
+// for Login Cancelled Box
 function showOverlay(message, duration = 3000) {
     // create overlay
     const overlay = document.createElement("div");

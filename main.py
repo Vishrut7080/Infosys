@@ -15,8 +15,10 @@ SECRET_AUD = os.getenv('SECRET_AUD', '')
 # ----------------------
 
 heard=""
-# Initialize to track the login
+# Initialize to track the login; a sort of flag
 login_initiated = False
+# login_initiated = False   Not trying to login
+# login_initiated = True    Currently trying to login
 send_mail='[System]: This feature will be added in the next milestone.'
 see_inbox='[System]: This feature will be added in the next milestone.'
 ending=['goodbye','bye','exit','see you later']

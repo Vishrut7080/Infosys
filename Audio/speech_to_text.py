@@ -41,7 +41,6 @@ def listen_text(duration=5):
         # ERROR HANDLING
         # ----------------------
         try:
-            # to wait for 2 seconds before starting the recording and the recording lasts for 10 seconds
             audio_text=r.record(source, duration=8)
                                 # phrase_time_limit=10,
                                 # timeout=5, # it is the Maximum time (in seconds) the system waits for you to start speaking.                             
