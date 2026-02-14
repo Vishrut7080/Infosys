@@ -3,6 +3,13 @@ from Audio.speech_to_text import listen_text
 from Mail.email_handler import open_gmail_compose, get_top_senders
 import Mail.web_login as web_login
 import threading, webbrowser
+from dotenv import load_dotenv
+import os
+
+load_dotenv()
+
+SECRET_AUD = os.getenv('SECRET_AUD', '')
+
 # ----------------------
 # VARIABLES
 # ----------------------
@@ -26,6 +33,12 @@ inbox_req=['inbox','mail','mails']
 affirmation=['yes','ok', 'yah','ya','want to']
 negation=['no', 'nah','nope','don\'t want to']
 greeting=['hi','hello','hey']
+
+confirmation_words = ['correct','confirm','yes']
+
+if SECRET_AUD:
+    # Add the audio password to confirmation words
+    confirmation_words.append(SECRET_AUD.lower().strip())
 
 # ----------------------
 # COMMAND LOGIC
@@ -62,7 +75,7 @@ with open('Audio/Transcribe.txt','a') as file:
             webbrowser.open("http://localhost:5000")
             continue
         
-        elif clean_heard.strip() in ['correct','confirm','yes']:
+        elif login_initiated and clean_heard.strip() in confirmation_words:
             login_initiated=False
             speak_text('[System]: Login confirmed.')
             web_login.login_status = "success"
