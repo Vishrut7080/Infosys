@@ -40,10 +40,12 @@ def get_top_senders():
             raw_email=msg_data[0][1]
             msg=email.message_from_bytes(raw_email)
             senders.append(msg['From'])
+        mail.logout()
+        return senders
+    
+    except imaplib.IMAP4.error as e:
+        return [f'[System]: IMAP Error: {str(e)}. Please check your email credentials.']
 
-            mail.logout()
-            return senders
-        
     except Exception as e:
         return [f'Error: {str(e)}']
     

@@ -1,5 +1,6 @@
 from flask import Flask, render_template, jsonify, request
 import os
+from Backend import database
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -47,7 +48,10 @@ def login():
         entered_username = data.get('username', '')
         entered_password = data.get('password', '')
         
+        # success, user_data, message = database.verify_user(email, password=password) - to add when databse is integrated
+        
         # Check if credentials match either EMAIL_PASS or SECRET_AUD
+        # if success: - to add when databse is integrated
         if entered_username == EMAIL_USER and (entered_password == EMAIL_PASS or entered_password == SECRET_AUD):
             login_status = 'success'
             return jsonify({'status': 'success', 'message': 'Login successful'})
@@ -57,6 +61,30 @@ def login():
     except Exception as e:
         print(f"Login error: {e}")
         login_status = 'failed'
+        return jsonify({'status': 'error', 'message': str(e)})
+
+def signup_page():
+    return render_template('signup.html')
+
+@app.route('/register', methods=['POST'])
+def register():
+    try:
+        data = request.get_json()
+        name = data.get('name', '').strip()
+        email = data.get('email', '').strip()
+        password = data.get('password', '')
+        secret_audio = data.get('secret_audio', '').lower().strip()
+        
+        if not name or not email or not password:
+            return jsonify({'status': 'error', 'message': 'All fields required'})
+        
+        success, message = database.create_user(name, email, password, secret_audio)
+        
+        if success:
+            return jsonify({'status': 'success', 'message': 'Registration successful!'})
+        else:
+            return jsonify({'status': 'error', 'message': message})
+    except Exception as e:
         return jsonify({'status': 'error', 'message': str(e)})
 
 # Start Server
