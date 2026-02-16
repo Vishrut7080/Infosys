@@ -11,10 +11,11 @@ EMAIL_PASS=os.getenv('EMAIL_PASS')
 def open_gmail_compose():
     # opens webpage
     webbrowser.open('https://mail.google.com/mail/u/0/?fs=1&tf=cm')
+    return '[System]: Opening page to send mail..'
 
 # open webpage and return the name of the top mail(sender)
 def get_top_senders():
-    webbrowser.open("https://mail.google.com/mail/u/0/#inbox")
+    # webbrowser.open("https://mail.google.com/mail/u/0/#inbox") - can open the inbox
     try:
         # commecting to an email account
         mail=imaplib.IMAP4_SSL('imap.gmail.com')

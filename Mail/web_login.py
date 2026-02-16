@@ -1,6 +1,7 @@
 from flask import Flask, render_template, jsonify, request
 import os
 from Backend import database
+from Audio.text_to_speech import speak_text
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -23,25 +24,32 @@ login_status = 'waiting'
 # login_status = "success"    Logged in!
 # login_status = "failed"     Login cancelled
 
-# ----------------------
+# ========================
 # ROUTING
+# ========================
+
+# ----------------------
+# LOGIN
 # ----------------------
 
 # Login Form
+# render the login page
 @app.route('/')
 def login_page():
     return render_template('login.html',
         username=EMAIL_USER,
         password_mask="*" * len(EMAIL_PASS))
 
-# Check every seconf for audio
+# Check every second for audio
+# Check current login status.
 @app.route('/check')
 def check_login():
+    # to indicate the variable to be changed is from outside the function
     global login_status
     print('Flask sees:', login_status)  # debug
     return login_status
 
-# Keyboard Login
+# Handle Keyboard Login
 @app.route('/login', methods=['POST'])
 def login():
     global login_status
@@ -50,25 +58,33 @@ def login():
         entered_email = data.get('email', '') 
         entered_password = data.get('password', '')
         
-        # Check if credentials match either EMAIL_PASS or SECRET_AUD
+        # Check if credentials match either EMAIL_PASS or SECRET_AUD from env File
         if entered_email == EMAIL_USER and (entered_password == EMAIL_PASS or entered_password == SECRET_AUD):
             login_status = 'success'
             return jsonify({'status': 'success', 'message': 'Login successful'})
         else:
             login_status = 'failed'
             return jsonify({'status': 'failed', 'message': 'Invalid credentials'})
+        
     except Exception as e:
         print(f"Login error: {e}")
         login_status = 'failed'
         return jsonify({'status': 'error', 'message': str(e)})
 
+# ----------------------
+# SIGNUP - for future
+# ----------------------
+
+# render the signup page
 @app.route('/signup')
 def signup_page():
+    speak_text('[System]: Opening signup page')
     return render_template('signup.html')
 
 @app.route('/register', methods=['POST'])
 def register():
     try:
+        # get registration request
         data = request.get_json()
         name = data.get('name', '').strip()
         email = data.get('email', '').strip()
@@ -86,6 +102,10 @@ def register():
             return jsonify({'status': 'error', 'message': message})
     except Exception as e:
         return jsonify({'status': 'error', 'message': str(e)})
+
+# ----------------------
+# START SERVER
+# ----------------------
 
 # Start Server
 def start_server():
