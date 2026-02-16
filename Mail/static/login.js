@@ -1,7 +1,9 @@
-// Handle form submission when passwrod is typed
+let keyboardLoginAttempted = false;
+
 document.getElementById('loginForm').addEventListener('submit', async function (e) {
     e.preventDefault();
 
+    keyboardLoginAttempted = true;
     const password = document.getElementById('password').value;
     const messageEl = document.getElementById('message');
 
@@ -28,10 +30,6 @@ document.getElementById('loginForm').addEventListener('submit', async function (
         } else {
             messageEl.style.color = 'red';
             messageEl.innerText = result.message || 'Login failed';
-            // Close window after showing error for 3 seconds
-            setTimeout(() => {
-                window.close();
-            }, 3000);
         }
     } catch (error) {
         messageEl.style.color = 'red';
@@ -40,8 +38,9 @@ document.getElementById('loginForm').addEventListener('submit', async function (
     }
 });
 
-// Polls Flask server to repeatedly check voice login
 async function checkAudioLogin() {
+    if (keyboardLoginAttempted) return;
+
     try {
         const res = await fetch('/check');
         const status = await res.text();
@@ -56,9 +55,7 @@ async function checkAudioLogin() {
     }
 }
 
-// for Login Cancelled Box
 function showOverlay(message, duration = 3000) {
-    // create overlay
     const overlay = document.createElement("div");
     overlay.style.position = "fixed";
     overlay.style.top = "0";
@@ -71,7 +68,6 @@ function showOverlay(message, duration = 3000) {
     overlay.style.justifyContent = "center";
     overlay.style.zIndex = "9999";
 
-    // message box
     const box = document.createElement("div");
     box.style.background = "white";
     box.style.padding = "20px 40px";
@@ -84,12 +80,10 @@ function showOverlay(message, duration = 3000) {
     overlay.appendChild(box);
     document.body.appendChild(overlay);
 
-    // remove after duration
     setTimeout(() => {
         overlay.remove();
         window.close();
     }, duration);
 }
 
-// Poll server every 1 second for audio-based login
 setInterval(checkAudioLogin, 1000);

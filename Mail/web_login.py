@@ -15,6 +15,8 @@ SECRET_AUD = os.getenv("SECRET_AUD")  # Audio authentication password
 
 app = Flask(__name__)
 
+# database.init_db() - for next milestone
+
 # to tell if you're logged in or not.
 login_status = 'waiting'
 # login_status = "waiting"    Not logged in
@@ -45,14 +47,11 @@ def login():
     global login_status
     try:
         data = request.get_json()
-        entered_username = data.get('username', '')
+        entered_email = data.get('email', '') 
         entered_password = data.get('password', '')
         
-        # success, user_data, message = database.verify_user(email, password=password) - to add when databse is integrated
-        
         # Check if credentials match either EMAIL_PASS or SECRET_AUD
-        # if success: - to add when databse is integrated
-        if entered_username == EMAIL_USER and (entered_password == EMAIL_PASS or entered_password == SECRET_AUD):
+        if entered_email == EMAIL_USER and (entered_password == EMAIL_PASS or entered_password == SECRET_AUD):
             login_status = 'success'
             return jsonify({'status': 'success', 'message': 'Login successful'})
         else:
@@ -63,6 +62,7 @@ def login():
         login_status = 'failed'
         return jsonify({'status': 'error', 'message': str(e)})
 
+@app.route('/signup')
 def signup_page():
     return render_template('signup.html')
 
