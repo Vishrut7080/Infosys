@@ -8,7 +8,6 @@ document.getElementById('loginForm').addEventListener('submit', async function (
     keyboardLoginAttempted = true; // if keyboard login was used
     const password = document.getElementById('password').value;
     const messageEl = document.getElementById('message');
-
     try {
         // Send login request to Flask server
         const response = await fetch('/login', {
@@ -48,7 +47,6 @@ document.getElementById('loginForm').addEventListener('submit', async function (
 async function checkAudioLogin() {
     // Skip if keyboard login was already attempted
     if (keyboardLoginAttempted) return;
-
     try {
         // Ask server for current login status
         const res = await fetch('/check');
@@ -78,7 +76,6 @@ function showOverlay(message, duration = 3000) {
     overlay.style.alignItems = "center";
     overlay.style.justifyContent = "center";
     overlay.style.zIndex = "9999";
-
     // Create message box
     const box = document.createElement("div");
     box.style.background = "white";
@@ -88,7 +85,6 @@ function showOverlay(message, duration = 3000) {
     box.style.fontFamily = "sans-serif";
     box.style.color = "black";
     box.innerText = message;
-
     overlay.appendChild(box);
     document.body.appendChild(overlay);
 
