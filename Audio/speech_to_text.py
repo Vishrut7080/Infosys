@@ -108,11 +108,11 @@ def listen_text(duration: int = 5) -> str:
         print("[STT] Recording complete. Transcribing...")
 
         # --- Write audio to a temporary WAV file ---
-        # Faster Whisper's transcribe() accepts a file path.
-        # We use a temp file so nothing is permanently written to disk.
-        with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as tmp_file:
-            tmp_path = tmp_file.name
-            wav_write(tmp_path, SAMPLE_RATE, audio_data)
+        tmp_file = tempfile.NamedTemporaryFile(suffix='.wav', delete=False)
+        tmp_path = tmp_file.name
+        tmp_file.close()  # release handle so wav_write and Faster Whisper can access it
+        
+        wav_write(tmp_path, SAMPLE_RATE, audio_data)
 
         # --- Transcribe with Faster Whisper ---
         # transcribe() returns a generator of segments + language info.

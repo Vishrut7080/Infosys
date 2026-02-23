@@ -4,6 +4,7 @@ import os
 from Backend import database
 from Audio.text_to_speech import speak_text
 from dotenv import load_dotenv
+import threading
 
 load_dotenv()
 
@@ -195,7 +196,8 @@ def logout():
 # Render the signup page
 @app.route('/signup')
 def signup_page():
-    speak_text('[System]: Opening signup page')
+    # Run TTS in background so Flask can return the page immediately
+    threading.Thread(target=speak_text, args=('[System]: Opening signup page',), daemon=True).start()
     return render_template('signup.html')
 
 @app.route('/register', methods=['POST'])
