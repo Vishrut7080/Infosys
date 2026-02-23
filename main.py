@@ -92,12 +92,6 @@ with open('Audio/Transcribe.txt','a') as file:
             web_login.login_status = "success"
             continue
 
-        elif web_login.login_status != "success" and login_initiated:
-            login_initiated=False
-            speak_text('[System]: Login cancelled.')
-            web_login.login_status = "failed"
-            continue
-        
         # ----------------------
         # REGISTER
         # ----------------------
@@ -105,6 +99,16 @@ with open('Audio/Transcribe.txt','a') as file:
         elif 'signup' in clean_heard or 'sign up' in clean_heard or 'register' in clean_heard:
             speak_text('[System]: Opening signup page...')
             webbrowser.open("http://localhost:5000/signup")
+            continue
+
+        # ----------------------
+        # LOGIN CANCELLATION
+        # ----------------------
+
+        elif web_login.login_status != "success" and login_initiated:
+            login_initiated=False
+            speak_text('[System]: Login cancelled.')
+            web_login.login_status = "failed"
             continue
 
         # ----------------------
