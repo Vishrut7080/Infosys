@@ -7,6 +7,7 @@ requires-python = ">=3.12"
 dependencies = [
     "faster-whisper>=1.2.1",
     "flask>=3.1.2",
+    "nltk>=3.9.2",
     "numpy>=2.4.2",
     "openai-whisper>=20250625",
     "pipwin>=0.5.2",
@@ -17,4 +18,5 @@ dependencies = [
     "scipy>=1.17.0",
     "sounddevice>=0.5.5",
     "speechrecognition>=3.14.5",
+    "sumy>=0.12.0",
 ]
