@@ -1,3 +1,7 @@
+/* ----------------------
+   LOGIN PAGE STYLES
+   ---------------------- */
+
 body {
     font-family: Arial, sans-serif;
     background: #1e1e1e;
@@ -6,17 +10,19 @@ body {
     margin-top: 100px;
 }
 
-/* Assistant Login */
 h2 {
     margin-bottom: 30px;
 }
 
-/* Form */
+/* ----------------------
+   STANDARD LOGIN FORM
+   ---------------------- */
+
 #loginForm {
     display: inline-block;
 }
 
-/* for email and password */
+/* Email and password inputs */
 input {
     padding: 10px;
     margin: 10px;
@@ -33,7 +39,7 @@ input:focus {
     border-color: #4CAF50;
 }
 
-/* submit */
+/* Submit button */
 button {
     padding: 10px 20px;
     background: #4CAF50;
@@ -43,6 +49,8 @@ button {
     cursor: pointer;
     font-size: 14px;
     margin-top: 10px;
+    width: 222px;
+    /* matches input width + padding */
 }
 
 button:hover {
@@ -53,8 +61,101 @@ button:active {
     background: #3d8b40;
 }
 
+
+/* ----------------------
+   DIVIDER between form and OAuth
+   ---------------------- */
+
+.divider {
+    display: flex;
+    align-items: center;
+    margin: 20px auto;
+    width: 222px;
+    /* same width as inputs */
+    color: #888;
+    font-size: 13px;
+}
+
+.divider::before,
+.divider::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: #444;
+}
+
+.divider span {
+    padding: 0 10px;
+}
+
+
+/* ----------------------
+   GOOGLE OAUTH BUTTON
+   ----------------------
+   Styled to match Google's official button guidelines:
+   white background, Google "G" logo, dark text.
+   Sits below the divider as an alternative sign-in path.
+   ---------------------- */
+
+.btn-google {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    width: 222px;
+    /* matches inputs */
+    padding: 10px 20px;
+    background: #ffffff;
+    color: #3c3c3c;
+    border: 1px solid #dadce0;
+    border-radius: 4px;
+    font-size: 14px;
+    font-family: Arial, sans-serif;
+    font-weight: 500;
+    cursor: pointer;
+    text-decoration: none;
+    /* it's an <a> tag */
+    transition: background 0.15s ease, box-shadow 0.15s ease;
+    box-sizing: border-box;
+}
+
+.btn-google:hover {
+    background: #f7f7f7;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+}
+
+.btn-google:active {
+    background: #eeeeee;
+}
+
+.btn-google svg {
+    flex-shrink: 0;
+    /* prevent logo from squishing */
+}
+
+
+/* ----------------------
+   STATUS / ERROR MESSAGE
+   ---------------------- */
+
 #message {
     font-size: 14px;
     margin-top: 20px;
     min-height: 20px;
+    color: red;
+    /* overridden inline to green on success */
+}
+
+
+/* ----------------------
+   SIGNUP LINK
+   ---------------------- */
+
+a {
+    color: #4CAF50;
+    text-decoration: none;
+}
+
+a:hover {
+    text-decoration: underline;
 }
