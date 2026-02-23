@@ -1,0 +1,432 @@
+/* ─────────────────────────────────────────────
+   SIGNUP PAGE — Geometric / Light aesthetic
+   Contrast to the dark login page:
+   crisp white card, monospace accents,
+   geometric shapes, sharp minimal feel.
+   ───────────────────────────────────────────── */
+
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+:root {
+    --accent: #0a0a0a;
+    --accent-mid: #333;
+    --green: #22c55e;
+    --yellow: #facc15;
+    --red: #ef4444;
+    --bg: #f4f3ef;
+    --card-bg: #ffffff;
+    --border: #e2e2dc;
+    --text: #111;
+    --muted: #888;
+    --radius: 2px;
+    /* sharp corners — intentional */
+    --mono: 'Space Mono', monospace;
+    --sans: 'Inter', sans-serif;
+}
+
+body {
+    font-family: var(--sans);
+    background: var(--bg);
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 16px;
+    position: relative;
+    overflow-x: hidden;
+}
+
+/* ── Animated dot grid background ── */
+.bg-dots {
+    position: fixed;
+    inset: 0;
+    background-image: radial-gradient(circle, #c8c7c0 1px, transparent 1px);
+    background-size: 28px 28px;
+    opacity: 0.5;
+    pointer-events: none;
+    z-index: 0;
+}
+
+/* ── Card ── */
+.card {
+    position: relative;
+    z-index: 1;
+    background: var(--card-bg);
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius);
+    width: 100%;
+    max-width: 420px;
+    padding: 40px 36px 32px;
+    box-shadow: 6px 6px 0px var(--accent);
+    /* hard offset shadow — geometric feel */
+    animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes slideUp {
+    from {
+        opacity: 0;
+        transform: translateY(24px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* ── Card header ── */
+.card-header {
+    text-align: center;
+    margin-bottom: 32px;
+}
+
+.logo {
+    font-size: 32px;
+    line-height: 1;
+    margin-bottom: 12px;
+    display: block;
+    animation: spin 12s linear infinite;
+}
+
+@keyframes spin {
+    from {
+        transform: rotate(0deg);
+    }
+
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+h1 {
+    font-family: var(--mono);
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--text);
+    letter-spacing: -0.5px;
+}
+
+.subtitle {
+    font-size: 13px;
+    color: var(--muted);
+    margin-top: 4px;
+}
+
+/* ── Field groups ── */
+.field-group {
+    margin-bottom: 18px;
+}
+
+label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--accent-mid);
+    margin-bottom: 6px;
+}
+
+/* Tooltip badge on Secret Audio label */
+.tooltip {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: var(--border);
+    font-size: 10px;
+    color: var(--muted);
+    cursor: help;
+    font-family: var(--sans);
+    font-weight: 500;
+    text-transform: none;
+    letter-spacing: 0;
+}
+
+/* Input wrapper (for eye toggle) */
+.input-wrap {
+    position: relative;
+    display: flex;
+}
+
+input[type="text"],
+input[type="email"],
+input[type="password"] {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 14px;
+    transition: border-color 0.15s, box-shadow 0.15s;
+    outline: none;
+}
+
+input:focus {
+    border-color: var(--accent);
+    box-shadow: 3px 3px 0 var(--accent);
+    background: #fff;
+}
+
+input.invalid {
+    border-color: var(--red);
+    box-shadow: 3px 3px 0 var(--red);
+}
+
+input.valid {
+    border-color: var(--green);
+}
+
+/* Password toggle eye button */
+.toggle-pw {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 14px;
+    padding: 0;
+    line-height: 1;
+    box-shadow: none;
+    width: auto;
+    color: var(--muted);
+}
+
+.toggle-pw:hover {
+    color: var(--text);
+}
+
+/* ── Password strength bar ── */
+.strength-bar {
+    height: 3px;
+    background: var(--border);
+    border-radius: 2px;
+    margin-top: 6px;
+    overflow: hidden;
+}
+
+.strength-fill {
+    height: 100%;
+    width: 0%;
+    border-radius: 2px;
+    transition: width 0.3s ease, background 0.3s ease;
+}
+
+.strength-label {
+    font-size: 11px;
+    font-family: var(--mono);
+    color: var(--muted);
+    display: block;
+    margin-top: 3px;
+}
+
+/* ── Field hint and error ── */
+.field-hint {
+    display: block;
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 4px;
+}
+
+.field-error {
+    display: block;
+    font-size: 11px;
+    color: var(--red);
+    font-family: var(--mono);
+    margin-top: 4px;
+    min-height: 14px;
+}
+
+/* ── Submit button ── */
+.btn-submit {
+    width: 100%;
+    padding: 12px;
+    margin-top: 8px;
+    background: var(--accent);
+    color: #fff;
+    border: 1.5px solid var(--accent);
+    border-radius: var(--radius);
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    cursor: pointer;
+    transition: transform 0.1s, box-shadow 0.1s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    box-shadow: 3px 3px 0 #555;
+}
+
+.btn-submit:hover {
+    transform: translate(-1px, -1px);
+    box-shadow: 4px 4px 0 #555;
+}
+
+.btn-submit:active {
+    transform: translate(1px, 1px);
+    box-shadow: 2px 2px 0 #555;
+}
+
+.btn-submit:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+}
+
+/* Spinner dot animation */
+.btn-spinner {
+    animation: pulse 0.6s ease-in-out infinite alternate;
+}
+
+@keyframes pulse {
+    from {
+        opacity: 0.3;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+/* ── Login link ── */
+.login-link {
+    text-align: center;
+    margin-top: 20px;
+    font-size: 13px;
+    color: var(--muted);
+}
+
+.login-link a {
+    color: var(--text);
+    font-family: var(--mono);
+    font-weight: 700;
+    font-size: 12px;
+    text-decoration: none;
+    border-bottom: 2px solid var(--accent);
+    padding-bottom: 1px;
+    transition: opacity 0.15s;
+}
+
+.login-link a:hover {
+    opacity: 0.6;
+}
+
+
+/* ─────────────────────────────────────────────
+   SUCCESS SCREEN
+   ───────────────────────────────────────────── */
+
+.success-screen {
+    position: fixed;
+    inset: 0;
+    background: var(--bg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    animation: fadeIn 0.3s ease both;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+.success-card {
+    text-align: center;
+    padding: 48px 40px;
+    background: var(--card-bg);
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: 6px 6px 0 var(--accent);
+    animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.success-icon {
+    font-size: 48px;
+    display: block;
+    margin-bottom: 16px;
+    animation: spinOnce 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes spinOnce {
+    from {
+        transform: rotate(-180deg) scale(0.5);
+        opacity: 0;
+    }
+
+    to {
+        transform: rotate(0deg) scale(1);
+        opacity: 1;
+    }
+}
+
+.success-card h2 {
+    font-family: var(--mono);
+    font-size: 22px;
+    color: var(--text);
+    margin-bottom: 8px;
+}
+
+.success-card p {
+    font-size: 14px;
+    color: var(--muted);
+    margin-bottom: 24px;
+}
+
+/* Countdown progress bar */
+.redirect-bar {
+    height: 3px;
+    background: var(--border);
+    border-radius: 2px;
+    overflow: hidden;
+    margin-bottom: 10px;
+}
+
+.redirect-fill {
+    height: 100%;
+    width: 100%;
+    background: var(--accent);
+    border-radius: 2px;
+    transform-origin: left;
+    animation: shrink 3s linear forwards;
+}
+
+@keyframes shrink {
+    from {
+        transform: scaleX(1);
+    }
+
+    to {
+        transform: scaleX(0);
+    }
+}
+
+.redirect-note {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--muted);
+    margin-bottom: 0;
+}

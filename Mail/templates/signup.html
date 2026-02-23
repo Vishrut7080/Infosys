@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Assistant - Sign Up</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Inter:wght@300;400;500&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='signup.css') }}">
+</head>
+
+<body>
+
+    <!-- Animated background dots -->
+    <div class="bg-dots"></div>
+
+    <!-- ── SIGNUP CARD ── -->
+    <div class="card" id="signupCard">
+
+        <div class="card-header">
+            <div class="logo">⬡</div>
+            <h1>Create Account</h1>
+            <p class="subtitle">Set up your assistant profile</p>
+        </div>
+
+        <form id="signupForm" novalidate>
+
+            <!-- Full Name -->
+            <div class="field-group">
+                <label for="name">Full Name</label>
+                <input type="text" id="name" placeholder="John Doe" autocomplete="name" required>
+                <span class="field-error" id="nameError"></span>
+            </div>
+
+            <!-- Email -->
+            <div class="field-group">
+                <label for="email">Email</label>
+                <input type="email" id="email" placeholder="you@example.com" autocomplete="email" required>
+                <span class="field-error" id="emailError"></span>
+            </div>
+
+            <!-- Password -->
+            <div class="field-group">
+                <label for="password">Password</label>
+                <div class="input-wrap">
+                    <input type="password" id="password" placeholder="Min. 8 characters" autocomplete="new-password"
+                        required>
+                    <button type="button" class="toggle-pw" data-target="password"
+                        aria-label="Toggle password">👁</button>
+                </div>
+                <!-- Strength bar -->
+                <div class="strength-bar">
+                    <div class="strength-fill" id="strengthFill"></div>
+                </div>
+                <span class="strength-label" id="strengthLabel"></span>
+                <span class="field-error" id="passwordError"></span>
+            </div>
+
+            <!-- Confirm Password -->
+            <div class="field-group">
+                <label for="confirmPassword">Confirm Password</label>
+                <div class="input-wrap">
+                    <input type="password" id="confirmPassword" placeholder="Re-enter password"
+                        autocomplete="new-password" required>
+                    <button type="button" class="toggle-pw" data-target="confirmPassword"
+                        aria-label="Toggle password">👁</button>
+                </div>
+                <span class="field-error" id="confirmError"></span>
+            </div>
+
+            <!-- Secret Audio Password -->
+            <div class="field-group">
+                <label for="secretAudio">
+                    Secret Audio Password
+                    <span class="tooltip"
+                        title="A word or phrase you say out loud to log in by voice. Keep it unique and memorable.">?</span>
+                </label>
+                <input type="text" id="secretAudio" placeholder="e.g. sunshine phoenix" autocomplete="off">
+                <span class="field-hint">Say this phrase to log in hands-free via voice.</span>
+                <span class="field-error" id="audioError"></span>
+            </div>
+
+            <!-- Submit -->
+            <button type="submit" class="btn-submit" id="submitBtn">
+                <span class="btn-text">Create Account</span>
+                <span class="btn-spinner" id="btnSpinner" hidden>●</span>
+            </button>
+
+        </form>
+
+        <p class="login-link">Already have an account? <a href="/">Sign in</a></p>
+
+    </div>
+
+    <!-- ── SUCCESS SCREEN (hidden until signup succeeds) ── -->
+    <div class="success-screen" id="successScreen" hidden>
+        <div class="success-card">
+            <div class="success-icon">✦</div>
+            <h2>You're all set!</h2>
+            <p>Your account has been created successfully.</p>
+            <div class="redirect-bar">
+                <div class="redirect-fill" id="redirectFill"></div>
+            </div>
+            <p class="redirect-note">Redirecting to login in <span id="countdown">3</span>s…</p>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='signup.js') }}"></script>
+</body>
+
+</html>

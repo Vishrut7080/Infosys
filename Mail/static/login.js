@@ -5,7 +5,7 @@
 //   1. Keyboard login  — user fills the form and clicks Login
 //   2. Audio login     — voice assistant authenticates in the background,
 //                        Flask sets a session flag, and we poll /check every second
-//   3. Google OAuth    — user clicks "Sign in with Google"; Flask handles the
+//   3. Google      — user clicks "Sign in with Google"; Flask handles the
 //                        redirect flow and the callback sends the user to Gmail
 //
 // ALL successful logins redirect to Gmail.
