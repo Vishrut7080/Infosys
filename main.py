@@ -1,6 +1,7 @@
 from Audio.text_to_speech import speak_text
 from Audio.speech_to_text import listen_text
 from Mail.email_handler import open_gmail_compose, get_top_senders
+from Mail.email_sender import compose_email_by_voice
 import Mail.web_login as web_login
 import threading, webbrowser
 from dotenv import load_dotenv
@@ -145,18 +146,20 @@ with open('Audio/Transcribe.txt','a') as file:
 
         # To send a mail
         elif web_login.login_status == "success" and 'send' in clean_heard and any(word in clean_heard for word in mail_req):
-            speak_text('[System]: You want to send mail?')
+            speak_text('[System]: You want to send an email?')
             response = listen_text()
             clean_response = response.lower().strip().replace('.', '')
             speak_text(f'[User]: {clean_response}')
+
             if any(s in clean_response for s in affirmation):
-                speak_text(send_mail)
-                compose=open_gmail_compose()
-                speak_text(compose)
-                continue
+                # Hand off to the full voice compose flow
+                result = compose_email_by_voice()
+                speak_text(result)
+
             elif any(s in clean_response for s in negation):
-                speak_text('[System]: Ok Thanks for confirming.')
-                continue
+                speak_text('[System]: Ok, no email sent.')
+
+            continue
 
         elif web_login.login_status == "success" and 'check' in clean_heard and any(word in clean_heard for word in inbox_req):
             speak_text('[System]: You want to check the inbox?')
