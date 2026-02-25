@@ -192,40 +192,54 @@ def extract_important_details(msg, body: str) -> dict:
 # Main Function: Fetch and summarize latest emails
 # ----------------------
 # open webpage and return the name of the top mail(sender)
-def get_top_senders():
-    # webbrowser.open("https://mail.google.com/mail/u/0/#inbox") - can open the inbox
+def get_top_senders(count: int = FETCH_COUNT):
     try:
-        # commecting to an email account
-        mail=imaplib.IMAP4_SSL('imap.gmail.com')
-        mail.login(EMAIL_USER,EMAIL_PASS)
-        # selecting mailbox
+        mail = imaplib.IMAP4_SSL('imap.gmail.com')
+        mail.login(EMAIL_USER, EMAIL_PASS)
         mail.select('inbox')
 
-        # searching email
-        result,data=mail.search(None,'All')
-        mail_ids=data[0].split()
+        result, data = mail.search(None, 'ALL')
+        mail_ids = data[0].split()
 
-        # Check if inbox is empty
         if not mail_ids:
             mail.logout()
-            return['Inbox is empty']
-        
-        latest_ids=mail_ids[-5:]
-        senders=[]
+            return [{'error': 'Inbox is empty'}]
+
+        latest_ids = mail_ids[-count:]
+        emails = []
 
         for mail_id in reversed(latest_ids):
-            # fetching email content
-            result,msg_data=mail.fetch(mail_id, "(RFC822)")
-            raw_email=msg_data[0][1]
-            msg=email.message_from_bytes(raw_email)
-            senders.append(msg['From'])
-        mail.logout()
-        return senders
-    
-    except imaplib.IMAP4.error as e:
-        return [f'[System]: IMAP Error: {str(e)}. Please check your email credentials.']
+            result, msg_data = mail.fetch(mail_id, "(RFC822)")
+            raw_email = msg_data[0][1]
+            msg = email.message_from_bytes(raw_email)
 
+            sender  = decode_mime_header(msg.get('From', 'Unknown'))
+            subject = decode_mime_header(msg.get('Subject', 'No Subject'))
+
+            raw_date = msg.get('Date')
+            try:
+                date_str = parsedate_to_datetime(raw_date).strftime("%a, %d %b %Y %H:%M")
+            except Exception:
+                date_str = raw_date or "Unknown date"
+
+            body    = extract_body(msg)
+            summary = summarize_body(body)
+            details = extract_important_details(msg, body)
+
+            emails.append({
+                'sender':  sender,
+                'subject': subject,
+                'date':    date_str,
+                'summary': summary,
+                'details': details,
+            })
+
+        mail.logout()
+        return emails
+
+    except imaplib.IMAP4.error as e:
+        return [{'error': f'[System]: IMAP Error: {str(e)}'}]
     except Exception as e:
-        return [f'Error: {str(e)}']
+        return [{'error': f'[System]: Error: {str(e)}'}]
     
 __all__=['open_gmail_compose', 'get_top_senders']
