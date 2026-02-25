@@ -6,6 +6,7 @@ readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "authlib>=1.6.8",
+    "bcrypt>=5.0.0",
     "faster-whisper>=1.2.1",
     "flask>=3.1.2",
     "nltk>=3.9.2",

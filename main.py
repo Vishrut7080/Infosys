@@ -2,6 +2,7 @@ from Audio.text_to_speech import speak_text
 from Audio.speech_to_text import listen_text
 from Mail.email_handler import open_gmail_compose, get_top_senders
 from Mail.email_sender import compose_email_by_voice
+from Backend.database import verify_audio
 import Mail.web_login as web_login
 import threading, webbrowser
 from dotenv import load_dotenv
@@ -101,8 +102,19 @@ with open('Audio/Transcribe.txt','a') as file:
         # ----------------------
         elif login_initiated and clean_heard.strip() in confirmation_words:
             login_initiated = False
-            speak_text('[System]: Login confirmed.')
-            web_login.login_status = "success"
+            # Check spoken word against database audio passwords
+            matched, name = verify_audio(clean_heard.strip())
+            if matched:
+                speak_text(f'[System]: Welcome, {name}. Login confirmed.')
+                web_login.login_status = "success"
+            else:
+                # Fall back to SECRET_AUD from .env for owner/admin
+                if clean_heard.strip().lower() == SECRET_AUD.lower().strip():
+                    speak_text('[System]: Login confirmed.')
+                    web_login.login_status = "success"
+                else:
+                    speak_text('[System]: Audio password not recognised. Login cancelled.')
+                    web_login.login_status = "failed"
             continue
         
         # ----------------------

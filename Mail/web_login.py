@@ -88,17 +88,30 @@ def check_login():
 def login():
     global login_status
     try:
-        data = request.get_json()
+        data             = request.get_json()
         entered_email    = data.get('email', '')
         entered_password = data.get('password', '')
 
-        # Accept either the main password or the audio secret password
-        if entered_email == EMAIL_USER and (entered_password == EMAIL_PASS or entered_password == SECRET_AUD):
+        # First check against database (registered users)
+        success, result = database.verify_user(entered_email, entered_password)
+
+        if success:
             login_status = 'success'
+            session['user'] = {'name': result, 'email': entered_email}
+            return jsonify({'status': 'success', 'message': f'Welcome back, {result}!'})
+
+        # Fallback: check .env credentials (original admin/owner login)
+        elif entered_email == EMAIL_USER and (
+            entered_password == EMAIL_PASS or
+            entered_password == SECRET_AUD
+        ):
+            login_status = 'success'
+            session['user'] = {'name': 'Admin', 'email': entered_email}
             return jsonify({'status': 'success', 'message': 'Login successful'})
+
         else:
             login_status = 'failed'
-            return jsonify({'status': 'failed', 'message': 'Invalid credentials'})
+            return jsonify({'status': 'failed', 'message': result})  # result = error msg
 
     except Exception as e:
         print(f"Login error: {e}")
@@ -222,6 +235,15 @@ def register():
     except Exception as e:
         return jsonify({'status': 'error', 'message': str(e)})
 
+# ----------------------
+# ROUTE TO SERVE RANDOM AUDIO SUGGESTION
+# ----------------------    
+
+@app.route('/suggest-audio')
+def suggest_audio():
+    from Backend import database
+    word = database.suggest_audio_word()
+    return jsonify({'word': word})
 
 # ----------------------
 # START SERVER
