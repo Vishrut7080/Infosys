@@ -6,7 +6,7 @@ from Backend.database import verify_audio
 import Mail.web_login as web_login
 import threading, webbrowser
 from dotenv import load_dotenv
-import os
+import os,time
 
 load_dotenv()
 
@@ -57,8 +57,23 @@ with open('Audio/Transcribe.txt','a') as file:
         if login_initiated and web_login.login_status == "success":
             login_initiated = False
             speak_text('[System]: Login successful.')
+            continue
+        
+        # Skip audio processing if user is actively typing in browser
+        if web_login.user_typing:
+            time.sleep(0.5)
+            continue
+
+        # listen to audio
         # listen to audio
         heard=listen_text()
+
+        # If OAuth completed during the 5s recording window, discard the audio
+        if login_initiated and web_login.login_status == "success":
+            login_initiated = False
+            speak_text('[System]: Login successful.')
+            continue
+
         speak_text(f'[User]: {heard}')
         # normalize text
         clean_heard = heard.lower().strip().replace('.', '')
@@ -136,14 +151,9 @@ with open('Audio/Transcribe.txt','a') as file:
         # this in the background before this block can run).
         # ----------------------
         elif login_initiated and web_login.login_status != "success":
-            # Check if Google OAuth just completed silently in the browser
-            if web_login.login_status == "success":
-                login_initiated = False
-                speak_text('[System]: Login successful.')
-            else:
-                login_initiated = False
-                speak_text('[System]: Login cancelled.')
-                web_login.login_status = "failed"
+            login_initiated = False
+            speak_text('[System]: Login cancelled.')
+            web_login.login_status = "failed"
             continue
             
         # ----------------------

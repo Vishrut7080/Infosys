@@ -23,6 +23,8 @@ app = Flask(__name__)
 # Required for Flask sessions (used by OAuth to store state between redirects)
 # Set a strong random value in your .env as FLASK_SECRET_KEY
 app.secret_key = os.getenv("FLASK_SECRET_KEY", "change-me-in-production")
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+app.config['SESSION_COOKIE_SECURE']   = False
 
 # database.init_db() - for next milestone
 
@@ -75,6 +77,16 @@ def login_page():
     return render_template('login.html',
         username=EMAIL_USER,
         password_mask="*" * len(EMAIL_PASS))
+
+# Flag to pause audio listening when user is active in browser
+user_typing = False
+
+@app.route('/typing', methods=['POST'])
+def set_typing():
+    global user_typing
+    data = request.get_json()
+    user_typing = data.get('typing', False)
+    return '', 204
 
 # Check every second for audio login status
 @app.route('/check')
@@ -138,50 +150,35 @@ def auth_google():
 # Step 2: Google redirects back here with an auth code
 @app.route('/auth/google/callback')
 def auth_google_callback():
-    """
-    Google calls this URL after the user approves (or denies) access.
-
-    On success:
-      - Exchanges the auth code for an access token
-      - Fetches the user's profile (name, email, picture)
-      - Sets login_status to 'success'
-      - Stores user info in the Flask session
-      - Redirects to Gmail
-
-    On failure:
-      - Resets login_status to 'failed'
-      - Redirects back to the login page
-    """
     global login_status
     try:
-        # Exchange the temporary auth code for an access token
-        token = google.authorize_access_token()
-
-        # Get user profile from the ID token
+        token     = google.authorize_access_token()
         user_info = token.get('userinfo')
         if not user_info:
-            # Fallback: fetch directly from Google's userinfo endpoint
             user_info = google.get(
                 'https://openidconnect.googleapis.com/v1/userinfo'
             ).json()
 
-        # Store profile in session so other routes can read it if needed
         session['user'] = {
             'name':    user_info.get('name'),
             'email':   user_info.get('email'),
             'picture': user_info.get('picture'),
         }
-
-        # Mark as logged in — main.py polling loop will pick this up
         login_status = 'success'
 
-        print(f"[OAuth] Google login successful: {session['user']['email']}")
-        speak_text(f"[System]: Google login successful. Welcome {session['user']['name']}.")
+        print(f"[OAuth] Google login: {session['user']['email']}")
+
+        # Run TTS in background so Flask redirects immediately
+        threading.Thread(
+            target=speak_text,
+            args=(f"[System]: Welcome {session['user']['name']}. Login successful.",),
+            daemon=True
+        ).start()
 
         return redirect(GMAIL_URL)
 
     except Exception as e:
-        print(f"[OAuth] Google login failed: {e}")
+        print(f"[OAuth] Login failed: {e}")
         login_status = 'failed'
         return redirect(url_for('login_page') + '?error=oauth_failed')
 

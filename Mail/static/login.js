@@ -16,7 +16,24 @@
 let keyboardLoginAttempted = false;
 
 // Target URL after any successful login
-const REDIRECT_URL = "https://mail.google.com/mail/u/0/#inbox";
+const REDIRECT_URL = "http://localhost:5000/auth/google";
+
+// Tell Flask the user is typing so audio login polling pauses
+function notifyTyping(isTyping) {
+    fetch('/typing', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ typing: isTyping })
+    }).catch(() => { });  // silent fail — non-critical
+}
+
+// Fire when any input is focused or typed in
+document.querySelectorAll('input').forEach(input => {
+    input.addEventListener('keydown', () => {
+        keyboardLoginAttempted = true;
+        notifyTyping(true);
+    });
+});
 
 
 // ----------------------
@@ -129,6 +146,7 @@ function showOverlay(message, duration = 3000) {
     // Auto-dismiss and close the tab after `duration` ms
     setTimeout(() => {
         overlay.remove();
-        window.close();
+        // Reset to login page instead of trying to close the tab
+        window.location.href = '/';
     }, duration);
 }

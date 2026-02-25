@@ -87,6 +87,21 @@ passwordInput.addEventListener('input', () => {
 });
 
 
+// Tell Flask the user is typing so audio login polling pauses
+function notifyTyping(isTyping) {
+    fetch('/typing', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ typing: isTyping })
+    }).catch(() => { });  // silent fail — non-critical
+}
+
+// Fire when any input is focused or typed in
+document.querySelectorAll('input').forEach(input => {
+    input.addEventListener('focus', () => notifyTyping(true));
+    input.addEventListener('blur', () => notifyTyping(false));
+});
+
 // ----------------------
 // Individual Field Validators
 // Returns true if valid, false if not

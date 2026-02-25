@@ -38,7 +38,7 @@ load_dotenv()
 # Stored in the Backend/ folder next to this file.
 # Change DB_PATH if you want it elsewhere.
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DB_PATH  = os.path.join(BASE_DIR, 'assistant.db')
+DB_PATH  = os.path.join(BASE_DIR, 'users.db')
 
 
 # ----------------------
