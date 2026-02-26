@@ -71,15 +71,11 @@ AUDIO_WORD_BANK = [
     "swift maple", "iron cliff", "pale comet", "loud thunder",
 ]
 
-
-def suggest_audio_word() -> str:
-    """
-    Returns a random secret audio password suggestion from the word bank.
-    Called by the signup page JS to pre-fill the secret audio field.
-
-    Returns:
-        A randomly selected word or phrase string.
-    """
+#Returns a random secret audio password suggestion from the word bank.
+#Called by the signup page JS to pre-fill the secret audio field.
+#Returns:
+#A randomly selected word or phrase string.
+def suggest_audio_word() -> str: 
     return random.choice(AUDIO_WORD_BANK)
 
 

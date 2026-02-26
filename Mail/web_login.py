@@ -74,6 +74,10 @@ GMAIL_URL = "https://mail.google.com/mail/u/0/#inbox"
 # Render the login page
 @app.route('/')
 def login_page():
+    global login_status
+    # Reset failed status on page load so polling doesn't immediately trigger overlay
+    if login_status == 'failed':
+        login_status = 'waiting'
     return render_template('login.html',
         username=EMAIL_USER,
         password_mask="*" * len(EMAIL_PASS))
@@ -85,7 +89,8 @@ user_typing = False
 def set_typing():
     global user_typing
     data = request.get_json()
-    user_typing = data.get('typing', False)
+    if data.get('typing', False):  # only on keydown, ignore blur
+        user_typing = True
     return '', 204
 
 # Check every second for audio login status
@@ -144,7 +149,12 @@ def auth_google():
       http://localhost:5000/auth/google/callback
     """
     redirect_uri = url_for('auth_google_callback', _external=True)
-    return google.authorize_redirect(redirect_uri)
+    print(f"[OAuth] Redirect URI being sent to Google: {redirect_uri}")
+    return google.authorize_redirect(
+        redirect_uri,
+        login_hint=EMAIL_USER,  # pre-selects this account
+        prompt='select_account'            # forces account chooser every time
+    )
 
 
 # Step 2: Google redirects back here with an auth code
@@ -152,7 +162,7 @@ def auth_google():
 def auth_google_callback():
     global login_status
     try:
-        token     = google.authorize_access_token()
+        token = google.authorize_access_token()
         user_info = token.get('userinfo')
         if not user_info:
             user_info = google.get(
@@ -165,20 +175,19 @@ def auth_google_callback():
             'picture': user_info.get('picture'),
         }
         login_status = 'success'
-
-        print(f"[OAuth] Google login: {session['user']['email']}")
-
-        # Run TTS in background so Flask redirects immediately
+        print(f"[OAuth] Login successful: {session['user']['email']}")
         threading.Thread(
             target=speak_text,
-            args=(f"[System]: Welcome {session['user']['name']}. Login successful.",),
+            args=(f"[System]: Welcome {session['user']['name']}.",),
             daemon=True
         ).start()
-
-        return redirect(GMAIL_URL)
+        email = session['user']['email']
+        return redirect(f"https://mail.google.com/mail/u/{email}/#inbox")
 
     except Exception as e:
-        print(f"[OAuth] Login failed: {e}")
+        # Print the FULL error with type
+        print(f"[OAuth] Login failed — Type: {type(e).__name__}")
+        print(f"[OAuth] Login failed — Full error: {repr(e)}")  # ← add this line
         login_status = 'failed'
         return redirect(url_for('login_page') + '?error=oauth_failed')
 

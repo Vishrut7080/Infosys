@@ -1,27 +1,21 @@
 import pyttsx3
+import threading
 
-# ----------------------
-# TTS (TEXT TO SPEECH) LOGIC
-# ----------------------
+_tts_lock = threading.Lock()
+
 def speak_text(text):
-    engine=pyttsx3.init()
-
-    # Custom voice settings
-    engine.setProperty('rate', 160)
-    engine.setProperty('volume', 1.0)
-
-    # Get Avaialble Voices
-    voices=engine.getProperty('voices')
-    engine.setProperty('voice', voices[1].id)
-
-
-    # printing the text
     print(text)
+    with _tts_lock:
+        try:
+            e = pyttsx3.init()
+            e.setProperty('rate', 160)
+            e.setProperty('volume', 1.0)
+            voices = e.getProperty('voices')
+            e.setProperty('voice', voices[1].id)
+            e.say(text)
+            e.runAndWait()
+            e.stop()
+        except Exception as ex:
+            print(f'[TTS Error]: {ex}')
 
-    # Speech part
-    engine.say(text)
-
-    # Waiting for the speech to end
-    engine.runAndWait()
-
-__all__=['speak_text']
+__all__ = ['speak_text']

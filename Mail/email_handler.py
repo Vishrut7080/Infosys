@@ -50,13 +50,6 @@ def decode_mime_header(raw_header: str) -> str:
 # ----------------------
 
 def extract_body(msg) -> str:
-    """
-    Extracts the plain-text body from an email message object.
-
-    Multipart emails contain multiple parts (plain text, HTML, attachments).
-    We prefer plain text. If only HTML is available, we strip the tags.
-    Attachments are skipped entirely.
-    """
     body = ""
 
     if msg.is_multipart():
@@ -64,24 +57,23 @@ def extract_body(msg) -> str:
             content_type        = part.get_content_type()
             content_disposition = str(part.get_content_disposition())
 
-            # Skip attachments
             if "attachment" in content_disposition:
                 continue
 
             if content_type == "text/plain":
-                # Plain text found — decode and use immediately
                 body = part.get_payload(decode=True).decode(errors='replace')
-                break  # Prefer plain text over HTML, so stop here
-
+                break
             elif content_type == "text/html" and not body:
-                # Fallback: strip HTML tags if no plain text part exists
                 raw_html = part.get_payload(decode=True).decode(errors='replace')
                 body = strip_html(raw_html)
     else:
-        # Single-part email
         raw = msg.get_payload(decode=True)
         if raw:
-            body = raw.decode(errors='replace')
+            content_type = msg.get_content_type()
+            if content_type == "text/html":
+                body = strip_html(raw.decode(errors='replace'))
+            else:
+                body = raw.decode(errors='replace')
 
     return body.strip()
 
@@ -90,14 +82,14 @@ def extract_body(msg) -> str:
 # ----------------------
 
 def strip_html(raw_html: str) -> str:
-    """
-    Removes HTML tags and decodes HTML entities to get clean plain text.
-    Used as a fallback when an email only has an HTML part.
-    """
-    # Unescape HTML entities first (e.g. &amp; → &, &nbsp; → space)
     text = html.unescape(raw_html)
-    # Remove all HTML tags
+    # Remove style and script blocks including their content
+    text = re.sub(r'<style[^>]*>.*?</style>', ' ', text, flags=re.DOTALL)
+    text = re.sub(r'<script[^>]*>.*?</script>', ' ', text, flags=re.DOTALL)
+    # Remove all remaining HTML tags
     text = re.sub(r'<[^>]+>', ' ', text)
+    # Remove leftover CSS-like junk (anything inside curly braces)
+    text = re.sub(r'\{[^}]+\}', ' ', text)
     # Collapse whitespace
     text = re.sub(r'\s+', ' ', text)
     return text.strip()
@@ -122,6 +114,10 @@ def summarize_body(body: str, sentence_count: int = SENTENCE_COUNT) -> str:
     Returns:
         A summarized string, or the original body if it's too short to summarize.
     """
+
+    # Cap body at 2000 chars before summarizing — prevents reading entire HTML emails
+    body = body[:2000]
+
     # Clean up excessive whitespace and newlines before summarizing
     cleaned = re.sub(r'\n+', ' ', body).strip()
 
@@ -191,6 +187,7 @@ def extract_important_details(msg, body: str) -> dict:
 # ----------------------
 # Main Function: Fetch and summarize latest emails
 # ----------------------
+
 # open webpage and return the name of the top mail(sender)
 def get_top_senders(count: int = FETCH_COUNT):
     try:
