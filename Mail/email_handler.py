@@ -23,7 +23,7 @@ EMAIL_PASS=os.getenv('EMAIL_PASS')
 # ========================
 LANGUAGE       = "english"          # Language for sumy tokenizer and stop words
 SENTENCE_COUNT = 2                  # Number of sentences to keep in the summary
-FETCH_COUNT    = 5                  # How many of the latest emails to fetch
+FETCH_COUNT    = 3                  # How many of the latest emails to fetch
 
 # to open a webpage to compose a new mail
 def open_gmail_compose():
@@ -189,13 +189,30 @@ def extract_important_details(msg, body: str) -> dict:
 # ----------------------
 
 # open webpage and return the name of the top mail(sender)
-def get_top_senders(count: int = FETCH_COUNT):
+def get_top_senders(count: int = FETCH_COUNT, category: str='ALL'):
     try:
         mail = imaplib.IMAP4_SSL('imap.gmail.com')
         mail.login(EMAIL_USER, EMAIL_PASS)
         mail.select('inbox')
-
-        result, data = mail.search(None, 'ALL')
+        
+        if category=='PRIMARY':
+            result,data=mail.search(None,'(X-GM-RAW "category: primary")')
+            # Fallback: To give from all if no primary mail is present
+            if result!='OK' or not data[0].split():
+                result,data=mail.search(None,'ALL')
+        elif category=='':
+            result, data = mail.search(None, '(X-GM-RAW "category:updates")')
+            if result!='OK' or not data[0].split():
+                result,data=mail.search(None,'ALL')
+        elif category=='':
+            result, data = mail.search(None, '(X-GM-RAW "category:promotions")')
+            if result!='OK' or not data[0].split():
+                result,data=mail.search(None,'ALL')
+        # result, data = mail.search(None, '(X-GM-RAW "category:primary is:unread")')
+        # result, data = mail.search(None, '(X-GM-RAW "category:promotions is:unread")')
+        else:
+            result, data = mail.search(None, 'ALL')
+        
         mail_ids = data[0].split()
 
         if not mail_ids:

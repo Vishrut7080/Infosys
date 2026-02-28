@@ -273,6 +273,28 @@ with open('Audio/Transcribe.txt','a') as file:
                 speak_text('[System]: Ok, no email sent.')
 
             continue
+        
+        elif web_login.login_status=='success' and any(['latest','recent']) in clean_heard and(word in clean_heard for word in inbox_req):
+            speak_text('[System]: Showing latest email')
+            latest_email=get_top_senders(1)
+            
+            if 'error' in latest_email:
+                speak_text(latest_email['error'])
+                break
+
+            else:
+                summary_text=(
+                    f'Your latest email.'
+                    f'From: {latest_email['sender']}.'
+                    f'Subject: {latest_email['subject']}.'
+                    f'Date: {latest_email['date']}'
+                    f'Summary: {latest_email['summary']}.'
+                )
+                if mail_item['details'].get('attachments'):
+                        summary_text += f" Has attachments: {', '.join(mail_item['details']['attachments'])}."
+        
+                speak_text(summary_text)
+
 
         elif web_login.login_status == "success" and 'check' in clean_heard and any(word in clean_heard for word in inbox_req):
             speak_text('[System]: You want to check the inbox?')
