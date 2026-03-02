@@ -16,6 +16,7 @@ dependencies = [
     "pyaudio>=0.2.14",
     "pyautogui>=0.9.54",
     "python-dotenv>=1.2.1",
+    "python-telegram-bot>=22.6",
     "pyttsx3>=2.99",
     "scipy>=1.17.0",
     "sounddevice>=0.5.5",
