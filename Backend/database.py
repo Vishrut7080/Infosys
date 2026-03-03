@@ -287,12 +287,90 @@ def get_user_by_email(email: str) -> dict | None:
         print(f"[DB] get_user_by_email error: {e}")
         return None
 
+# ========================
+# UPDATE
+# ========================
+
+# ----------------------
+# Update Name
+# ----------------------
+def update_name(email: str, new_name: str) -> tuple[bool, str]:
+    try:
+        with sqlite3.connect(DB_PATH) as conn:
+            conn.execute(
+                'UPDATE users SET name = ? WHERE email = ?',
+                (new_name.strip(), email.strip().lower())
+            )
+            conn.commit()
+        return True, f'Name updated to {new_name}.'
+    except Exception as e:
+        return False, f'Error: {str(e)}'
+
+
+# ----------------------
+# Update Password
+# ----------------------
+def update_password(email: str, old_password: str, new_password: str) -> tuple[bool, str]:
+    try:
+        success, _ = verify_user(email, old_password)
+        if not success:
+            return False, 'Current password is incorrect.'
+        hashed = bcrypt.hashpw(
+            new_password.encode('utf-8'),
+            bcrypt.gensalt()
+        ).decode('utf-8')
+        with sqlite3.connect(DB_PATH) as conn:
+            conn.execute(
+                'UPDATE users SET password = ? WHERE email = ?',
+                (hashed, email.strip().lower())
+            )
+            conn.commit()
+        return True, 'Password updated successfully.'
+    except Exception as e:
+        return False, f'Error: {str(e)}'
+
+
+# ----------------------
+# Update Audio Password
+# ----------------------
+def update_audio(email: str, new_audio: str) -> tuple[bool, str]:
+    try:
+        hashed = bcrypt.hashpw(
+            new_audio.strip().lower().encode('utf-8'),
+            bcrypt.gensalt()
+        ).decode('utf-8')
+        with sqlite3.connect(DB_PATH) as conn:
+            conn.execute(
+                'UPDATE users SET secret_audio = ? WHERE email = ?',
+                (hashed, email.strip().lower())
+            )
+            conn.commit()
+        return True, 'Secret audio password updated.'
+    except Exception as e:
+        return False, f'Error: {str(e)}'
+
+
+# ----------------------
+# Delete User
+# ----------------------
+def delete_user(email: str, password: str) -> tuple[bool, str]:
+    try:
+        success, _ = verify_user(email, password)
+        if not success:
+            return False, 'Incorrect password. Account not deleted.'
+        with sqlite3.connect(DB_PATH) as conn:
+            conn.execute(
+                'DELETE FROM users WHERE email = ?',
+                (email.strip().lower(),)
+            )
+            conn.commit()
+        return True, 'Account deleted successfully.'
+    except Exception as e:
+        return False, f'Error: {str(e)}'
+
 
 __all__ = [
-    'init_db',
-    'create_user',
-    'verify_user',
-    'verify_audio',
-    'get_user_by_email',
-    'suggest_audio_word',
+    'init_db', 'create_user', 'verify_user', 'verify_audio',
+    'get_user_by_email', 'suggest_audio_word',
+    'update_name', 'update_password', 'update_audio', 'delete_user'
 ]

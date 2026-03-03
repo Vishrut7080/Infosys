@@ -26,7 +26,7 @@ app.secret_key = os.getenv("FLASK_SECRET_KEY", "change-me-in-production")
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 app.config['SESSION_COOKIE_SECURE']   = False
 
-# database.init_db() - for next milestone
+database.init_db()
 
 # ----------------------
 # Login Status Flag
@@ -114,6 +114,7 @@ def login():
 
         if success:
             login_status = 'success'
+            app.config['current_email'] = entered_email
             session['user'] = {'name': result, 'email': entered_email}
             return jsonify({'status': 'success', 'message': f'Welcome back, {result}!'})
 
@@ -123,6 +124,7 @@ def login():
             entered_password == SECRET_AUD
         ):
             login_status = 'success'
+            app.config['current_email'] = entered_email
             session['user'] = {'name': 'Admin', 'email': entered_email}
             return jsonify({'status': 'success', 'message': 'Login successful'})
 
@@ -175,6 +177,7 @@ def auth_google_callback():
             'picture': user_info.get('picture'),
         }
         login_status = 'success'
+        app.config['current_email'] = session['user']['email']
         print(f"[OAuth] Login successful: {session['user']['email']}")
         threading.Thread(
             target=speak_text,

@@ -2,11 +2,12 @@ from Audio.text_to_speech import speak_text
 from Audio.speech_to_text import listen_text
 from Mail.email_handler import open_gmail_compose, get_top_senders
 from Mail.email_sender import compose_email_by_voice
-from Backend.database import verify_audio
+from Backend.database import verify_audio, get_user_by_email, update_name, update_password, update_audio, delete_user
 import Mail.web_login as web_login
 import threading, webbrowser
 from dotenv import load_dotenv
 import os,time, datetime, random, re
+from Telegram.telegram import start_telegram_bot, start_telegram_in_thread
 
 load_dotenv()
 
@@ -45,6 +46,12 @@ logout_commands=['logout', 'log out', 'sign out', 'signout']
 if SECRET_AUD:
     # Add the audio password to confirmation words
     confirmation_words.append(SECRET_AUD.lower().strip())
+
+
+TELEGRAM_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+
+if TELEGRAM_TOKEN:
+    start_telegram_in_thread(TELEGRAM_TOKEN, process_command)
 
 # ----------------------
 # JOKES BANK
@@ -274,7 +281,10 @@ with open('Audio/Transcribe.txt','a') as file:
 
             continue
         
-        elif web_login.login_status=='success' and any(['latest','recent']) in clean_heard and(word in clean_heard for word in inbox_req):
+        elif (
+            web_login.login_status=='success' 
+            and any(word in clean_heard for word in ['latest', 'recent'])
+            and any(word in clean_heard for word in inbox_req)):
             speak_text('[System]: Showing latest email')
             latest_email=get_top_senders(1)
             
@@ -327,6 +337,100 @@ with open('Audio/Transcribe.txt','a') as file:
         
             elif any(s in clean_response for s in negation):
                 speak_text('[System]: Ok Thanks for confirming.')
+            continue
+
+        # ========================
+        # PROFILE MANAGEMENT 
+        # ========================
+        elif web_login.login_status == "success" and 'profile' in clean_heard:
+    
+            # Get current logged in email from session
+            current_email = web_login.app.config.get('current_email', '')
+            if not current_email:
+                speak_text('[System]: Could not find your profile. Please log in again.')
+                continue
+
+            speak_text('[System]: What would you like to do? Say view, change name, change password, change audio password, or delete account.')
+            response = listen_text()
+            clean_response = response.lower().strip().replace('.', '')
+            speak_text(f'[User]: {clean_response}')
+
+            # ----------------------
+            # View Profile
+            # ----------------------
+            if 'view' in clean_response or 'show' in clean_response or 'what' in clean_response:
+                user = get_user_by_email(current_email)
+                if user:
+                    speak_text(
+                        f'[System]: Your profile. '
+                        f'Name: {user["name"]}. '
+                        f'Email: {user["email"]}. '
+                        f'Account created on: {user["created_at"]}.'
+                    )
+                else:
+                    speak_text('[System]: Profile not found in database. You may have logged in via Google.')
+
+            # ----------------------
+            # Change Name
+            # ----------------------
+            elif 'name' in clean_response:
+                speak_text('[System]: What would you like your new name to be?')
+                new_name = listen_text().strip()
+                speak_text(f'[User]: {new_name}')
+                if new_name:
+                    success, msg = update_name(current_email, new_name)
+                    speak_text(f'[System]: {msg}')
+                else:
+                    speak_text('[System]: No name received. Cancelled.')
+
+            # ----------------------
+            # Change Password
+            # ----------------------
+            elif 'password' in clean_response and 'audio' not in clean_response:
+                speak_text('[System]: Please say your current password.')
+                old_pass = listen_text().strip()
+                speak_text('[System]: Please say your new password.')
+                new_pass = listen_text().strip()
+                if old_pass and new_pass:
+                    success, msg = update_password(current_email, old_pass, new_pass)
+                    speak_text(f'[System]: {msg}')
+                else:
+                    speak_text('[System]: Password change cancelled.')
+
+            # ----------------------
+            # Change Audio Password
+            # ----------------------
+            elif 'audio' in clean_response:
+                speak_text('[System]: Please say your new secret audio password.')
+                new_audio = listen_text().strip()
+                speak_text(f'[User]: {new_audio}')
+                if new_audio:
+                    success, msg = update_audio(current_email, new_audio)
+                    speak_text(f'[System]: {msg}')
+                    # Update confirmation_words with new audio
+                    if success and new_audio.lower() not in confirmation_words:
+                        confirmation_words.append(new_audio.lower())
+                else:
+                    speak_text('[System]: No audio password received. Cancelled.')
+
+            # ----------------------
+            # Delete Account
+            # ----------------------
+            elif 'delete' in clean_response:
+                speak_text('[System]: Are you sure you want to delete your account? This cannot be undone. Say yes to confirm.')
+                confirm = listen_text().lower().strip()
+                speak_text(f'[User]: {confirm}')
+                if any(w in confirm for w in affirmation):
+                    speak_text('[System]: Please say your password to confirm deletion.')
+                    password = listen_text().strip()
+                    success, msg = delete_user(current_email, password)
+                    speak_text(f'[System]: {msg}')
+                    if success:
+                        web_login.login_status = 'waiting'
+                        login_initiated = False
+                else:
+                    speak_text('[System]: Account deletion cancelled.')
+
             continue
             
         # ----------------------
