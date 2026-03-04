@@ -200,14 +200,14 @@ def get_top_senders(count: int = FETCH_COUNT, category: str='ALL'):
             # Fallback: To give from all if no primary mail is present
             if result!='OK' or not data[0].split():
                 result,data=mail.search(None,'ALL')
-        elif category=='':
+        elif category=='UPDATES':
             result, data = mail.search(None, '(X-GM-RAW "category:updates")')
-            if result!='OK' or not data[0].split():
-                result,data=mail.search(None,'ALL')
-        elif category=='':
+            if result != 'OK' or not data[0].split():
+                result, data = mail.search(None, 'ALL')
+        elif category=='PROMOTIONS':
             result, data = mail.search(None, '(X-GM-RAW "category:promotions")')
-            if result!='OK' or not data[0].split():
-                result,data=mail.search(None,'ALL')
+            if result != 'OK' or not data[0].split():
+                result, data = mail.search(None, 'ALL')
         # result, data = mail.search(None, '(X-GM-RAW "category:primary is:unread")')
         # result, data = mail.search(None, '(X-GM-RAW "category:promotions is:unread")')
         else:

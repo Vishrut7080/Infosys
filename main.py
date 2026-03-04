@@ -325,8 +325,21 @@ with open('Audio/Transcribe.txt','a') as file:
             web_login.login_status=='success' 
             and any(word in clean_heard for word in ['latest', 'recent'])
             and any(word in clean_heard for word in inbox_req)):
-            speak_text('[System]: Showing latest email')
-            latest_emails = get_top_senders(1)
+
+            speak_text('[System]: Should I read from primary, promotions, updates or all emails?')
+            cat_response = listen_text().lower().strip()
+            speak_text(f'[User]: {cat_response}')
+
+            if 'primary' in cat_response:
+                category = 'PRIMARY'
+            elif 'promo' in cat_response:
+                category = 'PROMOTIONS'
+            elif 'update' in cat_response:
+                category = 'UPDATES'
+            else:
+                category = 'ALL'
+
+            latest_emails = get_top_senders(1, category=category)
             latest_email = latest_emails[0] if latest_emails else {}
             
             if 'error' in latest_email:
@@ -351,7 +364,17 @@ with open('Audio/Transcribe.txt','a') as file:
             speak_text(f'[User]: {clean_response}')
         
             if any(s in clean_response for s in affirmation):
-                inbox = get_top_senders()
+                speak_text('[System]: Primary, promotions, updates or all?')
+                cat_response = listen_text().lower().strip()
+                if 'primary' in cat_response:
+                    category = 'PRIMARY'
+                elif 'promo' in cat_response:
+                    category = 'PROMOTIONS'
+                elif 'update' in cat_response:
+                    category = 'UPDATES'
+                else:
+                    category = 'ALL'
+                inbox = get_top_senders(category=category)
         
                 for i, mail_item in enumerate(inbox, 1):
                     if 'error' in mail_item:
