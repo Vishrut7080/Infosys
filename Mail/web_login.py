@@ -8,6 +8,11 @@ import threading
 
 load_dotenv()
 
+# ========================
+# GLOBAL VARIABLES
+# ========================
+selected_services = [] # for email or telegram services
+
 # ----------------------
 # Load Credentials from env
 # ----------------------
@@ -55,6 +60,16 @@ google = oauth.register(
     server_metadata_url='https://accounts.google.com/.well-known/openid-configuration',
     client_kwargs={
         # openid = identity, email = address, profile = name + picture
+        'scope': 'openid email profile'
+    }
+)
+
+microsoft = oauth.register(
+    name='microsoft',
+    client_id=os.getenv('MICROSOFT_CLIENT_ID'),
+    client_secret=os.getenv('MICROSOFT_CLIENT_SECRET'),
+    server_metadata_url='https://login.microsoftonline.com/common/v2.0/.well-known/openid-configuration',
+    client_kwargs={
         'scope': 'openid email profile'
     }
 )
@@ -137,6 +152,27 @@ def login():
         login_status = 'failed'
         return jsonify({'status': 'error', 'message': str(e)})
 
+# ----------------------
+# DASHBOARD
+# ----------------------
+
+@app.route('/dashboard')
+def dashboard():
+    if 'user' not in session:
+        return redirect(url_for('login_page'))
+    return render_template('dashboard.html', user=session['user'])
+
+@app.route('/select-services', methods=['POST'])
+def select_services():
+    global selected_services
+    data = request.get_json()
+    selected_services = data.get('services', [])
+    print(f"[Dashboard] Services selected: {selected_services}")
+    return jsonify({'status': 'ok'})
+
+@app.route('/get-services')
+def get_services():
+    return jsonify({'services': selected_services})
 
 # ----------------------
 # GOOGLE OAUTH
@@ -185,7 +221,7 @@ def auth_google_callback():
             daemon=True
         ).start()
         email = session['user']['email']
-        return redirect(f"https://mail.google.com/mail/u/{email}/#inbox")
+        return redirect(url_for('dashboard'))
 
     except Exception as e:
         # Print the FULL error with type
@@ -194,6 +230,46 @@ def auth_google_callback():
         login_status = 'failed'
         return redirect(url_for('login_page') + '?error=oauth_failed')
 
+# ========================
+# MICROSOFT OAUTH
+# ========================
+
+@app.route('/auth/microsoft')
+def auth_microsoft():
+    redirect_uri = url_for('auth_microsoft_callback', _external=True)
+    return microsoft.authorize_redirect(redirect_uri)
+
+@app.route('/auth/microsoft/callback')
+def auth_microsoft_callback():
+    global login_status
+    try:
+        token     = microsoft.authorize_access_token()
+        user_info = token.get('userinfo')
+        if not user_info:
+            user_info = microsoft.get(
+                'https://graph.microsoft.com/v1.0/me'
+            ).json()
+
+        session['user'] = {
+            'name':    user_info.get('displayName') or user_info.get('name'),
+            'email':   user_info.get('mail') or user_info.get('email') or user_info.get('userPrincipalName'),
+            'picture': None,
+        }
+        login_status = 'success'
+        app.config['current_email'] = session['user']['email']
+        print(f"[OAuth] Microsoft login: {session['user']['email']}")
+        threading.Thread(
+            target=speak_text,
+            args=(f"[System]: Welcome {session['user']['name']}.",),
+            daemon=True
+        ).start()
+        email = session['user']['email']
+        return redirect(url_for('dashboard'))
+
+    except Exception as e:
+        print(f"[OAuth] Microsoft failed: {repr(e)}")
+        login_status = 'failed'
+        return redirect(url_for('login_page') + '?error=oauth_failed')
 
 # ----------------------
 # LOGOUT
@@ -261,3 +337,5 @@ def suggest_audio():
 def start_server():
     print("Flask server starting...")
     app.run(port=5000, use_reloader=False)
+
+__all__=['selected_services']

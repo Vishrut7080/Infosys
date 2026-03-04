@@ -53,32 +53,25 @@ if SECRET_AUD:
 
 API_ID   = int(os.getenv('TELEGRAM_API_ID', 0))
 API_HASH = os.getenv('TELEGRAM_API_HASH', '')
-if API_ID and API_HASH:
-    def on_new_telegram(sender, text):
-        speak_text(f'[Telegram]: New message from {sender}: {text}')
-    
-    def get_phone_by_voice():
-        speak_text('[System]: Please say your Telegram phone number.')
-        phone = listen_text(duration=8).strip()
-        speak_text(f'[User]: {phone}')
-        # Convert spoken number to digits
-        phone = phone.replace(' ', '').replace('-', '')
-        return phone
 
-    def get_otp_by_voice():
-        speak_text('[System]: Please say the OTP code sent to your Telegram app.')
-        code = listen_text(duration=8).strip()
-        speak_text(f'[User]: {code}')
-        # Extract digits only
-        import re
-        code = re.sub(r'[^0-9]', '', code)
-        return code
+def on_new_telegram(sender, text):
+    speak_text(f'[Telegram]: New message from {sender}: {text}')
 
-    set_notification_callback(on_new_telegram)
-    start_telegram_in_thread(
-        phone_callback=get_phone_by_voice,
-        code_callback=get_otp_by_voice
-    )
+def get_phone_by_voice():
+    speak_text('[System]: Please say your Telegram phone number.')
+    phone = listen_text(duration=8).strip()
+    speak_text(f'[User]: {phone}')
+    phone = phone.replace(' ', '').replace('-', '')
+    return phone
+
+def get_otp_by_voice():
+    speak_text('[System]: Please say the OTP code sent to your Telegram app.')
+    code = listen_text(duration=8).strip()
+    speak_text(f'[User]: {code}')
+    code = re.sub(r'[^0-9]', '', code)
+    return code
+
+set_notification_callback(on_new_telegram)
 
 # ----------------------
 # JOKES BANK
@@ -177,8 +170,28 @@ with open('Audio/Transcribe.txt','a') as file:
         # Check if OAuth/browser login completed between recordings
         if login_initiated and web_login.login_status == "success":
             login_initiated = False
-            speak_text('[System]: Login successful.')
-            continue
+            speak_text('[System]: Please select your services on the dashboard.')
+            for _ in range(60):
+                if web_login.selected_services:
+                    break
+                time.sleep(0.5)
+
+            services = web_login.selected_services
+
+            if 'telegram' in services:
+                speak_text('[System]: Starting Telegram.')
+                if API_ID and API_HASH:
+                    start_telegram_in_thread(
+                        phone_callback=get_phone_by_voice,
+                        code_callback=get_otp_by_voice
+                    )
+
+            if 'gmail' in services:
+                speak_text('[System]: Gmail ready.')
+
+            speak_text(f'[System]: Connected: {", ".join(services)}. Ready.')
+            continue      
+
         
         # Skip audio processing if user is actively typing in browser
         if web_login.user_typing:

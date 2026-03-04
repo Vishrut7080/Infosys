@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <title>Assistant — Dashboard</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@300;400;500&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='dashboard.css') }}">
+</head>
+
+<body>
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+    <div class="scanlines"></div>
+
+    <div class="container">
+        <div class="header">
+            <div class="brand">
+                <div class="brand-icon">
+                    <svg width="24" height="24" viewBox="0 0 32 32" fill="none">
+                        <circle cx="16" cy="16" r="15" stroke="currentColor" stroke-width="1.5" />
+                        <circle cx="16" cy="16" r="6" fill="currentColor" opacity="0.3" />
+                        <circle cx="16" cy="16" r="2.5" fill="currentColor" />
+                        <line x1="16" y1="1" x2="16" y2="8" stroke="currentColor" stroke-width="1.5" />
+                        <line x1="16" y1="24" x2="16" y2="31" stroke="currentColor" stroke-width="1.5" />
+                        <line x1="1" y1="16" x2="8" y2="16" stroke="currentColor" stroke-width="1.5" />
+                        <line x1="24" y1="16" x2="31" y2="16" stroke="currentColor" stroke-width="1.5" />
+                    </svg>
+                </div>
+                <span class="brand-name">ASSISTANT</span>
+            </div>
+            <div class="welcome">
+                <span class="welcome-label">SIGNED IN AS</span>
+                <span class="welcome-name">{{ user.name }}</span>
+            </div>
+        </div>
+
+        <div class="main">
+            <div class="title-block">
+                <p class="section-label">UNIFIED INBOX</p>
+                <h1 class="title">Connect your <span class="accent">services</span></h1>
+                <p class="subtitle">Select the services you want your assistant to manage. You can change this anytime.
+                </p>
+            </div>
+
+            <div class="service-grid">
+                <!-- Gmail -->
+                <div class="service-card" data-service="gmail" onclick="toggleService(this)">
+                    <div class="card-icon gmail-icon">
+                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
+                            <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"
+                                stroke="currentColor" stroke-width="1.5" />
+                            <path d="m2 6 10 7 10-7" stroke="currentColor" stroke-width="1.5" />
+                        </svg>
+                    </div>
+                    <div class="card-info">
+                        <h3>Gmail</h3>
+                        <p>Read, send and summarize emails by voice</p>
+                    </div>
+                    <div class="card-check">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2.5">
+                            <path d="M20 6 9 17l-5-5" />
+                        </svg>
+                    </div>
+                </div>
+
+                <!-- Telegram -->
+                <div class="service-card" data-service="telegram" onclick="toggleService(this)">
+                    <div class="card-icon telegram-icon">
+                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
+                            <path d="M22 2 11 13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+                            <path d="M22 2 15 22l-4-9-9-4 20-7z" stroke="currentColor" stroke-width="1.5"
+                                stroke-linejoin="round" />
+                        </svg>
+                    </div>
+                    <div class="card-info">
+                        <h3>Telegram</h3>
+                        <p>Read and send personal Telegram messages</p>
+                    </div>
+                    <div class="card-check">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2.5">
+                            <path d="M20 6 9 17l-5-5" />
+                        </svg>
+                    </div>
+                </div>
+            </div>
+
+            <div class="voice-hint" id="voiceHint">
+                <div class="mic-anim">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
+                        <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+                        <line x1="12" y1="19" x2="12" y2="23" />
+                        <line x1="8" y1="23" x2="16" y2="23" />
+                    </svg>
+                </div>
+                <span id="voiceText">Listening for your voice confirmation...</span>
+            </div>
+
+            <button class="btn-confirm" id="confirmBtn" onclick="confirmSelection()" disabled>
+                <span>Launch Assistant</span>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M5 12h14M12 5l7 7-7 7" />
+                </svg>
+            </button>
+
+            <p id="statusMsg"></p>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='dashboard.js') }}"></script>
+</body>
+
+</html>
