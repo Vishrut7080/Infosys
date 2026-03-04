@@ -1,4 +1,5 @@
 import os, webbrowser, imaplib, email, re, html
+import anthropic
 from dotenv import load_dotenv
 from email.header import decode_header
 from email.utils import parsedate_to_datetime
@@ -255,5 +256,32 @@ def get_top_senders(count: int = FETCH_COUNT, category: str='ALL'):
         return [{'error': f'[System]: IMAP Error: {str(e)}'}]
     except Exception as e:
         return [{'error': f'[System]: Error: {str(e)}'}]
-    
-__all__=['open_gmail_compose', 'get_top_senders']
+
+def suggest_reply(sender: str, subject: str, body: str) -> str:
+    """
+    Uses Claude to analyse the email and suggest a short, natural reply.
+    """
+    try:
+        client = anthropic.Anthropic(api_key=os.getenv('ANTHROPIC_API_KEY'))
+
+        prompt = f"""You are a helpful email assistant. 
+    Read this email and suggest a short, natural reply (2-3 sentences max).
+    Only return the reply text itself — no subject line, no greeting like 'Dear', no sign-off.
+    Keep it conversational and concise, suitable for voice dictation.
+
+    From: {sender}
+    Subject: {subject}
+    Body: {body[:1000]}
+
+    Suggested reply:"""
+        message = client.messages.create(
+            model      = 'claude-opus-4-6',
+            max_tokens = 150,
+            messages   = [{'role': 'user', 'content': prompt}]
+        )
+        return message.content[0].text.strip()
+
+    except Exception as e:
+        return ''
+
+__all__=['open_gmail_compose', 'get_top_senders','suggest_reply']

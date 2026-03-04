@@ -221,5 +221,32 @@ def compose_email_by_voice() -> str:
         # Unclear response — cancel to be safe
         return '[System]: Response unclear. Email cancelled to be safe.'
 
+# ----------------------
+# Suggested Reply
+# ----------------------
 
-__all__ = ['compose_email_by_voice', 'send_email']
+def send_reply_direct(reply_to: str, subject: str, msg_id: str, body: str) -> str:
+    """
+    Sends a reply directly with a pre-composed body (used for AI suggested replies).
+    """
+    try:
+        subject = f'Re: {subject}' if not subject.startswith('Re:') else subject
+
+        msg                = MIMEMultipart()
+        msg['From']        = EMAIL_USER
+        msg['To']          = reply_to
+        msg['Subject']     = subject
+        msg['In-Reply-To'] = msg_id
+        msg['References']  = msg_id
+        msg.attach(MIMEText(body, 'plain'))
+
+        with smtplib.SMTP_SSL('smtp.gmail.com', 465) as server:
+            server.login(EMAIL_USER, EMAIL_PASS)
+            server.sendmail(EMAIL_USER, reply_to, msg.as_string())
+
+        return f'[System]: Reply sent to {reply_to}.'
+
+    except Exception as e:
+        return f'[System]: Failed to send. {str(e)}'
+
+__all__ = ['compose_email_by_voice', 'send_email','send_reply_direct']

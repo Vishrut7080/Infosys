@@ -1,7 +1,7 @@
 from Audio.text_to_speech import speak_text
 from Audio.speech_to_text import listen_text
-from Mail.email_handler import open_gmail_compose, get_top_senders
-from Mail.email_sender import compose_email_by_voice
+from Mail.email_handler import open_gmail_compose, get_top_senders, suggest_reply
+from Mail.email_sender import compose_email_by_voice, send_reply_direct
 from Backend.database import verify_audio, get_user_by_email, update_name, update_password, update_audio, delete_user
 import Mail.web_login as web_login
 import threading, webbrowser
@@ -156,7 +156,48 @@ def calculate(text: str) -> str:
         return '[System]: Cannot divide by zero.'
     except Exception:
         return '[System]: Sorry, I couldn\'t calculate that.'
-    
+
+
+# ----------------------
+# SHARED REPLY HELPER
+# ----------------------
+def handle_reply(email_data: dict):
+    """
+    Shared logic for both reply commands:
+    1. Suggests an AI reply based on email content
+    2. User accepts or rejects
+    3. If rejected, asks for custom voice reply
+    4. Confirms before sending
+    """
+    reply_to = email_data['reply_to']
+    subject  = email_data['subject']
+    msg_id   = email_data['msg_id']
+    body     = email_data.get('body', '')
+
+    # Step 1 — Generate AI suggestion
+    speak_text('[System]: Analysing email and generating a suggested reply...')
+    suggestion = suggest_reply(reply_to, subject, body)
+
+    if suggestion:
+        speak_text(f'[System]: Suggested reply: {suggestion}. Shall I send this?')
+        response = listen_text().lower().strip()
+        speak_text(f'[User]: {response}')
+
+        # User accepts suggestion
+        if any(w in response for w in affirmation):
+            speak_text('[System]: Sending suggested reply...')
+            result = send_reply_direct(reply_to, subject, msg_id, suggestion)
+            speak_text(result)
+            return
+
+        speak_text('[System]: Ok, let me take your custom reply instead.')
+
+    else:
+        speak_text('[System]: Could not generate a suggestion. Please dictate your reply.')
+
+    # Step 2 — Custom voice reply
+    result = reply_email_by_voice(reply_to, subject, msg_id)
+    speak_text(result)
 
 # ----------------------
 # COMMAND LOGIC
@@ -399,7 +440,63 @@ with open('Audio/Transcribe.txt','a') as file:
             elif any(s in clean_response for s in negation):
                 speak_text('[System]: Ok Thanks for confirming.')
             continue
-
+        
+        # ========================
+        # REPLY FEATURE
+        # ========================
+        # ----------------------
+        # REPLY TO LATEST EMAIL
+        # ----------------------
+        elif (
+            web_login.login_status == 'success'
+            and 'reply' in clean_heard
+            and 'latest' in clean_heard
+            and any(w in clean_heard for w in mail_req)
+        ):
+            speak_text('[System]: Fetching the latest email.')
+            email_data = get_email_for_reply(index=1)
+        
+            if 'error' in email_data:
+                speak_text(f'[System]: {email_data["error"]}')
+            else:
+                speak_text(
+                    f'[System]: Email from {email_data["reply_to"]}. '
+                    f'Subject: {email_data["subject"]}.'
+                )
+                handle_reply(email_data)
+            continue
+        
+        # ----------------------
+        # REPLY TO SPECIFIC EMAIL
+        # ----------------------
+        elif (
+            web_login.login_status == 'success'
+            and 'reply' in clean_heard
+            and any(w in clean_heard for w in mail_req)
+        ):
+            speak_text('[System]: Which email do you want to reply to? Say a number — 1 for latest, 2 for second latest.')
+            num_heard = listen_text().lower().strip()
+            speak_text(f'[User]: {num_heard}')
+        
+            num_map = {
+                'one': 1, 'two': 2, 'three': 3, 'four': 4, 'five': 5,
+                '1': 1, '2': 2, '3': 3, '4': 4, '5': 5,
+                'first': 1, 'second': 2, 'third': 3, 'latest': 1, 'last': 1,
+            }
+            index = next((num_map[w] for w in num_map if w in num_heard), 1)
+        
+            speak_text(f'[System]: Fetching email number {index}.')
+            email_data = get_email_for_reply(index=index)
+        
+            if 'error' in email_data:
+                speak_text(f'[System]: {email_data["error"]}')
+            else:
+                speak_text(
+                    f'[System]: Email from {email_data["reply_to"]}. '
+                    f'Subject: {email_data["subject"]}.'
+                )
+                handle_reply(email_data)
+            continue    
         # ========================
         # TELEGRAM FEATURES
         # ========================
