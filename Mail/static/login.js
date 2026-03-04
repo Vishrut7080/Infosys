@@ -45,34 +45,49 @@ document.querySelectorAll('input').forEach(input => {
 document.getElementById('loginForm').addEventListener('submit', async function (e) {
     e.preventDefault();
     const messageEl = document.getElementById('message');
+    const email = document.getElementById('email').value.trim();
+    const password = document.getElementById('password').value;
 
+    // Detect provider from email domain
+    const googleDomains = ['gmail.com', 'googlemail.com'];
+    const microsoftDomains = ['outlook.com', 'hotmail.com', 'live.com', 'msn.com'];
+    const domain = email.split('@')[1]?.toLowerCase();
+
+    if (googleDomains.includes(domain)) {
+        messageEl.style.color = '#8888aa';
+        messageEl.innerText = 'Detected Google account. Redirecting...';
+        setTimeout(() => { window.location.href = '/auth/google'; }, 800);
+        return;
+    }
+
+    if (microsoftDomains.includes(domain)) {
+        messageEl.style.color = '#8888aa';
+        messageEl.innerText = 'Detected Microsoft account. Redirecting...';
+        setTimeout(() => { window.location.href = '/auth/microsoft'; }, 800);
+        return;
+    }
+
+    // Standard password login for non-OAuth emails
     try {
         const response = await fetch('/login', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                email: document.getElementById('email').value.trim(),
-                password: document.getElementById('password').value
-            })
+            body: JSON.stringify({ email, password })
         });
 
         const result = await response.json();
 
         if (result.status === 'success') {
-            messageEl.style.color = 'green';
-            messageEl.innerText = 'Login successful! Starting Google sign-in...';
-            setTimeout(() => {
-                window.location.href = REDIRECT_URL;
-            }, 800);
+            messageEl.style.color = '#4ade80';
+            messageEl.innerText = 'Login successful! Redirecting...';
+            setTimeout(() => { window.location.href = '/dashboard'; }, 800);
         } else {
-            messageEl.style.color = 'red';
+            messageEl.style.color = '#ff6b6b';
             messageEl.innerText = result.message || 'Login failed';
         }
-
     } catch (error) {
-        messageEl.style.color = 'red';
+        messageEl.style.color = '#ff6b6b';
         messageEl.innerText = 'Error connecting to server';
-        console.error('Login error:', error);
     }
 });
 
