@@ -326,23 +326,21 @@ with open('Audio/Transcribe.txt','a') as file:
             and any(word in clean_heard for word in ['latest', 'recent'])
             and any(word in clean_heard for word in inbox_req)):
             speak_text('[System]: Showing latest email')
-            latest_email=get_top_senders(1)
+            latest_emails = get_top_senders(1)
+            latest_email = latest_emails[0] if latest_emails else {}
             
             if 'error' in latest_email:
                 speak_text(latest_email['error'])
-                break
-
             else:
-                summary_text=(
-                    f'Your latest email.'
-                    f'From: {latest_email['sender']}.'
-                    f'Subject: {latest_email['subject']}.'
-                    f'Date: {latest_email['date']}'
-                    f'Summary: {latest_email['summary']}.'
+                summary_text = (
+                    f'Your latest email. '
+                    f'From: {latest_email["sender"]}. '
+                    f'Subject: {latest_email["subject"]}. '
+                    f'Date: {latest_email["date"]}. '
+                    f'Summary: {latest_email["summary"]}.'
                 )
-                if mail_item['details'].get('attachments'):
-                        summary_text += f" Has attachments: {', '.join(mail_item['details']['attachments'])}."
-        
+                if latest_email['details'].get('attachments'):
+                    summary_text += f" Has attachments: {', '.join(latest_email['details']['attachments'])}."
                 speak_text(summary_text)
 
 
