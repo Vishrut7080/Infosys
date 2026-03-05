@@ -249,4 +249,37 @@ def send_reply_direct(reply_to: str, subject: str, msg_id: str, body: str) -> st
     except Exception as e:
         return f'[System]: Failed to send. {str(e)}'
 
-__all__ = ['compose_email_by_voice', 'send_email','send_reply_direct']
+def reply_email_by_voice(reply_to: str, original_subject: str, original_msg_id: str) -> str:
+    try:
+        speak_text('[System]: What would you like to say in your reply?')
+        body = listen_text(duration=10).strip()
+        if not body:
+            return '[System]: No reply content heard. Cancelled.'
+        speak_text(f'[User]: {body}')
+
+        subject = f'Re: {original_subject}' if not original_subject.startswith('Re:') else original_subject
+        speak_text(f'[System]: Ready to send. To: {reply_to}. Subject: {subject}. Message: {body}. Shall I send it?')
+        confirm = listen_text().lower().strip()
+        speak_text(f'[User]: {confirm}')
+
+        affirmation = ['yes', 'ok', 'yah', 'ya', 'send', 'confirm']
+        if not any(w in confirm for w in affirmation):
+            return '[System]: Reply cancelled.'
+
+        msg                = MIMEMultipart()
+        msg['From']        = EMAIL_USER
+        msg['To']          = reply_to
+        msg['Subject']     = subject
+        msg['In-Reply-To'] = original_msg_id
+        msg['References']  = original_msg_id
+        msg.attach(MIMEText(body, 'plain'))
+
+        with smtplib.SMTP_SSL('smtp.gmail.com', 465) as server:
+            server.login(EMAIL_USER, EMAIL_PASS)
+            server.sendmail(EMAIL_USER, reply_to, msg.as_string())
+
+        return f'[System]: Reply sent to {reply_to}.'
+    except Exception as e:
+        return f'[System]: Failed to send reply. {str(e)}'
+
+__all__ = ['compose_email_by_voice', 'send_email','send_reply_direct','reply_email_by_voice']

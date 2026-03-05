@@ -1,7 +1,7 @@
 from Audio.text_to_speech import speak_text
 from Audio.speech_to_text import listen_text
 from Mail.email_handler import open_gmail_compose, get_top_senders, suggest_reply
-from Mail.email_sender import compose_email_by_voice, send_reply_direct
+from Mail.email_sender import compose_email_by_voice, send_reply_direct, reply_email_by_voice
 from Backend.database import verify_audio, get_user_by_email, update_name, update_password, update_audio, delete_user
 import Mail.web_login as web_login
 import threading, webbrowser
@@ -200,6 +200,69 @@ def handle_reply(email_data: dict):
     result = reply_email_by_voice(reply_to, subject, msg_id)
     speak_text(result)
 
+def handle_telegram_reply(recipient: str, original_message: str):
+    """AI-suggested reply for Telegram messages."""
+    speak_text('[System]: Generating a suggested reply...')
+    
+    # Use Claude to suggest a reply
+    try:
+        import anthropic
+        client = anthropic.Anthropic(api_key=os.getenv('ANTHROPIC_API_KEY'))
+        response = client.messages.create(
+            model='claude-sonnet-4-20250514',
+            max_tokens=100,
+            messages=[{
+                'role': 'user',
+                'content': f'Suggest a short, natural reply (1-2 sentences) to this Telegram message: "{original_message}". Return only the reply text.'
+            }]
+        )
+        suggestion = response.content[0].text.strip()
+        speak_text(f'[System]: Suggested reply: {suggestion}. Send this?')
+        confirm = listen_text().lower().strip()
+        speak_text(f'[User]: {confirm}')
+        if any(w in confirm for w in affirmation):
+            success, result = telegram_send_message(recipient, suggestion)
+            speak_text(f'[System]: {result}')
+            return
+        speak_text('[System]: Ok, what would you like to say instead?')
+    except Exception:
+        speak_text('[System]: Could not generate suggestion. What would you like to say?')
+
+    # Custom reply
+    message = listen_text(duration=10).strip()
+    speak_text(f'[User]: {message}')
+    speak_text(f'[System]: Sending to {recipient}: {message}. Confirm?')
+    confirm = listen_text().lower().strip()
+    if any(w in confirm for w in affirmation):
+        success, result = telegram_send_message(recipient, message)
+        speak_text(f'[System]: {result}')
+    else:
+        speak_text('[System]: Reply cancelled.')
+
+# ----------------------
+# Watcher Function
+# ----------------------
+
+def wait_for_telegram_login():
+    from Telegram.telegram import _client, _loop as tg_loop
+    import asyncio
+    import time
+
+    speak_text('[System]: Waiting for Telegram authentication.')
+
+    while True:
+        try:
+            fut = asyncio.run_coroutine_threadsafe(
+                _client.is_user_authorized(), tg_loop
+            )
+            if fut.result(timeout=5):
+                speak_text('[System]: Telegram login successful.')
+                return
+        except:
+            pass
+
+        time.sleep(3)
+
 # ----------------------
 # COMMAND LOGIC
 # ----------------------
@@ -225,10 +288,39 @@ with open('Audio/Transcribe.txt','a') as file:
                 if 'telegram' in services:
                     speak_text('[System]: Starting Telegram.')
                     if API_ID and API_HASH:
-                        start_telegram_in_thread(
-                            phone_callback=get_phone_by_voice,
-                            code_callback=get_otp_by_voice
-                        )
+                        # Start client in background (connects but waits for auth if needed)
+                        start_telegram_in_thread()
+
+                        # Check if already authorized (session exists)
+                        time.sleep(2)
+                        from Telegram.telegram import _client
+                        if _client and _client.is_connected():
+                            import asyncio as _asyncio
+                            loop = _asyncio._get_running_loop() if hasattr(_asyncio, '_get_running_loop') else None
+                            # Simple check via the module
+                            from Telegram.telegram import _loop as tg_loop
+                            if tg_loop:
+                                fut = _asyncio.run_coroutine_threadsafe(_client.is_user_authorized(), tg_loop)
+                                authorized = fut.result(timeout=5)
+                            else:
+                                authorized = False
+                        else:
+                            authorized = False
+
+                        if not authorized:
+                            # Ask for SECRET_AUD to authorize web login
+                            speak_text('[System]: Telegram needs authorization. Please say your secret password to open the login page.')
+                            auth_word = listen_text(duration=8).lower().strip()
+                            speak_text(f'[User]: {auth_word}')
+
+                            if auth_word == SECRET_AUD.lower().strip():
+                                speak_text('[System]: Confirmed. Opening Telegram login page.')
+                                webbrowser.open('http://localhost:5000/telegram-auth')
+                                speak_text('[System]: Enter your phone number and OTP in the browser.')
+                            else:
+                                speak_text('[System]: Incorrect password. Telegram not connected.')
+                        else:
+                            speak_text('[System]: Telegram connected automatically.')
         
                 if 'gmail' in services:
                     speak_text('[System]: Gmail ready.')
@@ -262,14 +354,6 @@ with open('Audio/Transcribe.txt','a') as file:
             if web_login.selected_services:
                 awaiting_services = False
                 services = web_login.selected_services
-
-                if 'telegram' in services:
-                    speak_text('[System]: Starting Telegram.')
-                    if API_ID and API_HASH:
-                        start_telegram_in_thread(
-                            phone_callback=get_phone_by_voice,
-                            code_callback=get_otp_by_voice
-                        )
 
                 if 'gmail' in services:
                     speak_text('[System]: Gmail ready.')
@@ -364,7 +448,80 @@ with open('Audio/Transcribe.txt','a') as file:
             speak_text('[System]: Login cancelled.')
             web_login.login_status = "failed"
             continue
-            
+        
+        # ========================
+        # TELEGRAM FEATURES
+        # ========================
+        
+        #• “send telegram message” → send
+        #• “check telegram messages” → inbox
+        #• “latest telegram message” → latest
+
+        # ----------------------
+        # TELEGRAM — SEND MESSAGE
+        # ----------------------
+        elif web_login.login_status == "success" and 'telegram' in clean_heard and 'send' in clean_heard:
+            speak_text('[System]: Who do you want to send a Telegram message to?')
+            recipient = listen_text().strip()
+            if not recipient:
+                speak_text('[System]: I did not catch the recipient.')
+                continue          
+            speak_text(f'[User]: {recipient}')
+            speak_text('[System]: What is your message?')
+            message = listen_text(duration=10).strip()
+            if not message:
+                speak_text('[System]: Message was empty. Cancelled.')
+                continue           
+            speak_text(f'[User]: {message}')
+            speak_text(f'[System]: Sending to {recipient}. Please confirm.')
+            confirm = listen_text().lower().strip()
+            if any(word in confirm for word in affirmation):           
+                success, result = telegram_send_message(recipient, message)
+                if success:
+                    speak_text(f'[System]: {result}')
+                else:
+                    speak_text(f'[System]: {result}')
+
+            else:
+                speak_text('[System]: Telegram message cancelled.')
+
+        # ----------------------
+        # TELEGRAM — CHECK INBOX
+        # ----------------------
+        elif web_login.login_status == "success" and 'telegram' in clean_heard and any(w in clean_heard for w in inbox_req + ['message', 'messages']):
+            speak_text('[System]: Fetching your Telegram messages.')
+            messages = telegram_get_messages(5)
+            if not messages:
+                speak_text('[System]: No Telegram messages found.')
+            else:
+                for i, msg in enumerate(messages, 1):
+                    unread = f"{msg['unread']} unread." if msg['unread'] else ''
+                    speak_text(
+                        f"Telegram {i}. "
+                        f"From: {msg['name']}. "
+                        f"{unread}"
+                        f"Message: {msg['message']}. "
+                        f"Date: {msg['date']}."
+                    )
+            continue
+        
+        # ----------------------
+        # TELEGRAM — LATEST MESSAGE
+        # ----------------------
+        elif web_login.login_status == "success" and 'telegram' in clean_heard and any(w in clean_heard for w in ['latest', 'recent']):
+            speak_text('[System]: Getting your latest Telegram message.')
+            msg = telegram_get_latest()
+            if msg:
+                speak_text(
+                    f"[System]: Latest Telegram message. "
+                    f"From: {msg['name']}. "
+                    f"Message: {msg['message']}. "
+                    f"Date: {msg['date']}."
+                )
+            else:
+                speak_text('[System]: No Telegram messages found.')
+            continue
+        
         # ----------------------
         # MAIL FEATURES
         # ----------------------
@@ -527,66 +684,7 @@ with open('Audio/Transcribe.txt','a') as file:
                 )
                 handle_reply(email_data)
             continue    
-        # ========================
-        # TELEGRAM FEATURES
-        # ========================
-
-        # ----------------------
-        # TELEGRAM — CHECK INBOX
-        # ----------------------
-        elif web_login.login_status == "success" and 'telegram' in clean_heard and any(w in clean_heard for w in inbox_req + ['message', 'messages']):
-            speak_text('[System]: Fetching your Telegram messages.')
-            messages = telegram_get_messages(5)
-            if not messages:
-                speak_text('[System]: No Telegram messages found.')
-            else:
-                for i, msg in enumerate(messages, 1):
-                    unread = f"{msg['unread']} unread." if msg['unread'] else ''
-                    speak_text(
-                        f"Telegram {i}. "
-                        f"From: {msg['name']}. "
-                        f"{unread}"
-                        f"Message: {msg['message']}. "
-                        f"Date: {msg['date']}."
-                    )
-            continue
         
-        # ----------------------
-        # TELEGRAM — LATEST MESSAGE
-        # ----------------------
-        elif web_login.login_status == "success" and 'telegram' in clean_heard and any(w in clean_heard for w in ['latest', 'recent']):
-            speak_text('[System]: Getting your latest Telegram message.')
-            msg = telegram_get_latest()
-            if msg:
-                speak_text(
-                    f"[System]: Latest Telegram message. "
-                    f"From: {msg['name']}. "
-                    f"Message: {msg['message']}. "
-                    f"Date: {msg['date']}."
-                )
-            else:
-                speak_text('[System]: No Telegram messages found.')
-            continue
-        
-        # ----------------------
-        # TELEGRAM — SEND MESSAGE
-        # ----------------------
-        elif web_login.login_status == "success" and 'telegram' in clean_heard and 'send' in clean_heard:
-            speak_text('[System]: Who do you want to send a Telegram message to?')
-            recipient = listen_text().strip()
-            speak_text(f'[User]: {recipient}')
-            speak_text('[System]: What is your message?')
-            message = listen_text(duration=10).strip()
-            speak_text(f'[User]: {message}')
-            speak_text(f'[System]: Sending to {recipient}: {message}. Confirm?')
-            confirm = listen_text().lower().strip()
-            if any(w in confirm for w in affirmation):
-                success, result = telegram_send_message(recipient, message)
-                speak_text(f'[System]: {result}')
-            else:
-                speak_text('[System]: Telegram message cancelled.')
-            continue
-
         # ========================
         # PROFILE MANAGEMENT 
         # ========================

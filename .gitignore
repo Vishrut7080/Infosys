@@ -13,6 +13,7 @@ uv.lock
 # Confedential files
 Transcribe.txt
 list_of_voices.py
+telegram_session.session
 
 # Variables
 .env

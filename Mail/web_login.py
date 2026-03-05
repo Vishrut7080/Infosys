@@ -1,6 +1,6 @@
 from flask import Flask, render_template, jsonify, request, redirect, url_for, session
 from authlib.integrations.flask_client import OAuth
-import os
+import os, asyncio
 from Backend import database
 from Audio.text_to_speech import speak_text
 from dotenv import load_dotenv
@@ -33,6 +33,10 @@ app.config['SESSION_COOKIE_SECURE']   = False
 
 database.init_db()
 
+# ========================
+# GLOBAL FLAGS
+# ========================
+telegram_ready = False
 # ----------------------
 # Login Status Flag
 # ----------------------
@@ -327,6 +331,50 @@ def register():
     except Exception as e:
         return jsonify({'status': 'error', 'message': str(e)})
 
+# ----------------------
+# TELEGRAM
+# ----------------------
+@app.route('/telegram-auth')
+def telegram_auth_page():
+    if 'user' not in session:
+        return redirect(url_for('login_page'))
+    return render_template('telegram_auth.html')
+
+@app.route('/telegram/send-code', methods=['POST'])
+def telegram_send_code():
+    from Telegram.telegram import _client, _loop
+    data  = request.get_json()
+    phone = data.get('phone', '').strip()
+    try:
+        future = asyncio.run_coroutine_threadsafe(
+            _client.send_code_request(phone), _loop
+        )
+        future.result(timeout=15)
+        app.config['telegram_phone'] = phone
+        return jsonify({'status': 'ok'})
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)})
+
+@app.route('/telegram/verify-otp', methods=['POST'])
+def telegram_verify_otp():
+    global telegram_ready
+    from Telegram.telegram import _client, _loop
+    data  = request.get_json()
+    phone = data.get('phone', app.config.get('telegram_phone', ''))
+    otp   = data.get('otp', '').strip()
+    try:
+        future = asyncio.run_coroutine_threadsafe(
+            _client.sign_in(phone, otp), _loop
+        )
+        future.result(timeout=15)
+        telegram_ready = True
+        return jsonify({'status': 'ok'})
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)})
+
+@app.route('/telegram/status')
+def telegram_status():
+    return jsonify({'ready': telegram_ready})
 # ----------------------
 # ROUTE TO SERVE RANDOM AUDIO SUGGESTION
 # ----------------------    

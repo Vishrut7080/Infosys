@@ -57,35 +57,26 @@ def _get_name(entity) -> str:
 async def _init_client(phone_callback=None, code_callback=None):
     global _client
     _client = TelegramClient(
-        SESSION_FILE,
-        API_ID,
-        API_HASH,
-        device_model="Desktop",
-        system_version="Windows 10",
-        app_version="1.0",
-        lang_code="en",
-        system_lang_code="en",
+        SESSION_FILE, API_ID, API_HASH,
+        device_model="Desktop", system_version="Windows 10",
+        app_version="1.0", lang_code="en", system_lang_code="en",
         request_retries=1,
     )
-
     await _client.connect()
 
     if await _client.is_user_authorized():
         print('[Telegram] Session found. Logged in automatically.')
         return
 
-    # No session — authenticate via voice or terminal
-    # Disable browser-based QR login by handling auth manually
-    try:
-        phone = phone_callback() if phone_callback else input('Enter phone number: ')
-        sent  = await _client.send_code_request(phone)
-        code  = code_callback() if code_callback else input('Enter OTP: ')
-        await _client.sign_in(phone, code)
-        print('[Telegram] Signed in successfully.')
-
-    except Exception as e:
-        print(f'[Telegram] Auth error: {e}')
-        raise
+    # Not authorized — web page will handle phone + OTP
+    print('[Telegram] Not authorized. Waiting for web login...')
+    # Wait up to 120 seconds for web login to complete
+    for _ in range(240):
+        await asyncio.sleep(0.5)
+        if await _client.is_user_authorized():
+            print('[Telegram] Authorized via web login.')
+            return
+    print('[Telegram] Auth timeout.')
 
 # ----------------------
 # Async: Fetch latest N conversations
