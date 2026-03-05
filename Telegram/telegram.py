@@ -64,29 +64,28 @@ async def _init_client(phone_callback=None, code_callback=None):
         system_version="Windows 10",
         app_version="1.0",
         lang_code="en",
-        system_lang_code="en"
+        system_lang_code="en",
+        request_retries=1,
     )
 
-    # If session file already exists, just connect silently
-    if os.path.exists(SESSION_FILE + '.session'):
-        await _client.connect()
-        if await _client.is_user_authorized():
-            print('[Telegram] Session found. Logged in automatically.')
-            return
-
-    # First run — need phone + OTP
     await _client.connect()
 
-    if not await _client.is_user_authorized():
-        # Get phone number via callback (voice) or fallback to input()
-        phone = phone_callback() if phone_callback else input('Enter phone number: ')
-        await _client.send_code_request(phone)
+    if await _client.is_user_authorized():
+        print('[Telegram] Session found. Logged in automatically.')
+        return
 
-        # Get OTP via callback (voice) or fallback to input()
-        code = code_callback() if code_callback else input('Enter OTP: ')
+    # No session — authenticate via voice or terminal
+    # Disable browser-based QR login by handling auth manually
+    try:
+        phone = phone_callback() if phone_callback else input('Enter phone number: ')
+        sent  = await _client.send_code_request(phone)
+        code  = code_callback() if code_callback else input('Enter OTP: ')
         await _client.sign_in(phone, code)
         print('[Telegram] Signed in successfully.')
 
+    except Exception as e:
+        print(f'[Telegram] Auth error: {e}')
+        raise
 
 # ----------------------
 # Async: Fetch latest N conversations

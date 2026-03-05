@@ -112,7 +112,14 @@ def set_typing():
 @app.route('/check')
 def check_login():
     global login_status
-    print('Flask sees:', login_status)  # debug
+    print('Flask sees:', login_status)
+    # For audio login — session isn't set by a form/OAuth
+    # so we set a minimal session here so /dashboard doesn't reject it
+    if login_status == 'success' and 'user' not in session:
+        session['user'] = {
+            'name' : 'User',
+            'email': app.config.get('current_email', ''),
+        }
     return login_status
 
 # Handle Keyboard Login

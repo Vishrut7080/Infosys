@@ -17,6 +17,7 @@ SECRET_AUD = os.getenv('SECRET_AUD', '')
 # VARIABLES
 # ----------------------
 typing_pause_until = 0
+awaiting_services = False
 heard=""
 # Initialize to track the login; a sort of flag
 login_initiated = False
@@ -211,28 +212,31 @@ with open('Audio/Transcribe.txt','a') as file:
         # Check if OAuth/browser login completed between recordings
         if login_initiated and web_login.login_status == "success":
             login_initiated = False
+            awaiting_services = True
             speak_text('[System]: Please select your services on the dashboard.')
-            for _ in range(60):
-                if web_login.selected_services:
-                    break
+            continue
+
+        if awaiting_services:
+            print(f'[Debug] awaiting_services=True, selected={web_login.selected_services}')
+            if web_login.selected_services:
+                awaiting_services = False
+                services = web_login.selected_services
+        
+                if 'telegram' in services:
+                    speak_text('[System]: Starting Telegram.')
+                    if API_ID and API_HASH:
+                        start_telegram_in_thread(
+                            phone_callback=get_phone_by_voice,
+                            code_callback=get_otp_by_voice
+                        )
+        
+                if 'gmail' in services:
+                    speak_text('[System]: Gmail ready.')
+        
+                speak_text(f'[System]: Connected: {", ".join(services)}. Ready.')
+            else:
                 time.sleep(0.5)
-
-            services = web_login.selected_services
-
-            if 'telegram' in services:
-                speak_text('[System]: Starting Telegram.')
-                if API_ID and API_HASH:
-                    start_telegram_in_thread(
-                        phone_callback=get_phone_by_voice,
-                        code_callback=get_otp_by_voice
-                    )
-
-            if 'gmail' in services:
-                speak_text('[System]: Gmail ready.')
-
-            speak_text(f'[System]: Connected: {", ".join(services)}. Ready.')
-            continue      
-
+            continue
         
         # Skip audio processing if user is actively typing in browser
         if web_login.user_typing:
@@ -247,12 +251,34 @@ with open('Audio/Transcribe.txt','a') as file:
         heard=listen_text()
 
         # Check if OAuth/browser login completed DURING the 5s recording window
-        # Discard whatever was recorded — it's irrelevant noise
         if login_initiated and web_login.login_status == "success":
             login_initiated = False
-            speak_text('[System]: Login successful.')
+            awaiting_services = True
+            speak_text('[System]: Please select your services on the dashboard.')
             continue
 
+        if awaiting_services:
+            print(f'[Debug] awaiting_services=True, selected={web_login.selected_services}')
+            if web_login.selected_services:
+                awaiting_services = False
+                services = web_login.selected_services
+
+                if 'telegram' in services:
+                    speak_text('[System]: Starting Telegram.')
+                    if API_ID and API_HASH:
+                        start_telegram_in_thread(
+                            phone_callback=get_phone_by_voice,
+                            code_callback=get_otp_by_voice
+                        )
+
+                if 'gmail' in services:
+                    speak_text('[System]: Gmail ready.')
+
+                speak_text(f'[System]: Connected: {", ".join(services)}. Ready.')
+            else:
+                time.sleep(0.5)
+            continue
+        
         speak_text(f'[User]: {heard}')
         # normalize text
         clean_heard = heard.lower().strip().replace('.', '')
@@ -296,16 +322,20 @@ with open('Audio/Transcribe.txt','a') as file:
         # ----------------------
         elif login_initiated and clean_heard.strip() in confirmation_words:
             login_initiated = False
-            # Check spoken word against database audio passwords
             matched, name = verify_audio(clean_heard.strip())
             if matched:
                 speak_text(f'[System]: Welcome, {name}. Login confirmed.')
                 web_login.login_status = "success"
+                web_login.app.config['current_email'] = os.getenv('EMAIL_USER', '')
+                awaiting_services = True                          # ← ADD
+                speak_text('[System]: Please select your services on the dashboard.')  # ← ADD
             else:
-                # Fall back to SECRET_AUD from .env for owner/admin
                 if clean_heard.strip().lower() == SECRET_AUD.lower().strip():
                     speak_text('[System]: Login confirmed.')
                     web_login.login_status = "success"
+                    web_login.app.config['current_email'] = os.getenv('EMAIL_USER', '')
+                    awaiting_services = True                      # ← ADD
+                    speak_text('[System]: Please select your services on the dashboard.')  # ← ADD
                 else:
                     speak_text('[System]: Audio password not recognised. Login cancelled.')
                     web_login.login_status = "failed"
