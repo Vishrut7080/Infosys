@@ -14,6 +14,7 @@ uv.lock
 Transcribe.txt
 list_of_voices.py
 telegram_session.session
+telegram_session.session-journal
 
 # Variables
 .env

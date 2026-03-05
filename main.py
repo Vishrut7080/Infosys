@@ -1,10 +1,10 @@
 from Audio.text_to_speech import speak_text
 from Audio.speech_to_text import listen_text
-from Mail.email_handler import open_gmail_compose, get_top_senders, suggest_reply
+from Mail.email_handler import open_gmail_compose, get_top_senders
 from Mail.email_sender import compose_email_by_voice, send_reply_direct, reply_email_by_voice
 from Backend.database import verify_audio, get_user_by_email, update_name, update_password, update_audio, delete_user
 import Mail.web_login as web_login
-import threading, webbrowser
+import threading, webbrowser, requests
 from dotenv import load_dotenv
 import os,time, datetime, random, re
 from Telegram.telegram import start_telegram_in_thread, telegram_get_messages, telegram_send_message, telegram_get_latest, set_notification_callback
@@ -200,39 +200,70 @@ def handle_reply(email_data: dict):
     result = reply_email_by_voice(reply_to, subject, msg_id)
     speak_text(result)
 
-def handle_telegram_reply(recipient: str, original_message: str):
-    """AI-suggested reply for Telegram messages."""
-    speak_text('[System]: Generating a suggested reply...')
-    
-    # Use Claude to suggest a reply
+def generate_local_reply(message: str):
+    """
+    Uses local Ollama model to generate a Telegram reply suggestion.
+    """
+
     try:
-        import anthropic
-        client = anthropic.Anthropic(api_key=os.getenv('ANTHROPIC_API_KEY'))
-        response = client.messages.create(
-            model='claude-sonnet-4-20250514',
-            max_tokens=100,
-            messages=[{
-                'role': 'user',
-                'content': f'Suggest a short, natural reply (1-2 sentences) to this Telegram message: "{original_message}". Return only the reply text.'
-            }]
+        response = requests.post(
+            "http://localhost:11434/api/generate",
+            json={
+                "model": "gemma3:1b",
+                "prompt": f"""
+You are an AI assistant helping reply to Telegram messages.
+
+Write a short natural reply (1–2 sentences).
+
+Message:
+{message}
+
+Reply:
+""",
+                "stream": False
+            },
+            timeout=30
         )
-        suggestion = response.content[0].text.strip()
+
+        data = response.json()
+        return data.get("response", "").strip()
+
+    except Exception as e:
+        print("Ollama error:", e)
+        return None
+
+def handle_telegram_reply(recipient: str, original_message: str):
+    """AI-suggested reply for Telegram messages using local Ollama."""
+
+    speak_text('[System]: Generating a suggested reply...')
+
+    suggestion = generate_local_reply(original_message)
+
+    if suggestion:
+
         speak_text(f'[System]: Suggested reply: {suggestion}. Send this?')
+
         confirm = listen_text().lower().strip()
         speak_text(f'[User]: {confirm}')
+
         if any(w in confirm for w in affirmation):
             success, result = telegram_send_message(recipient, suggestion)
             speak_text(f'[System]: {result}')
             return
+
         speak_text('[System]: Ok, what would you like to say instead?')
-    except Exception:
+
+    else:
         speak_text('[System]: Could not generate suggestion. What would you like to say?')
 
-    # Custom reply
+    # Custom voice reply
     message = listen_text(duration=10).strip()
+
     speak_text(f'[User]: {message}')
     speak_text(f'[System]: Sending to {recipient}: {message}. Confirm?')
+
     confirm = listen_text().lower().strip()
+
     if any(w in confirm for w in affirmation):
         success, result = telegram_send_message(recipient, message)
         speak_text(f'[System]: {result}')
@@ -379,7 +410,7 @@ with open('Audio/Transcribe.txt','a') as file:
         # ----------------------
         # LOGIN COMMAND
         # ----------------------
-        elif 'login' in clean_heard:
+        elif 'login' in clean_heard or 'log in' in clean_heard:
             # Don't allow login if already logged in
             if web_login.login_status == "success":
                 speak_text('[System]: You are already logged in.')
@@ -491,18 +522,38 @@ with open('Audio/Transcribe.txt','a') as file:
         elif web_login.login_status == "success" and 'telegram' in clean_heard and any(w in clean_heard for w in inbox_req + ['message', 'messages']):
             speak_text('[System]: Fetching your Telegram messages.')
             messages = telegram_get_messages(5)
+            
             if not messages:
                 speak_text('[System]: No Telegram messages found.')
             else:
                 for i, msg in enumerate(messages, 1):
+                
+                    sender = msg['name']
+                    text   = msg['message']
+            
                     unread = f"{msg['unread']} unread." if msg['unread'] else ''
+            
                     speak_text(
                         f"Telegram {i}. "
-                        f"From: {msg['name']}. "
+                        f"From: {sender}. "
                         f"{unread}"
-                        f"Message: {msg['message']}. "
+                        f"Message: {text}. "
                         f"Date: {msg['date']}."
                     )
+            
+                    # ----------------------
+                    # ASK IF USER WANTS TO REPLY
+                    # ----------------------
+                    speak_text('[System]: Would you like to reply to this message?')
+                    reply_decision = listen_text().lower().strip()
+                    speak_text(f'[User]: {reply_decision}')
+            
+                    if any(word in reply_decision for word in affirmation):
+                    
+                        handle_telegram_reply(sender, text)
+            
+                    else:
+                        speak_text('[System]: Okay, moving to the next message.')
             continue
         
         # ----------------------
