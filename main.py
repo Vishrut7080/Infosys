@@ -177,7 +177,7 @@ def handle_reply(email_data: dict):
 
     # Step 1 — Generate AI suggestion
     speak_text('[System]: Analysing email and generating a suggested reply...')
-    suggestion = suggest_reply(reply_to, subject, body)
+    suggestion = generate_local_reply(f"From: {reply_to}\nSubject: {subject}\n\n{body}")
 
     if suggestion:
         speak_text(f'[System]: Suggested reply: {suggestion}. Shall I send this?')
