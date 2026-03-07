@@ -162,7 +162,8 @@ def compose_email_by_voice() -> str:
 
     # ── Step 1: Recipient ──
     speak_text('[System]: Please say the recipient email address.')
-    recipient = listen_text(duration=6).strip()
+    recipient, _ = listen_text(duration=6)
+    recipient = recipient.strip()
     speak_text(f'[User]: {recipient}')
 
     # Voice recognition often adds spaces in emails (e.g. "john @ gmail . com")
@@ -173,7 +174,8 @@ def compose_email_by_voice() -> str:
         speak_text(f'[System]: That doesn\'t look like a valid email address: {recipient}. Please try again.')
         # One retry
         speak_text('[System]: Please say the recipient email address again.')
-        recipient = listen_text(duration=6).strip()
+        recipient, _ = listen_text(duration=6)
+        recipient = recipient.strip()
         speak_text(f'[User]: {recipient}')
         recipient_clean = recipient.replace(' ', '').lower()
 
@@ -182,7 +184,8 @@ def compose_email_by_voice() -> str:
 
     # ── Step 2: Subject ──
     speak_text('[System]: What is the subject of your email?')
-    subject = listen_text(duration=6).strip()
+    subject, _ = listen_text(duration=6)
+    subject = subject.strip()
     speak_text(f'[User]: {subject}')
 
     if not subject or subject.startswith('[System]'):
@@ -190,7 +193,8 @@ def compose_email_by_voice() -> str:
 
     # ── Step 3: Body ──
     speak_text('[System]: Please say your message.')
-    body = listen_text(duration=10).strip()   # longer duration for message body
+    body, _ = listen_text(duration=10)
+    body = body.strip()   # longer duration for message body
     speak_text(f'[User]: {body}')
 
     if not body or body.startswith('[System]'):
@@ -206,7 +210,8 @@ def compose_email_by_voice() -> str:
         f'Shall I send this email?'
     )
 
-    confirm = listen_text(duration=5).lower().strip().replace('.', '')
+    confirm, _ = listen_text(duration=5)
+    confirm = confirm.lower().strip().replace('.', '')
     speak_text(f'[User]: {confirm}')
 
     if any(word in confirm for word in CONFIRM_WORDS):
@@ -252,7 +257,8 @@ def send_reply_direct(reply_to: str, subject: str, msg_id: str, body: str) -> st
 def reply_email_by_voice(reply_to: str, original_subject: str, original_msg_id: str) -> str:
     try:
         speak_text('[System]: What would you like to say in your reply?')
-        body = listen_text(duration=10).strip()
+        body, _ = listen_text(duration=10)
+        body = body.strip()
         if not body:
             return '[System]: No reply content heard. Cancelled.'
         speak_text(f'[User]: {body}')

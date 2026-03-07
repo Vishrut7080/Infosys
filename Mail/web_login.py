@@ -385,6 +385,56 @@ def suggest_audio():
     word = database.suggest_audio_word()
     return jsonify({'word': word})
 
+@app.route('/get-stats')
+def get_stats():
+    if 'user' not in session:
+        return jsonify({'emails': 0, 'commands': 0, 'sessions': 0})
+    try:
+        with open('Audio/Transcribe.txt', 'r', encoding='utf-8') as f:
+            commands = len([l for l in f.readlines() if l.strip()])
+    except:
+        commands = 0
+    return jsonify({'emails': 0, 'commands': commands, 'sessions': 1})
+
+@app.route('/get-inbox')
+def get_inbox():
+    if 'user' not in session:
+        return jsonify({'messages': []})
+    messages = []
+
+    try:
+        from Telegram.telegram import telegram_get_messages
+        tg_msgs = telegram_get_messages(5)
+        for m in tg_msgs:
+            messages.append({
+                'source': 'telegram',
+                'from': m['name'],
+                'to': 'me',
+                'text': m['message'],
+                'dir': 'incoming',
+                'time': m['date']
+            })
+    except Exception as e:
+        print(f'[Inbox] Telegram error: {e}')
+
+    try:
+        from Mail.email_handler import get_top_senders
+        emails = get_top_senders(count=5)
+        for e in emails:
+            if 'error' not in e:
+                messages.append({
+                    'source': 'gmail',
+                    'from': e['sender'],
+                    'to': 'me',
+                    'text': e['subject'],
+                    'dir': 'incoming',
+                    'time': e['date']
+                })
+    except Exception as e:
+        print(f'[Inbox] Gmail error: {e}')
+
+    return jsonify({'messages': messages})
+
 # ----------------------
 # START SERVER
 # ----------------------

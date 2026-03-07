@@ -246,6 +246,7 @@ def get_top_senders(count: int = FETCH_COUNT, category: str='ALL'):
                 'date':    date_str,
                 'summary': summary,
                 'details': details,
+                'msg_id':  msg.get('Message-ID', '')
             })
 
         mail.logout()

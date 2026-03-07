@@ -316,14 +316,14 @@ def handle_reply(email_data: dict):
         speak_text(f'[User]: {response}')
         if any(w in response for w in affirmation):
             speak_text(r('suggest_sending'), lang=user_lang)
-            result = reply_email_by_voice(reply_to, subject, None)
+            result = reply_email_by_voice(reply_to, subject, email_data.get('msg_id', ''))
             speak_text(result)
             return
         speak_text(r('suggest_custom'), lang=user_lang)
     else:
         speak_text(r('suggest_failed'), lang=user_lang)
 
-    result = reply_email_by_voice(reply_to, subject, None)
+    result = reply_email_by_voice(reply_to, subject, email_data.get('msg_id', ''))
     speak_text(result)
 
 def handle_telegram_reply(recipient: str, original_message: str):
