@@ -7,17 +7,19 @@
 }
 
 :root {
-    --bg: #0f0f13;
-    --surface: #17171d;
+    --bg: #0a080f;
+    --surface: #130f1c;
     --border: rgba(255, 255, 255, 0.07);
     --border-hi: rgba(255, 255, 255, 0.13);
-    --accent: #6c63ff;
-    --accent-lo: rgba(108, 99, 255, 0.15);
-    --text-1: #ededf0;
-    --text-2: #7f7f99;
-    --text-3: #44445a;
-    --green: #4ade80;
-    --red: #f87171;
+    --accent: #f72585;
+    --accent2: #ffe600;
+    --accent3: #00f5d4;
+    --accent-lo: rgba(247, 37, 133, 0.12);
+    --text-1: #f0eaf8;
+    --text-2: #7a6e8a;
+    --text-3: #3e3550;
+    --green: #00f5d4;
+    --red: #ff3a3a;
 }
 
 html,
@@ -32,14 +34,24 @@ body {
     overflow: hidden;
 }
 
-/* ── SUBTLE GRID BACKGROUND ── */
+/* ── GRID + GLOW BACKGROUND ── */
 .bg-grid {
     position: fixed;
     inset: 0;
     background-image:
-        linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+        linear-gradient(rgba(247, 37, 133, 0.025) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(247, 37, 133, 0.025) 1px, transparent 1px);
     background-size: 48px 48px;
+    pointer-events: none;
+}
+
+.bg-grid::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background:
+        radial-gradient(ellipse at 20% 50%, rgba(247, 37, 133, 0.06) 0%, transparent 60%),
+        radial-gradient(ellipse at 80% 20%, rgba(255, 230, 0, 0.04) 0%, transparent 50%);
     pointer-events: none;
 }
 
@@ -59,6 +71,20 @@ body {
     padding: 52px 56px;
     border-right: 1px solid var(--border);
     animation: fadeLeft 0.7s ease both;
+    position: relative;
+    overflow: hidden;
+}
+
+.left::before {
+    content: '';
+    position: absolute;
+    bottom: -80px;
+    left: -80px;
+    width: 360px;
+    height: 360px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(247, 37, 133, 0.07) 0%, transparent 70%);
+    pointer-events: none;
 }
 
 @keyframes fadeLeft {
@@ -91,17 +117,22 @@ body {
     height: 7px;
     border-radius: 50%;
     background: var(--accent);
-    opacity: 0.9;
+}
+
+.dot:nth-child(1) {
+    box-shadow: 0 0 8px var(--accent);
 }
 
 .dot:nth-child(2) {
-    opacity: 0.5;
-    transform: scale(0.8);
+    background: var(--accent2);
+    opacity: 0.7;
+    transform: scale(0.85);
 }
 
 .dot:nth-child(3) {
-    opacity: 0.25;
-    transform: scale(0.6);
+    background: var(--accent3);
+    opacity: 0.5;
+    transform: scale(0.65);
 }
 
 .brand-name {
@@ -131,7 +162,10 @@ body {
 
 .tagline h1 em {
     font-style: normal;
-    color: var(--accent);
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
 }
 
 .tagline p {
@@ -167,6 +201,12 @@ body {
     justify-content: center;
     font-size: 13px;
     flex-shrink: 0;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.feature:hover .feature-icon {
+    border-color: rgba(247, 37, 133, 0.35);
+    box-shadow: 0 0 10px rgba(247, 37, 133, 0.1);
 }
 
 .left-footer {
@@ -183,6 +223,7 @@ body {
     height: 7px;
     border-radius: 50%;
     background: var(--green);
+    box-shadow: 0 0 6px var(--green);
     position: relative;
     flex-shrink: 0;
 }
@@ -334,7 +375,7 @@ input:focus {
 .btn-submit {
     width: 100%;
     padding: 12px 18px;
-    background: var(--accent);
+    background: linear-gradient(135deg, var(--accent), #c4006a);
     border: none;
     border-radius: 8px;
     color: white;
@@ -349,12 +390,26 @@ input:focus {
     transition: all 0.18s;
     margin-top: 8px;
     letter-spacing: 0.01em;
+    position: relative;
+    overflow: hidden;
+}
+
+.btn-submit::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, rgba(255, 230, 0, 0.18), transparent);
+    opacity: 0;
+    transition: opacity 0.2s;
 }
 
 .btn-submit:hover {
-    background: #7b74ff;
     transform: translateY(-1px);
-    box-shadow: 0 4px 16px rgba(108, 99, 255, 0.35);
+    box-shadow: 0 4px 22px rgba(247, 37, 133, 0.45);
+}
+
+.btn-submit:hover::after {
+    opacity: 1;
 }
 
 .btn-submit:active {
@@ -390,7 +445,7 @@ input:focus {
 }
 
 .card-footer a:hover {
-    color: #9b95ff;
+    color: #ff6eb0;
 }
 
 /* ── AUDIO NOTE ── */
@@ -400,15 +455,18 @@ input:focus {
     gap: 8px;
     margin-top: 20px;
     padding: 10px 14px;
-    border: 1px dashed var(--border);
+    border: 1px dashed rgba(247, 37, 133, 0.22);
     border-radius: 7px;
     font-size: 12px;
     color: var(--text-3);
     line-height: 1.4;
+    background: rgba(247, 37, 133, 0.03);
 }
 
 .audio-note svg {
     flex-shrink: 0;
+    color: var(--accent);
+    opacity: 0.6;
 }
 
 /* ── RESPONSIVE ── */

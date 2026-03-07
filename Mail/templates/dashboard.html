@@ -2,119 +2,956 @@
 <html lang="en">
 
 <head>
-    <title>Assistant — Dashboard</title>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>VoiceMail AI — Dashboard</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link
-        href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@300;400;500&display=swap"
+        href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap"
         rel="stylesheet">
-    <link rel="stylesheet" href="{{ url_for('static', filename='dashboard.css') }}">
+    <style>
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        :root {
+            --bg: #0a080f;
+            --surface: #130f1c;
+            --border: rgba(255, 255, 255, 0.07);
+            --accent: #f72585;
+            --accent2: #ffe600;
+            --accent3: #00f5d4;
+            --danger: #ff3a3a;
+            --text: #f0eaf8;
+            --muted: #6b5f80;
+            --sidebar-w: 260px;
+        }
+
+        html,
+        body {
+            height: 100%;
+            background: var(--bg);
+            color: var(--text);
+            font-family: 'DM Sans', sans-serif;
+            overflow: hidden;
+        }
+
+        /* ─── SIDEBAR ─────────────────────────────── */
+        .sidebar {
+            position: fixed;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: var(--sidebar-w);
+            background: var(--surface);
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            padding: 28px 0;
+            z-index: 10;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 0 24px 28px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .logo-icon {
+            width: 36px;
+            height: 36px;
+            border-radius: 10px;
+            background: linear-gradient(135deg, var(--accent), var(--accent2));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+        }
+
+        .logo-text {
+            font-family: 'Syne', sans-serif;
+            font-weight: 800;
+            font-size: 15px;
+            letter-spacing: -0.3px;
+        }
+
+        .logo-text span {
+            color: var(--accent);
+        }
+
+        .user-card {
+            margin: 20px 16px;
+            padding: 14px;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+        }
+
+        .user-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--accent), var(--accent2));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Syne', sans-serif;
+            font-weight: 700;
+            font-size: 15px;
+            margin-bottom: 10px;
+        }
+
+        .user-name {
+            font-family: 'Syne', sans-serif;
+            font-weight: 700;
+            font-size: 14px;
+        }
+
+        .user-email {
+            font-size: 11px;
+            color: var(--muted);
+            margin-top: 2px;
+            word-break: break-all;
+        }
+
+        .nav {
+            flex: 1;
+            padding: 8px 0;
+        }
+
+        .nav-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 11px 24px;
+            font-size: 13.5px;
+            font-weight: 500;
+            color: var(--muted);
+            cursor: pointer;
+            border-left: 2px solid transparent;
+            transition: all 0.18s;
+            text-decoration: none;
+        }
+
+        .nav-item:hover {
+            color: var(--text);
+            background: rgba(255, 255, 255, 0.03);
+        }
+
+        .nav-item.active {
+            color: var(--accent);
+            background: rgba(247, 37, 133, 0.08);
+            border-left-color: var(--accent);
+        }
+
+        .nav-icon {
+            font-size: 16px;
+            width: 20px;
+            text-align: center;
+        }
+
+        .sidebar-footer {
+            padding: 16px 16px 0;
+            border-top: 1px solid var(--border);
+        }
+
+        .logout-btn {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 12px;
+            border-radius: 8px;
+            color: var(--danger);
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background 0.18s;
+            text-decoration: none;
+        }
+
+        .logout-btn:hover {
+            background: rgba(255, 58, 58, 0.08);
+        }
+
+        .status-pill {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 5px 10px;
+            background: rgba(0, 245, 212, 0.08);
+            border: 1px solid rgba(0, 245, 212, 0.25);
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 500;
+            color: var(--accent3);
+            width: fit-content;
+            margin: 0 16px 16px;
+        }
+
+        .status-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: var(--accent3);
+            box-shadow: 0 0 6px var(--accent3);
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                opacity: 1
+            }
+
+            50% {
+                opacity: 0.4
+            }
+        }
+
+        /* ─── MAIN ─────────────────────────────────── */
+        .main {
+            margin-left: var(--sidebar-w);
+            height: 100vh;
+            overflow-y: auto;
+            padding: 36px 40px;
+        }
+
+        .page {
+            display: none;
+        }
+
+        .page.active {
+            display: block;
+        }
+
+        /* ─── PAGE HEADER ───────────────────────────── */
+        .page-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 32px;
+        }
+
+        .page-title {
+            font-family: 'Syne', sans-serif;
+            font-weight: 800;
+            font-size: 28px;
+            letter-spacing: -0.5px;
+        }
+
+        .page-sub {
+            font-size: 13px;
+            color: var(--muted);
+            margin-top: 4px;
+        }
+
+        /* ─── STAT CARDS ────────────────────────────── */
+        .stats-row {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 16px;
+            margin-bottom: 28px;
+        }
+
+        .stat-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 20px 22px;
+            position: relative;
+            overflow: hidden;
+            transition: border-color 0.2s, transform 0.2s;
+        }
+
+        .stat-card:hover {
+            border-color: rgba(247, 37, 133, 0.3);
+            transform: translateY(-2px);
+        }
+
+        .stat-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, var(--accent), var(--accent2));
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+
+        .stat-card:hover::before {
+            opacity: 1;
+        }
+
+        .stat-label {
+            font-size: 10px;
+            font-weight: 600;
+            letter-spacing: 1.2px;
+            text-transform: uppercase;
+            color: var(--muted);
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .stat-icon {
+            font-size: 14px;
+        }
+
+        .stat-value {
+            font-family: 'Syne', sans-serif;
+            font-weight: 800;
+            font-size: 36px;
+            letter-spacing: -1px;
+        }
+
+        /* ─── VOICE COMMAND CENTER ──────────────────── */
+        .voice-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 32px;
+            margin-bottom: 28px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .voice-card::after {
+            content: '';
+            position: absolute;
+            bottom: -60px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 300px;
+            height: 120px;
+            background: radial-gradient(ellipse, rgba(247, 37, 133, 0.1) 0%, transparent 70%);
+            pointer-events: none;
+        }
+
+        .voice-title {
+            font-family: 'Syne', sans-serif;
+            font-weight: 700;
+            font-size: 18px;
+            margin-bottom: 6px;
+        }
+
+        .voice-sub {
+            font-size: 13px;
+            color: var(--muted);
+            margin-bottom: 28px;
+        }
+
+        .waveform {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+            height: 52px;
+            margin-bottom: 28px;
+        }
+
+        .wave-bar {
+            width: 3px;
+            border-radius: 3px;
+            background: linear-gradient(180deg, var(--accent2), var(--accent));
+            height: 8px;
+            transition: height 0.1s;
+        }
+
+        .waveform.active .wave-bar {
+            animation: wave 0.8s ease-in-out infinite;
+        }
+
+        .wave-bar:nth-child(1) {
+            animation-delay: 0.00s;
+        }
+
+        .wave-bar:nth-child(2) {
+            animation-delay: 0.07s;
+        }
+
+        .wave-bar:nth-child(3) {
+            animation-delay: 0.14s;
+        }
+
+        .wave-bar:nth-child(4) {
+            animation-delay: 0.21s;
+        }
+
+        .wave-bar:nth-child(5) {
+            animation-delay: 0.28s;
+        }
+
+        .wave-bar:nth-child(6) {
+            animation-delay: 0.35s;
+        }
+
+        .wave-bar:nth-child(7) {
+            animation-delay: 0.42s;
+        }
+
+        .wave-bar:nth-child(8) {
+            animation-delay: 0.35s;
+        }
+
+        .wave-bar:nth-child(9) {
+            animation-delay: 0.28s;
+        }
+
+        .wave-bar:nth-child(10) {
+            animation-delay: 0.21s;
+        }
+
+        .wave-bar:nth-child(11) {
+            animation-delay: 0.14s;
+        }
+
+        .wave-bar:nth-child(12) {
+            animation-delay: 0.07s;
+        }
+
+        @keyframes wave {
+
+            0%,
+            100% {
+                height: 8px;
+            }
+
+            50% {
+                height: 44px;
+            }
+        }
+
+        .voice-btns {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+            margin-bottom: 20px;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 11px 24px;
+            border-radius: 10px;
+            font-size: 13.5px;
+            font-weight: 600;
+            font-family: 'DM Sans', sans-serif;
+            cursor: pointer;
+            border: none;
+            transition: all 0.18s;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--accent), var(--accent2));
+            color: #0a080f;
+        }
+
+        .btn-primary:hover {
+            filter: brightness(1.1);
+            transform: translateY(-1px);
+            box-shadow: 0 6px 20px rgba(247, 37, 133, 0.35);
+        }
+
+        .btn-danger {
+            background: rgba(255, 58, 58, 0.12);
+            color: var(--danger);
+            border: 1px solid rgba(255, 58, 58, 0.2);
+        }
+
+        .btn-danger:hover {
+            background: rgba(255, 58, 58, 0.2);
+        }
+
+        .voice-status {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 12.5px;
+            color: var(--muted);
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--border);
+            padding: 8px 16px;
+            border-radius: 20px;
+        }
+
+        .voice-status.listening {
+            color: var(--accent);
+            border-color: rgba(247, 37, 133, 0.3);
+        }
+
+        /* ─── UNIFIED INBOX ─────────────────────────── */
+        .inbox-filters {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 20px;
+        }
+
+        .filter-pill {
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 500;
+            border: 1px solid var(--border);
+            color: var(--muted);
+            cursor: pointer;
+            transition: all 0.15s;
+            background: transparent;
+        }
+
+        .filter-pill.active,
+        .filter-pill:hover {
+            background: rgba(247, 37, 133, 0.1);
+            border-color: rgba(247, 37, 133, 0.35);
+            color: var(--accent);
+        }
+
+        .msg-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .msg-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 16px 20px;
+            cursor: pointer;
+            transition: all 0.18s;
+            display: grid;
+            grid-template-columns: auto 1fr auto;
+            gap: 14px;
+            align-items: start;
+        }
+
+        .msg-card:hover {
+            border-color: rgba(255, 255, 255, 0.1);
+            background: rgba(255, 255, 255, 0.02);
+            transform: translateX(2px);
+        }
+
+        .msg-source-badge {
+            padding: 3px 9px;
+            border-radius: 6px;
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: 0.8px;
+            text-transform: uppercase;
+            margin-top: 2px;
+            white-space: nowrap;
+        }
+
+        .badge-whatsapp {
+            background: rgba(37, 211, 102, 0.12);
+            color: #25d366;
+        }
+
+        .badge-telegram {
+            background: rgba(91, 140, 255, 0.12);
+            color: var(--accent2);
+        }
+
+        .badge-gmail {
+            background: rgba(234, 67, 53, 0.12);
+            color: #ea4335;
+        }
+
+        .msg-body {
+            min-width: 0;
+        }
+
+        .msg-route {
+            font-size: 11.5px;
+            color: var(--muted);
+            margin-bottom: 4px;
+        }
+
+        .msg-route strong {
+            color: var(--text);
+        }
+
+        .msg-text {
+            font-size: 14px;
+            color: var(--text);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .msg-dir {
+            font-size: 11px;
+            color: var(--muted);
+            margin-top: 4px;
+        }
+
+        .msg-time {
+            font-size: 11px;
+            color: var(--muted);
+            white-space: nowrap;
+            padding-top: 3px;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--muted);
+            font-size: 14px;
+        }
+
+        .empty-icon {
+            font-size: 36px;
+            margin-bottom: 12px;
+        }
+
+        /* ─── PROFILE PAGE ──────────────────────────── */
+        .profile-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+        }
+
+        .profile-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 24px;
+        }
+
+        .profile-card-title {
+            font-family: 'Syne', sans-serif;
+            font-weight: 700;
+            font-size: 13px;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+            color: var(--muted);
+            margin-bottom: 16px;
+        }
+
+        .profile-field {
+            margin-bottom: 14px;
+        }
+
+        .field-label {
+            font-size: 11px;
+            color: var(--muted);
+            margin-bottom: 4px;
+        }
+
+        .field-value {
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        /* ─── SCROLLBAR ─────────────────────────────── */
+        .main::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        .main::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .main::-webkit-scrollbar-thumb {
+            background: var(--border);
+            border-radius: 2px;
+        }
+
+        /* ─── ANIMATIONS ────────────────────────────── */
+        .page.active>* {
+            animation: fadeUp 0.3s ease both;
+        }
+
+        .page.active>*:nth-child(1) {
+            animation-delay: 0s;
+        }
+
+        .page.active>*:nth-child(2) {
+            animation-delay: 0.05s;
+        }
+
+        .page.active>*:nth-child(3) {
+            animation-delay: 0.10s;
+        }
+
+        @keyframes fadeUp {
+            from {
+                opacity: 0;
+                transform: translateY(12px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+    </style>
 </head>
 
 <body>
-    <div class="orb orb-1"></div>
-    <div class="orb orb-2"></div>
-    <div class="scanlines"></div>
 
-    <div class="container">
-        <div class="header">
-            <div class="brand">
-                <div class="brand-icon">
-                    <svg width="24" height="24" viewBox="0 0 32 32" fill="none">
-                        <circle cx="16" cy="16" r="15" stroke="currentColor" stroke-width="1.5" />
-                        <circle cx="16" cy="16" r="6" fill="currentColor" opacity="0.3" />
-                        <circle cx="16" cy="16" r="2.5" fill="currentColor" />
-                        <line x1="16" y1="1" x2="16" y2="8" stroke="currentColor" stroke-width="1.5" />
-                        <line x1="16" y1="24" x2="16" y2="31" stroke="currentColor" stroke-width="1.5" />
-                        <line x1="1" y1="16" x2="8" y2="16" stroke="currentColor" stroke-width="1.5" />
-                        <line x1="24" y1="16" x2="31" y2="16" stroke="currentColor" stroke-width="1.5" />
-                    </svg>
+    <!-- ─── SIDEBAR ─────────────────────────────────── -->
+    <aside class="sidebar">
+        <div class="logo">
+            <div class="logo-icon">🎙</div>
+            <div class="logo-text">VoiceMail <span>AI</span></div>
+        </div>
+
+        <div class="user-card">
+            <div class="user-avatar" id="avatarInitial">H</div>
+            <div class="user-name" id="sidebarName">{{ user.name }}</div>
+            <div class="user-email" id="sidebarEmail">{{ user.email }}</div>
+        </div>
+
+        <nav class="nav">
+            <a class="nav-item active" onclick="showPage('dashboard', this)">
+                <span class="nav-icon">⚡</span> Dashboard
+            </a>
+            <a class="nav-item" onclick="showPage('profile', this)">
+                <span class="nav-icon">👤</span> Profile
+            </a>
+            <a class="nav-item" onclick="showPage('inbox', this)">
+                <span class="nav-icon">📬</span> Unified Inbox
+            </a>
+        </nav>
+
+        <div class="status-pill">
+            <span class="status-dot"></span> System Online
+        </div>
+
+        <div class="sidebar-footer">
+            <a href="/logout" class="logout-btn">
+                <span>🔴</span> Logout
+            </a>
+        </div>
+    </aside>
+
+    <!-- ─── MAIN CONTENT ─────────────────────────────── -->
+    <main class="main">
+
+        <!-- DASHBOARD PAGE -->
+        <div class="page active" id="page-dashboard">
+            <div class="page-header">
+                <div>
+                    <div class="page-title">Dashboard</div>
+                    <div class="page-sub">Welcome back — your assistant is ready.</div>
                 </div>
-                <span class="brand-name">ASSISTANT</span>
             </div>
-            <div class="welcome">
-                <span class="welcome-label">SIGNED IN AS</span>
-                <span class="welcome-name">{{ user.name }}</span>
+
+            <div class="stats-row">
+                <div class="stat-card">
+                    <div class="stat-label"><span class="stat-icon">📧</span> Emails Read</div>
+                    <div class="stat-value" id="statEmails">—</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label"><span class="stat-icon">🎙</span> Commands</div>
+                    <div class="stat-value" id="statCommands">—</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label"><span class="stat-icon">⚡</span> Sessions</div>
+                    <div class="stat-value" id="statSessions">—</div>
+                </div>
+            </div>
+
+            <div class="voice-card">
+                <div class="voice-title">Voice Command Center</div>
+                <div class="voice-sub">Click start and speak your command clearly</div>
+
+                <div class="waveform" id="waveform">
+                    <div class="wave-bar"></div>
+                    <div class="wave-bar"></div>
+                    <div class="wave-bar"></div>
+                    <div class="wave-bar"></div>
+                    <div class="wave-bar"></div>
+                    <div class="wave-bar"></div>
+                    <div class="wave-bar"></div>
+                    <div class="wave-bar"></div>
+                    <div class="wave-bar"></div>
+                    <div class="wave-bar"></div>
+                    <div class="wave-bar"></div>
+                    <div class="wave-bar"></div>
+                </div>
+
+                <div class="voice-btns">
+                    <button class="btn btn-primary" onclick="startVoice()">🎙 Start Voice Command</button>
+                    <button class="btn btn-danger" onclick="stopVoice()">⏹ Stop</button>
+                </div>
+
+                <div class="voice-status" id="voiceStatus">
+                    🎧 Listening for your command...
+                </div>
             </div>
         </div>
 
-        <div class="main">
-            <div class="title-block">
-                <p class="section-label">UNIFIED INBOX</p>
-                <h1 class="title">Connect your <span class="accent">services</span></h1>
-                <p class="subtitle">Select the services you want your assistant to manage. You can change this anytime.
-                </p>
-            </div>
-
-            <div class="service-grid">
-                <!-- Gmail -->
-                <div class="service-card" data-service="gmail" onclick="toggleService(this)">
-                    <div class="card-icon gmail-icon">
-                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
-                            <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"
-                                stroke="currentColor" stroke-width="1.5" />
-                            <path d="m2 6 10 7 10-7" stroke="currentColor" stroke-width="1.5" />
-                        </svg>
-                    </div>
-                    <div class="card-info">
-                        <h3>Gmail</h3>
-                        <p>Read, send and summarize emails by voice</p>
-                    </div>
-                    <div class="card-check">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                            stroke-width="2.5">
-                            <path d="M20 6 9 17l-5-5" />
-                        </svg>
-                    </div>
-                </div>
-
-                <!-- Telegram -->
-                <div class="service-card" data-service="telegram" onclick="toggleService(this)">
-                    <div class="card-icon telegram-icon">
-                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
-                            <path d="M22 2 11 13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
-                            <path d="M22 2 15 22l-4-9-9-4 20-7z" stroke="currentColor" stroke-width="1.5"
-                                stroke-linejoin="round" />
-                        </svg>
-                    </div>
-                    <div class="card-info">
-                        <h3>Telegram</h3>
-                        <p>Read and send personal Telegram messages</p>
-                    </div>
-                    <div class="card-check">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                            stroke-width="2.5">
-                            <path d="M20 6 9 17l-5-5" />
-                        </svg>
-                    </div>
+        <!-- PROFILE PAGE -->
+        <div class="page" id="page-profile">
+            <div class="page-header">
+                <div>
+                    <div class="page-title">Profile</div>
+                    <div class="page-sub">Your account information</div>
                 </div>
             </div>
 
-            <div class="voice-hint" id="voiceHint">
-                <div class="mic-anim">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
-                        <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
-                        <line x1="12" y1="19" x2="12" y2="23" />
-                        <line x1="8" y1="23" x2="16" y2="23" />
-                    </svg>
+            <div class="profile-grid">
+                <div class="profile-card">
+                    <div class="profile-card-title">Account Details</div>
+                    <div class="profile-field">
+                        <div class="field-label">Full Name</div>
+                        <div class="field-value" id="profileName">{{ user.name }}</div>
+                    </div>
+                    <div class="profile-field">
+                        <div class="field-label">Email Address</div>
+                        <div class="field-value" id="profileEmail">{{ user.email }}</div>
+                    </div>
                 </div>
-                <span id="voiceText">Listening for your voice confirmation...</span>
+                <div class="profile-card">
+                    <div class="profile-card-title">Voice Settings</div>
+                    <div class="profile-field">
+                        <div class="field-label">Audio Password</div>
+                        <div class="field-value">••••••••</div>
+                    </div>
+                    <div class="profile-field">
+                        <div class="field-label">Connected Services</div>
+                        <div class="field-value" id="profileServices">—</div>
+                    </div>
+                </div>
             </div>
-
-            <button class="btn-confirm" id="confirmBtn" onclick="confirmSelection()" disabled>
-                <span>Launch Assistant</span>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M5 12h14M12 5l7 7-7 7" />
-                </svg>
-            </button>
-
-            <p id="statusMsg"></p>
         </div>
-    </div>
 
-    <script src="{{ url_for('static', filename='dashboard.js') }}"></script>
+        <!-- UNIFIED INBOX PAGE -->
+        <div class="page" id="page-inbox">
+            <div class="page-header">
+                <div>
+                    <div class="page-title">Unified Inbox</div>
+                    <div class="page-sub">All your messages in one place</div>
+                </div>
+            </div>
+
+            <div class="inbox-filters">
+                <button class="filter-pill active" onclick="filterInbox('all', this)">All</button>
+                <button class="filter-pill" onclick="filterInbox('whatsapp', this)">WhatsApp</button>
+                <button class="filter-pill" onclick="filterInbox('telegram', this)">Telegram</button>
+                <button class="filter-pill" onclick="filterInbox('gmail', this)">Gmail</button>
+            </div>
+
+            <div class="msg-list" id="msgList">
+                <div class="empty-state">
+                    <div class="empty-icon">📭</div>
+                    No messages yet. Connect a service to get started.
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <script>
+        // ─── PAGE NAV ──────────────────────────────────────
+        function showPage(id, el) {
+            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+            document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+            document.getElementById('page-' + id).classList.add('active');
+            if (el) el.classList.add('active');
+        }
+
+        // ─── USER INFO ─────────────────────────────────────
+        const userData = {
+            name: document.getElementById('sidebarName').textContent.trim() || 'User',
+            email: document.getElementById('sidebarEmail').textContent.trim() || ''
+        };
+        const initial = userData.name.charAt(0).toUpperCase();
+        document.getElementById('avatarInitial').textContent = initial;
+        document.getElementById('profileName').textContent = userData.name;
+        document.getElementById('profileEmail').textContent = userData.email;
+
+        // ─── STATS (mock — replace with real API if needed) ─
+        setTimeout(() => {
+            document.getElementById('statEmails').textContent = '24';
+            document.getElementById('statCommands').textContent = '12';
+            document.getElementById('statSessions').textContent = '7';
+        }, 400);
+
+        // ─── VOICE COMMAND ─────────────────────────────────
+        let voiceActive = false;
+        function startVoice() {
+            voiceActive = true;
+            document.getElementById('waveform').classList.add('active');
+            const status = document.getElementById('voiceStatus');
+            status.classList.add('listening');
+            status.innerHTML = '<span class="status-dot"></span> Listening...';
+        }
+        function stopVoice() {
+            voiceActive = false;
+            document.getElementById('waveform').classList.remove('active');
+            const status = document.getElementById('voiceStatus');
+            status.classList.remove('listening');
+            status.innerHTML = '🎧 Listening for your command...';
+        }
+
+        // ─── SERVICES (from /get-services) ─────────────────
+        async function loadServices() {
+            try {
+                const res = await fetch('/get-services');
+                const data = await res.json();
+                const services = data.services || [];
+                document.getElementById('profileServices').textContent =
+                    services.length ? services.join(', ') : 'None connected';
+            } catch (e) { }
+        }
+        loadServices();
+
+        // ─── INBOX (mock messages — replace with real fetch) ─
+        const mockMessages = [
+            { source: 'whatsapp', from: 'voice_assistant', to: 'himanshu', text: 'hello how r u', dir: 'outgoing', time: '2026-03-05 13:14' },
+            { source: 'whatsapp', from: 'voice_assistant', to: 'himanshu', text: 'hello how r u', dir: 'outgoing', time: '2026-03-05 12:25' },
+            { source: 'whatsapp', from: 'voice_assistant', to: 'himanshu', text: 'hey how are you', dir: 'outgoing', time: '2026-03-05 12:23' },
+            { source: 'telegram', from: 'Alex', to: 'me', text: 'Are you coming tonight?', dir: 'incoming', time: '2026-03-05 11:40' },
+            { source: 'gmail', from: 'Google', to: 'me', text: '⚠️ You\'re out of Gmail storage', dir: 'incoming', time: '2026-03-04 11:29' },
+        ];
+
+        let currentFilter = 'all';
+        function filterInbox(type, el) {
+            currentFilter = type;
+            document.querySelectorAll('.filter-pill').forEach(p => p.classList.remove('active'));
+            el.classList.add('active');
+            renderInbox();
+        }
+
+        function renderInbox() {
+            const list = document.getElementById('msgList');
+            const filtered = currentFilter === 'all'
+                ? mockMessages
+                : mockMessages.filter(m => m.source === currentFilter);
+
+            if (!filtered.length) {
+                list.innerHTML = `<div class="empty-state"><div class="empty-icon">📭</div>No ${currentFilter} messages.</div>`;
+                return;
+            }
+
+            list.innerHTML = filtered.map(m => `
+      <div class="msg-card">
+        <span class="msg-source-badge badge-${m.source}">${m.source}</span>
+        <div class="msg-body">
+          <div class="msg-route"><strong>${m.from}</strong> → ${m.to}</div>
+          <div class="msg-text">${m.text}</div>
+          <div class="msg-dir">${m.dir}</div>
+        </div>
+        <div class="msg-time">${m.time}</div>
+      </div>
+    `).join('');
+        }
+        renderInbox();
+    </script>
 </body>
 
 </html>

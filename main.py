@@ -692,16 +692,26 @@ with open('Audio/Transcribe.txt','a') as file:
             and any(w in clean_heard for w in mail_req)
         ):
             speak_text('[System]: Fetching the latest email.')
-            email_data = get_email_for_reply(index=1)
+            emails = get_top_senders(count=1)
+            email_data = emails[0] if emails else {}
         
             if 'error' in email_data:
                 speak_text(f'[System]: {email_data["error"]}')
             else:
-                speak_text(
-                    f'[System]: Email from {email_data["reply_to"]}. '
-                    f'Subject: {email_data["subject"]}.'
-                )
-                handle_reply(email_data)
+                speak_text(f'[System]: Email from {email_data["sender"]}. Subject: {email_data["subject"]}.')
+                suggestion = generate_local_reply(f'From: {email_data["sender"]}\nSubject: {email_data["subject"]}\n\n{email_data["summary"]}')
+                if suggestion:
+                    speak_text(f'[System]: Suggested reply: {suggestion}. Shall I send this?')
+                    response = listen_text().lower().strip()
+                    if any(w in response for w in affirmation):
+                        result = reply_email_by_voice(email_data["sender"], email_data["subject"], None)
+                        speak_text(result)
+                    else:
+                        result = reply_email_by_voice(email_data["sender"], email_data["subject"], None)
+                        speak_text(result)
+                else:
+                    result = reply_email_by_voice(email_data["sender"], email_data["subject"], None)
+                    speak_text(result)
             continue
         
         # ----------------------
@@ -724,17 +734,27 @@ with open('Audio/Transcribe.txt','a') as file:
             index = next((num_map[w] for w in num_map if w in num_heard), 1)
         
             speak_text(f'[System]: Fetching email number {index}.')
-            email_data = get_email_for_reply(index=index)
+            emails = get_top_senders(count=1)
+            email_data = emails[0] if emails else {}
         
             if 'error' in email_data:
                 speak_text(f'[System]: {email_data["error"]}')
             else:
-                speak_text(
-                    f'[System]: Email from {email_data["reply_to"]}. '
-                    f'Subject: {email_data["subject"]}.'
-                )
-                handle_reply(email_data)
-            continue    
+                speak_text(f'[System]: Email from {email_data["sender"]}. Subject: {email_data["subject"]}.')
+                suggestion = generate_local_reply(f'From: {email_data["sender"]}\nSubject: {email_data["subject"]}\n\n{email_data["summary"]}')
+                if suggestion:
+                    speak_text(f'[System]: Suggested reply: {suggestion}. Shall I send this?')
+                    response = listen_text().lower().strip()
+                    if any(w in response for w in affirmation):
+                        result = reply_email_by_voice(email_data["sender"], email_data["subject"], None)
+                        speak_text(result)
+                    else:
+                        result = reply_email_by_voice(email_data["sender"], email_data["subject"], None)
+                        speak_text(result)
+                else:
+                    result = reply_email_by_voice(email_data["sender"], email_data["subject"], None)
+                    speak_text(result)
+            continue   
         
         # ========================
         # PROFILE MANAGEMENT 
