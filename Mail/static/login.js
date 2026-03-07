@@ -95,7 +95,8 @@ async function checkAudioLogin() {
 
     try {
         const res = await fetch('/check');
-        const status = await res.text();
+        const data = await res.json();
+        const text = data.status;
 
         if (status === 'success') {
             pollingActive = false;

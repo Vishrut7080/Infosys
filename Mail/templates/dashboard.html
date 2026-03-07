@@ -825,6 +825,21 @@
                         <div class="field-label">Connected Services</div>
                         <div class="field-value" id="profileServices">—</div>
                     </div>
+                    <div class="profile-field">
+                        <div class="field-label">Select Services</div>
+                        <div style="display:flex;gap:12px;margin-top:6px;flex-wrap:wrap;">
+                            <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;">
+                                <input type="checkbox" class="service-checkbox" value="gmail"> Gmail
+                            </label>
+                            <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;">
+                                <input type="checkbox" class="service-checkbox" value="telegram"> Telegram
+                            </label>
+                        </div>
+                        <button class="btn btn-primary" onclick="saveServices()"
+                            style="margin-top:14px;padding:8px 18px;font-size:12px;">
+                            Save Services
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>

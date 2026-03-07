@@ -124,7 +124,8 @@ def check_login():
             'name' : 'User',
             'email': app.config.get('current_email', ''),
         }
-    return login_status
+    # Return JSON so JS can handle redirect cleanly
+    return jsonify({'status': login_status})
 
 # Handle Keyboard Login
 @app.route('/login', methods=['POST'])
