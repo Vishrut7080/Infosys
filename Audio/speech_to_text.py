@@ -50,8 +50,10 @@ load_dotenv()
 # Run `python -m sounddevice` to list available devices and find your index
 DEVICE_INDEX = int(os.getenv('DEVICE_INDEX', 0))
 
+MODEL=os.getenv("MODEL")
+
 # Whisper model size — set WHISPER_MODEL in your .env or leave as default
-WHISPER_MODEL = os.getenv('WHISPER_MODEL', 'base')
+WHISPER_MODEL = os.getenv('WHISPER_MODEL', MODEL)
 
 # Compute type controls the quantization level:
 #   "int8"    — fastest on CPU, tiny accuracy drop, recommended for most users
@@ -88,7 +90,7 @@ print("[STT] Faster Whisper model loaded and ready.")
 # Core Listen Function
 # ----------------------
 
-def listen_text(duration: int = 5) -> str:
+def listen_text(duration: int = 5, force_lang: str = None) -> tuple:
     try:
         speak_text('Listening.....')
         time.sleep(0.3)  # Small pause so TTS finishes before recording starts
@@ -107,6 +109,11 @@ def listen_text(duration: int = 5) -> str:
         sd.wait()  # Block until the full recording is captured
         print("[STT] Recording complete. Transcribing...")
 
+        # Check if audio has enough energy (not silence)
+        if np.abs(audio_data).mean() < 50:
+            print("[STT] Silence detected, skipping.")
+            return "[System]: Sorry, didn't catch that", 'en'
+
         # --- Write audio to a temporary WAV file ---
         tmp_file = tempfile.NamedTemporaryFile(suffix='.wav', delete=False)
         tmp_path = tmp_file.name
@@ -121,28 +128,34 @@ def listen_text(duration: int = 5) -> str:
         # beam_size=5   — standard beam search width, good accuracy/speed balance
         # language='en' — skip language detection to save ~0.2s per call
         #                 remove this line if you need multilingual support
-        segments, info = model.transcribe(
-            tmp_path,
-            beam_size=5,
-            language='en',
-        )
+       
+        _, info = model.transcribe(tmp_path, beam_size=5)
 
-        # Concatenate all segment texts (Faster Whisper yields segments lazily)
+        # Only trust language detection if confidence is high enough
+        if info.language_probability > 0.7 and info.language in ('en', 'hi'):
+            detected_lang = force_lang if force_lang else info.language
+        else:
+            detected_lang = force_lang if force_lang else 'en'  # default to English if unsure
+
+        segments, _ = model.transcribe(tmp_path, beam_size=5, language=detected_lang)
+
         transcribed_text = ' '.join(segment.text for segment in segments).strip()
 
         # Clean up the temporary WAV file
         os.remove(tmp_path)
 
+        print(f"[STT] Detected language: {detected_lang}")
+
         # Treat an empty result as silence / no speech detected
         if not transcribed_text:
-            return "[System]: Sorry, didn't catch that"
+            return "[System]: Sorry, didn't catch that", 'en'
 
         print(f"[STT] Transcribed: {transcribed_text}")
-        return transcribed_text
+        return transcribed_text, detected_lang
 
     except Exception as e:
         print(f"[STT] Error during transcription: {e}")
-        return "[System]: Sorry, an error occurred during transcription"
+        return "[System]: Sorry, an error occurred during transcription", 'en'
 
 
 __all__ = ['listen_text']
