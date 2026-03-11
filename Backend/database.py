@@ -36,9 +36,10 @@ load_dotenv()
 # Database file location
 # ----------------------
 # Stored in the Backend/ folder next to this file.
-# Change DB_PATH if you want it elsewhere.
+# Change USER_DB_PATH if you want it elsewhere.
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DB_PATH  = os.path.join(BASE_DIR, 'users.db')
+USER_DB_PATH  = os.path.join(BASE_DIR, 'users.db')
+ADMIN_DB_PATH = os.path.join(BASE_DIR, 'admins.db')
 
 
 # ----------------------
@@ -97,7 +98,7 @@ def init_db():
         secret_audio: bcrypt-hashed audio password for voice login
         created_at  : Timestamp of account creation
     """
-    with sqlite3.connect(DB_PATH) as conn:
+    with sqlite3.connect(USER_DB_PATH) as conn:
         conn.execute('''
             CREATE TABLE IF NOT EXISTS users (
                 id           INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -109,7 +110,7 @@ def init_db():
             )
         ''')
         conn.commit()
-    print(f"[DB] Database initialised at: {DB_PATH}")
+    print(f"[DB] Database initialised at: {USER_DB_PATH}")
 
 
 # ----------------------
@@ -150,7 +151,7 @@ def create_user(name: str, email: str, password: str, secret_audio: str = '') ->
 
         created_at = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
-        with sqlite3.connect(DB_PATH) as conn:
+        with sqlite3.connect(USER_DB_PATH) as conn:
             conn.execute(
                 '''INSERT INTO users (name, email, password, secret_audio, created_at)
                    VALUES (?, ?, ?, ?, ?)''',
@@ -188,7 +189,7 @@ def verify_user(email: str, password: str) -> tuple[bool, str]:
         (False, error_message)  if invalid
     """
     try:
-        with sqlite3.connect(DB_PATH) as conn:
+        with sqlite3.connect(USER_DB_PATH) as conn:
             cursor = conn.execute(
                 'SELECT name, password FROM users WHERE email = ?',
                 (email.strip().lower(),)
@@ -229,7 +230,7 @@ def verify_audio(spoken_word: str) -> tuple[bool, str]:
         (False, error_message)  if no match
     """
     try:
-        with sqlite3.connect(DB_PATH) as conn:
+        with sqlite3.connect(USER_DB_PATH) as conn:
             cursor = conn.execute(
                 'SELECT name, email, secret_audio FROM users WHERE secret_audio IS NOT NULL'
             )
@@ -266,7 +267,7 @@ def get_user_by_email(email: str) -> dict | None:
         None if not found
     """
     try:
-        with sqlite3.connect(DB_PATH) as conn:
+        with sqlite3.connect(USER_DB_PATH) as conn:
             cursor = conn.execute(
                 'SELECT id, name, email, created_at FROM users WHERE email = ?',
                 (email.strip().lower(),)
@@ -296,7 +297,7 @@ def get_user_by_email(email: str) -> dict | None:
 # ----------------------
 def update_name(email: str, new_name: str) -> tuple[bool, str]:
     try:
-        with sqlite3.connect(DB_PATH) as conn:
+        with sqlite3.connect(USER_DB_PATH) as conn:
             conn.execute(
                 'UPDATE users SET name = ? WHERE email = ?',
                 (new_name.strip(), email.strip().lower())
@@ -319,7 +320,7 @@ def update_password(email: str, old_password: str, new_password: str) -> tuple[b
             new_password.encode('utf-8'),
             bcrypt.gensalt()
         ).decode('utf-8')
-        with sqlite3.connect(DB_PATH) as conn:
+        with sqlite3.connect(USER_DB_PATH) as conn:
             conn.execute(
                 'UPDATE users SET password = ? WHERE email = ?',
                 (hashed, email.strip().lower())
@@ -339,7 +340,7 @@ def update_audio(email: str, new_audio: str) -> tuple[bool, str]:
             new_audio.strip().lower().encode('utf-8'),
             bcrypt.gensalt()
         ).decode('utf-8')
-        with sqlite3.connect(DB_PATH) as conn:
+        with sqlite3.connect(USER_DB_PATH) as conn:
             conn.execute(
                 'UPDATE users SET secret_audio = ? WHERE email = ?',
                 (hashed, email.strip().lower())
@@ -358,7 +359,7 @@ def delete_user(email: str, password: str) -> tuple[bool, str]:
         success, _ = verify_user(email, password)
         if not success:
             return False, 'Incorrect password. Account not deleted.'
-        with sqlite3.connect(DB_PATH) as conn:
+        with sqlite3.connect(USER_DB_PATH) as conn:
             conn.execute(
                 'DELETE FROM users WHERE email = ?',
                 (email.strip().lower(),)

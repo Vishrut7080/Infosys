@@ -1,3 +1,5 @@
+<!-- MILESTONE 1 -->
+
 1. python main.py                 (Program starts)
 2. Load environment variables     (From .env)
 3. Enter while loop               (Infinite)
@@ -24,7 +26,7 @@
 24. file.close()                  (Clean up)
 
 # ========================
-# NEW WORK
+# NEW WORK - MILESTONE 2
 # ========================
 
 1.  python main.py                        (Program starts)

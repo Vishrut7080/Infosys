@@ -76,6 +76,7 @@ document.getElementById('loginForm').addEventListener('submit', async function (
         } else {
             messageEl.style.color = '#f87171';
             messageEl.innerText = result.message || 'Login failed';
+            keyboardLoginAttempted = false;
         }
 
     } catch (error) {
@@ -96,22 +97,24 @@ async function checkAudioLogin() {
     try {
         const res = await fetch('/check');
         const data = await res.json();
-        const text = data.status;
 
-        if (status === 'success') {
+        if (data.status === 'success') {
             pollingActive = false;
             window.location.href = '/dashboard';
 
-        } else if (status === 'failed') {
+        } else if (data.status === 'failed') {
             pollingActive = false;
             showOverlay('Login cancelled', 4000);
+            setTimeout(() => {
+                pollingActive = true;
+                keyboardLoginAttempted = false;
+            }, 4000);
         }
 
     } catch (error) {
         console.log('Polling: server not ready yet...');
     }
 }
-
 setInterval(checkAudioLogin, 1000);
 
 
