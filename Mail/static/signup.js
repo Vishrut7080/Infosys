@@ -293,3 +293,16 @@ function showSuccessScreen() {
         }
     }, 1000);
 }
+
+// ========================
+// SAYS THE WORD TO USER
+// ========================
+async function suggestAudioWord() {
+    try {
+        const res = await fetch('/suggest-audio');
+        const data = await res.json();
+        audioInput.placeholder = `e.g. ${data.word}`;
+        audioInput.value = data.word;
+    } catch (e) { }
+}
+suggestAudioWord();
