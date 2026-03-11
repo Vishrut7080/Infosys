@@ -110,8 +110,25 @@ def init_db():
             )
         ''')
         conn.commit()
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS sessions (
+                id         INTEGER PRIMARY KEY AUTOINCREMENT,
+                email      TEXT NOT NULL,
+                logged_at  TEXT NOT NULL
+            )
+        ''')
     print(f"[DB] Database initialised at: {USER_DB_PATH}")
 
+def log_session(email: str):
+    try:
+        with sqlite3.connect(USER_DB_PATH) as conn:
+            conn.execute(
+                'INSERT INTO sessions (email, logged_at) VALUES (?, ?)',
+                (email.strip().lower(), datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+            )
+            conn.commit()
+    except Exception as e:
+        print(f'[DB] log_session error: {e}')
 
 # ----------------------
 # Create User (Registration)
@@ -373,5 +390,5 @@ def delete_user(email: str, password: str) -> tuple[bool, str]:
 __all__ = [
     'init_db', 'create_user', 'verify_user', 'verify_audio',
     'get_user_by_email', 'suggest_audio_word',
-    'update_name', 'update_password', 'update_audio', 'delete_user'
+    'update_name', 'update_password', 'update_audio', 'delete_user', 'log_session'
 ]

@@ -145,6 +145,7 @@ def login():
             login_status = 'success'
             app.config['current_email'] = entered_email
             session['user'] = {'name': result, 'email': entered_email}
+            database.log_session(entered_email)
             return jsonify({'status': 'success', 'message': f'Welcome back, {result}!'})
 
         # Fallback: check .env credentials (original admin/owner login)
@@ -226,6 +227,7 @@ def auth_google_callback():
             'email':   user_info.get('email'),
             'picture': user_info.get('picture'),
         }
+        database.log_session(session['user']['email'])
         login_status = 'success'
         app.config['current_email'] = session['user']['email']
         print(f"[OAuth] Login successful: {session['user']['email']}")
@@ -269,6 +271,7 @@ def auth_microsoft_callback():
             'email':   user_info.get('mail') or user_info.get('email') or user_info.get('userPrincipalName'),
             'picture': None,
         }
+        database.log_session(session['user']['email'])
         login_status = 'success'
         app.config['current_email'] = session['user']['email']
         print(f"[OAuth] Microsoft login: {session['user']['email']}")
@@ -392,12 +395,21 @@ def suggest_audio():
 def get_stats():
     if 'user' not in session:
         return jsonify({'emails': 0, 'commands': 0, 'sessions': 0})
+    email = session['user'].get('email', '')
     try:
         with open('Audio/Transcribe.txt', 'r', encoding='utf-8') as f:
             commands = len([l for l in f.readlines() if l.strip()])
     except:
         commands = 0
-    return jsonify({'emails': 0, 'commands': commands, 'sessions': 1})
+    try:
+        import sqlite3
+        from Backend.database import USER_DB_PATH
+        with sqlite3.connect(USER_DB_PATH) as conn:
+            cur = conn.execute('SELECT COUNT(*) FROM sessions WHERE email = ?', (email,))
+            sessions_count = cur.fetchone()[0]
+    except:
+        sessions_count = 0
+    return jsonify({'emails': 0, 'commands': commands, 'sessions': sessions_count})
 
 @app.route('/get-inbox')
 def get_inbox():
