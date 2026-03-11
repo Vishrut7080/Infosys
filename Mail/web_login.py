@@ -23,7 +23,10 @@ SECRET_AUD          = os.getenv("SECRET_AUD")           # Audio authentication p
 GOOGLE_CLIENT_ID    = os.getenv("GOOGLE_CLIENT_ID")     # From Google Cloud Console
 GOOGLE_CLIENT_SECRET= os.getenv("GOOGLE_CLIENT_SECRET") # From Google Cloud Console
 
-app = Flask(__name__)
+app = Flask(__name__,
+    template_folder='templates',
+    static_folder='static'
+)
 
 # Required for Flask sessions (used by OAuth to store state between redirects)
 # Set a strong random value in your .env as FLASK_SECRET_KEY
