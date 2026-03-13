@@ -684,3 +684,340 @@ body {
         transform: translateY(0);
     }
 }
+
+/* ── Voice card: split layout ─────────────────────────────── */
+.voice-split {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 28px;
+    align-items: start;
+    text-align: left;
+}
+
+.voice-split .voice-sub {
+    margin-bottom: 16px;
+}
+
+.voice-left {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.voice-right {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+@media (max-width: 900px) {
+    .voice-split {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* ── Waveform — always animated (no .active class needed) ─── */
+.waveform .wave-bar {
+    animation: wave 0.8s ease-in-out infinite;
+}
+
+.waveform .wave-bar:nth-child(1) {
+    animation-delay: 0.00s;
+}
+
+.waveform .wave-bar:nth-child(2) {
+    animation-delay: 0.07s;
+}
+
+.waveform .wave-bar:nth-child(3) {
+    animation-delay: 0.14s;
+}
+
+.waveform .wave-bar:nth-child(4) {
+    animation-delay: 0.21s;
+}
+
+.waveform .wave-bar:nth-child(5) {
+    animation-delay: 0.28s;
+}
+
+.waveform .wave-bar:nth-child(6) {
+    animation-delay: 0.35s;
+}
+
+.waveform .wave-bar:nth-child(7) {
+    animation-delay: 0.42s;
+}
+
+.waveform .wave-bar:nth-child(8) {
+    animation-delay: 0.35s;
+}
+
+.waveform .wave-bar:nth-child(9) {
+    animation-delay: 0.28s;
+}
+
+.waveform .wave-bar:nth-child(10) {
+    animation-delay: 0.21s;
+}
+
+.waveform .wave-bar:nth-child(11) {
+    animation-delay: 0.14s;
+}
+
+.waveform .wave-bar:nth-child(12) {
+    animation-delay: 0.07s;
+}
+
+/* ── Listening badge ──────────────────────────────────────── */
+.listen-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 6px 14px;
+    border-radius: 999px;
+    border: 1px solid rgba(255, 68, 68, 0.28);
+    background: rgba(255, 60, 60, 0.07);
+    font-size: 12px;
+    font-weight: 500;
+    color: #ff6060;
+    letter-spacing: 0.4px;
+    flex-shrink: 0;
+}
+
+.listen-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #ff4444;
+    animation: listen-pulse 1.4s ease-in-out infinite;
+    flex-shrink: 0;
+}
+
+@keyframes listen-pulse {
+
+    0%,
+    100% {
+        opacity: 1;
+        transform: scale(1);
+        box-shadow: 0 0 0 0 rgba(255, 68, 68, .6);
+    }
+
+    50% {
+        opacity: .7;
+        transform: scale(1.1);
+        box-shadow: 0 0 0 4px rgba(255, 68, 68, 0);
+    }
+}
+
+/* ── Audio nav hint card ──────────────────────────────────── */
+.audio-nav-hint {
+    background: rgba(255, 255, 255, .025);
+    border: 1px solid rgba(255, 255, 255, .06);
+    border-radius: 10px;
+    padding: 14px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.hint-title {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 2px;
+}
+
+.hint-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.hint-cmd {
+    background: rgba(255, 255, 255, .06);
+    padding: 2px 8px;
+    border-radius: 5px;
+    color: #e0a060;
+    font-size: 11px;
+    font-family: 'Courier New', monospace;
+    white-space: nowrap;
+}
+
+.hint-arrow {
+    color: #444;
+    font-size: 11px;
+}
+
+/* ── Conversation feed ────────────────────────────────────── */
+.feed-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+}
+
+.clear-btn {
+    background: rgba(255, 255, 255, .04);
+    border: 1px solid rgba(255, 255, 255, .08);
+    border-radius: 6px;
+    color: #555;
+    font-size: 11px;
+    padding: 4px 10px;
+    cursor: pointer;
+    transition: background .18s, color .18s;
+}
+
+.clear-btn:hover {
+    background: rgba(255, 255, 255, .1);
+    color: #aaa;
+}
+
+.conv-feed {
+    background: rgba(0, 0, 0, .22);
+    border: 1px solid rgba(255, 255, 255, .06);
+    border-radius: 12px;
+    padding: 14px;
+    height: 340px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    scroll-behavior: smooth;
+}
+
+.conv-feed::-webkit-scrollbar {
+    width: 3px;
+}
+
+.conv-feed::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.conv-feed::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, .08);
+    border-radius: 2px;
+}
+
+.feed-empty {
+    color: #3a3a4a;
+    font-size: 13px;
+    text-align: center;
+    margin: auto;
+    font-style: italic;
+}
+
+.feed-msg {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    max-width: 90%;
+    animation: feed-in .22s ease;
+}
+
+@keyframes feed-in {
+    from {
+        opacity: 0;
+        transform: translateY(5px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.feed-user {
+    align-self: flex-end;
+    align-items: flex-end;
+}
+
+.feed-system,
+.feed-telegram {
+    align-self: flex-start;
+    align-items: flex-start;
+}
+
+.feed-label {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: .5px;
+    text-transform: uppercase;
+    color: #444;
+    padding: 0 4px;
+}
+
+.feed-user .feed-label {
+    color: #c06030;
+}
+
+.feed-system .feed-label {
+    color: #5060c0;
+}
+
+.feed-telegram .feed-label {
+    color: #38bdf8;
+}
+
+.feed-text {
+    font-size: 13px;
+    line-height: 1.5;
+    padding: 8px 12px;
+    border-radius: 10px;
+    color: #ccc;
+    word-break: break-word;
+}
+
+.feed-user .feed-text {
+    background: rgba(210, 80, 30, .16);
+    border: 1px solid rgba(210, 80, 30, .2);
+}
+
+.feed-system .feed-text {
+    background: rgba(70, 90, 200, .12);
+    border: 1px solid rgba(70, 90, 200, .15);
+}
+
+.feed-telegram .feed-text {
+    background: rgba(56, 189, 248, .09);
+    border: 1px solid rgba(56, 189, 248, .14);
+}
+
+.feed-time {
+    font-size: 10px;
+    color: #383848;
+    padding: 0 4px;
+}
+
+/* ── Service pills group in sidebar ──────────────────────── */
+.pills-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 0 16px;
+    margin-bottom: 12px;
+}
+
+/* ── Audio service-select hint ───────────────────────────── */
+.audio-select-hint {
+    font-size: 12px;
+    color: #555;
+    background: rgba(255, 255, 255, .025);
+    border: 1px dashed rgba(255, 255, 255, .08);
+    border-radius: 8px;
+    padding: 8px 12px;
+    line-height: 1.5;
+}
+
+/* ── Page header — flex so badge sits top-right ──────────── */
+.page-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 32px;
+}

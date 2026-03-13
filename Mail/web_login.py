@@ -5,6 +5,7 @@ from Backend import database
 from Audio.text_to_speech import speak_text
 from dotenv import load_dotenv
 import threading
+from datetime import datetime
 
 load_dotenv()
 
@@ -12,10 +13,14 @@ load_dotenv()
 # GLOBAL VARIABLES
 # ========================
 selected_services = [] # for email or telegram services
+_feed_lock    = threading.Lock()
+feed_log      = []          # [{text, time, index}, ...]
+_feed_counter = 0
+_nav_command  = {'command': None}
 
-# ----------------------
+# -------------------------------------------------
 # Load Credentials from env
-# ----------------------
+# -------------------------------------------------
 
 EMAIL_USER          = os.getenv("EMAIL_USER")
 EMAIL_PASS          = os.getenv("EMAIL_PASS")
@@ -40,9 +45,9 @@ database.init_db()
 # GLOBAL FLAGS
 # ========================
 telegram_ready = False
-# ----------------------
+# -------------------------------------------------
 # Login Status Flag
-# ----------------------
+# -------------------------------------------------
 
 # to tell if you're logged in or not.
 login_status = 'waiting'
@@ -50,9 +55,9 @@ login_status = 'waiting'
 # login_status = "success"    Logged in!
 # login_status = "failed"     Login cancelled
 
-# ----------------------
+# -------------------------------------------------
 # Google OAuth Setup
-# ----------------------
+# -------------------------------------------------
 # Uses Authlib to handle the OAuth 2.0 flow with Google.
 # server_metadata_url is Google's OpenID Connect discovery document —
 # it tells Authlib where Google's auth/token endpoints are automatically,
@@ -84,14 +89,34 @@ microsoft = oauth.register(
 # Where all successful logins redirect to
 GMAIL_URL = "https://mail.google.com/mail/u/0/#inbox"
 
+def push_to_feed(text: str):
+    """Append a spoken/heard line to the live dashboard feed."""
+    global _feed_counter
+    with _feed_lock:
+        feed_log.append({
+            'text':  text,
+            'time':  datetime.now().strftime('%H:%M:%S'),
+            'index': _feed_counter,
+        })
+        _feed_counter += 1
+        if len(feed_log) > 300:   # keep last 300 entries
+            feed_log.pop(0)
+ 
+ 
+def push_nav_command(command: str):
+    """
+    Push an audio navigation / service-select command so
+    the dashboard JS can pick it up at /api/nav_command.
+    """
+    _nav_command['command'] = command
 
 # ========================
 # ROUTING
 # ========================
 
-# ----------------------
+# -------------------------------------------------
 # LOGIN
-# ----------------------
+# -------------------------------------------------
 
 # Render the login page
 @app.route('/')
@@ -170,9 +195,9 @@ def login():
         login_status = 'failed'
         return jsonify({'status': 'error', 'message': str(e)})
 
-# ----------------------
+# -------------------------------------------------
 # DASHBOARD
-# ----------------------
+# -------------------------------------------------
 
 @app.route('/dashboard')
 def dashboard():
@@ -190,11 +215,45 @@ def select_services():
 
 @app.route('/get-services')
 def get_services():
-    return jsonify({'services': selected_services})
+    return jsonify({
+        'voice_confirmed': login_status == 'success',
+        'services':        selected_services if selected_services else [],
+    })
 
-# ----------------------
+# -------------------------------------------------
+# NAVIGATION IN DASHBOARD
+# -------------------------------------------------
+
+@app.route('/api/feed')
+def api_feed():
+    """Return new feed entries since the given index."""
+    since = int(request.args.get('since', 0))
+    with _feed_lock:
+        new_entries = [e for e in feed_log if e['index'] >= since]
+        next_index  = feed_log[-1]['index'] + 1 if feed_log else 0
+    return jsonify({'entries': new_entries, 'next_index': next_index})
+ 
+ 
+@app.route('/api/feed/clear', methods=['POST'])
+def api_feed_clear():
+    global _feed_counter
+    with _feed_lock:
+        feed_log.clear()
+        _feed_counter = 0
+    return jsonify({'ok': True})
+ 
+ 
+@app.route('/api/nav_command')
+def api_nav_command():
+    """Return latest nav command and immediately clear it."""
+    cmd = _nav_command.get('command')
+    _nav_command['command'] = None
+    return jsonify({'command': cmd})
+ 
+
+# -------------------------------------------------
 # GOOGLE OAUTH
-# ----------------------
+# -------------------------------------------------
 
 # Step 1: Redirect user to Google's consent screen
 @app.route('/auth/google')
@@ -291,9 +350,9 @@ def auth_microsoft_callback():
         login_status = 'failed'
         return redirect(url_for('login_page') + '?error=oauth_failed')
 
-# ----------------------
+# -------------------------------------------------
 # LOGOUT
-# ----------------------
+# -------------------------------------------------
 
 @app.route('/logout')
 def logout():
@@ -307,9 +366,9 @@ def logout():
     return redirect(url_for('login_page'))
 
 
-# ----------------------
+# -------------------------------------------------
 # SIGNUP - for future
-# ----------------------
+# -------------------------------------------------
 
 # Render the signup page
 @app.route('/signup')
@@ -340,9 +399,9 @@ def register():
     except Exception as e:
         return jsonify({'status': 'error', 'message': str(e)})
 
-# ----------------------
+# -------------------------------------------------
 # TELEGRAM
-# ----------------------
+# -------------------------------------------------
 @app.route('/telegram-auth')
 def telegram_auth_page():
     if 'user' not in session:
@@ -384,9 +443,9 @@ def telegram_verify_otp():
 @app.route('/telegram/status')
 def telegram_status():
     return jsonify({'ready': telegram_ready})
-# ----------------------
+# -------------------------------------------------
 # ROUTE TO SERVE RANDOM AUDIO SUGGESTION
-# ----------------------    
+# -------------------------------------------------    
 
 @app.route('/suggest-audio')
 def suggest_audio():
@@ -453,9 +512,9 @@ def get_inbox():
 
     return jsonify({'messages': messages})
 
-# ----------------------
+# -------------------------------------------------
 # START SERVER
-# ----------------------
+# -------------------------------------------------
 
 def start_server():
     print("Flask server starting...")

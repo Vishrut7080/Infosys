@@ -1,8 +1,9 @@
-from Audio.text_to_speech import speak_text
+from Audio.text_to_speech import speak_text as _speak_text_orig
 from Audio.speech_to_text import listen_text
 from Mail.email_handler import open_gmail_compose, get_top_senders
 from Mail.email_sender import compose_email_by_voice, send_reply_direct, reply_email_by_voice
 from Backend.database import verify_audio, get_user_by_email, update_name, update_password, update_audio, delete_user
+from Mail.web_login import  push_to_feed, push_nav_command
 import Mail.web_login as web_login
 import threading, webbrowser, requests
 from dotenv import load_dotenv
@@ -178,6 +179,21 @@ HINDI_COMMAND_MAP = {
     'टेलीग्राम': 'telegram'
 }
 
+# -------------------------------------------------
+# Navigation Commands
+# -------------------------------------------------
+NAV_PHRASES = [
+    'go to dashboard', 'open dashboard', 'show dashboard',
+    'go to profile',   'open profile',   'show profile',   'my profile',
+    'go to inbox',     'open inbox',     'show inbox',     'unified inbox',
+    'go to messages',  'open messages',  'show messages',
+    'select gmail',    'enable gmail',    'add gmail',
+    'select telegram', 'enable telegram', 'add telegram',
+    'deselect gmail',  'disable gmail',   'remove gmail',
+    'deselect telegram','disable telegram','remove telegram',
+    'save services',   'confirm services','save and continue',
+]
+
 def normalize_hindi(text: str) -> str:
     """Replace Hindi words with English equivalents for command matching."""
     for hindi, english in HINDI_COMMAND_MAP.items():
@@ -188,6 +204,13 @@ def r(key):
     """Return response string in current user language."""
     return RESPONSES.get(key, {}).get(user_lang, RESPONSES[key]['en'])
 
+# # =================================================
+# CHANGED SPEAK TEXT
+# # =================================================
+def speak_text(text: str, lang: str = 'en'):
+    """Wrapper: speaks the text AND pushes it to the live feed."""
+    push_to_feed(text)
+    _speak_text_orig(text, lang=lang)
 
 # ----------------------
 # Commands (bilingual)
@@ -410,8 +433,7 @@ with open('Audio/Transcribe.txt', 'a', encoding='utf-8') as file:
                     else f'[System]: कनेक्ट हुआ: {", ".join(services)}। तैयार।'
                 speak_text(connected_msg, lang=user_lang)
             else:
-                time.sleep(0.5)
-            continue
+                time.sleep(0.5)           
 
         # Typing pause
         if web_login.user_typing:
@@ -442,13 +464,17 @@ with open('Audio/Transcribe.txt', 'a', encoding='utf-8') as file:
                     else f'[System]: कनेक्ट हुआ: {", ".join(services)}। तैयार।'
                 speak_text(connected_msg, lang=user_lang)
             else:
-                time.sleep(0.5)
-            continue
+                time.sleep(0.5)            
 
         speak_text(f'[User]: {heard}')
         clean_heard = heard.lower().strip().replace('.', '')
         clean_heard = normalize_hindi(clean_heard)
         file.write(f'{clean_heard}\n')
+
+        for phrase in NAV_PHRASES:
+            if phrase in clean_heard:
+                push_nav_command(clean_heard)
+                break
 
         # ── GREETING ──────────────────────────────────
         if any(word == clean_heard or clean_heard.startswith(word + ' ') or clean_heard.endswith(' ' + word) for word in greeting):
