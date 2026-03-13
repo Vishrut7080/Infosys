@@ -1,0 +1,263 @@
+/* ============================================================
+   loader.css  —  Voice AI  |  Loading / Transition Screen
+   Place in: Mail/static/loader.css
+   Link in every HTML page AFTER your page-specific CSS:
+     <link rel="stylesheet" href="{{ url_for('static', filename='loader.css') }}">
+   ============================================================ */
+
+/* ---------- overlay ---------- */
+#va-loader {
+    position: fixed;
+    inset: 0;
+    background: #0D0705;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 99999;
+    opacity: 1;
+    transition: opacity 0.45s ease;
+}
+
+#va-loader.va-hidden {
+    opacity: 0;
+    pointer-events: none;
+}
+
+/* ---------- logo wrap ---------- */
+#va-loader .va-logo {
+    width: 140px;
+    height: 140px;
+    position: relative;
+}
+
+/* ---------- flicker  (the "loft neon" effect) ---------- */
+@keyframes va-flicker {
+    0% {
+        opacity: 1;
+    }
+
+    4% {
+        opacity: 0.82;
+    }
+
+    8% {
+        opacity: 1;
+    }
+
+    16% {
+        opacity: 1;
+    }
+
+    18% {
+        opacity: 0.55;
+    }
+
+    21% {
+        opacity: 1;
+    }
+
+    51% {
+        opacity: 1;
+    }
+
+    53% {
+        opacity: 0.72;
+    }
+
+    56% {
+        opacity: 1;
+    }
+
+    100% {
+        opacity: 1;
+    }
+}
+
+@keyframes va-breathe {
+
+    0%,
+    100% {
+        transform: scale(1);
+    }
+
+    50% {
+        transform: scale(1.045);
+    }
+}
+
+@keyframes va-glow-ring {
+    0% {
+        r: 72;
+        opacity: 0.55;
+    }
+
+    100% {
+        r: 108;
+        opacity: 0;
+    }
+}
+
+/* apply flicker + gentle breathe to the whole SVG */
+#va-loader .va-logo svg {
+    animation:
+        va-flicker 2.8s ease-in-out infinite,
+        va-breathe 3.2s ease-in-out infinite;
+}
+
+/* pulsing outer rings inside the SVG */
+#va-loader #lpr1 {
+    animation: va-glow-ring 2.4s ease-out infinite;
+}
+
+#va-loader #lpr2 {
+    animation: va-glow-ring 2.4s ease-out infinite 0.85s;
+}
+
+/* ---------- soundwave bars ---------- */
+@keyframes lbar1 {
+
+    0%,
+    100% {
+        height: 10px;
+        y: 95px
+    }
+
+    50% {
+        height: 22px;
+        y: 89px
+    }
+}
+
+@keyframes lbar2 {
+
+    0%,
+    100% {
+        height: 18px;
+        y: 91px
+    }
+
+    50% {
+        height: 34px;
+        y: 83px
+    }
+}
+
+@keyframes lbar3 {
+
+    0%,
+    100% {
+        height: 28px;
+        y: 86px
+    }
+
+    50% {
+        height: 50px;
+        y: 75px
+    }
+}
+
+@keyframes lbar4 {
+
+    0%,
+    100% {
+        height: 38px;
+        y: 81px
+    }
+
+    50% {
+        height: 60px;
+        y: 70px
+    }
+}
+
+@keyframes lbar5 {
+
+    0%,
+    100% {
+        height: 46px;
+        y: 77px
+    }
+
+    50% {
+        height: 68px;
+        y: 66px
+    }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+    #va-loader #lb1 {
+        animation: lbar1 1.7s ease-in-out infinite 0.00s;
+    }
+
+    #va-loader #lb2 {
+        animation: lbar2 1.7s ease-in-out infinite 0.10s;
+    }
+
+    #va-loader #lb3 {
+        animation: lbar3 1.7s ease-in-out infinite 0.20s;
+    }
+
+    #va-loader #lb4 {
+        animation: lbar4 1.7s ease-in-out infinite 0.30s;
+    }
+
+    #va-loader #lb5 {
+        animation: lbar5 1.7s ease-in-out infinite 0.40s;
+    }
+
+    #va-loader #lb6 {
+        animation: lbar4 1.7s ease-in-out infinite 0.30s;
+    }
+
+    #va-loader #lb7 {
+        animation: lbar3 1.7s ease-in-out infinite 0.20s;
+    }
+
+    #va-loader #lb8 {
+        animation: lbar2 1.7s ease-in-out infinite 0.10s;
+    }
+
+    #va-loader #lb9 {
+        animation: lbar1 1.7s ease-in-out infinite 0.00s;
+    }
+}
+
+/* ---------- status text ---------- */
+#va-loader .va-status {
+    margin-top: 28px;
+    font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 3.5px;
+    text-transform: uppercase;
+    color: #D06020;
+    opacity: 0.75;
+    animation: va-flicker 2.8s ease-in-out infinite 0.4s;
+}
+
+/* ---------- animated ellipsis ---------- */
+@keyframes va-dot {
+
+    0%,
+    20% {
+        opacity: 0;
+    }
+
+    40%,
+    100% {
+        opacity: 1;
+    }
+}
+
+#va-loader .va-dots span {
+    animation: va-dot 1.4s infinite;
+}
+
+#va-loader .va-dots span:nth-child(2) {
+    animation-delay: 0.2s;
+}
+
+#va-loader .va-dots span:nth-child(3) {
+    animation-delay: 0.4s;
+}

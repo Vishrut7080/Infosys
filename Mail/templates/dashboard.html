@@ -10,10 +10,19 @@
         href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap"
         rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='dashboard.css') }}">
+    <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='logo.svg') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='loader.css') }}">
 </head>
 
 <body>
-
+    <div id="va-loader">
+        <div class="va-logo">
+            <img src="{{ url_for('static', filename='logo.svg') }}" width="140" height="140">
+        </div>
+        <p class="va-status">
+            <span id="va-label">Loading</span><span class="va-dots"><span>.</span><span>.</span><span>.</span></span>
+        </p>
+    </div>
     <!-- ─── SIDEBAR ─────────────────────────────────── -->
     <aside class="sidebar">
         <div class="logo">
@@ -44,7 +53,7 @@
         </div>
 
         <div class="sidebar-footer">
-            <a href="/logout" class="logout-btn">
+            <a href="/logout" class="logout-btn" id="logoutBtn">
                 <span>🔴</span> Logout
             </a>
         </div>
@@ -237,6 +246,20 @@
             } catch (e) { }
         }
         setInterval(pollVoiceConfirm, 1000);
+    </script>
+    <script>
+        const VoiceAILoader = {
+            el: document.getElementById('va-loader'),
+            label: document.getElementById('va-label'),
+            show(text = 'Loading') { this.label.textContent = text; this.el.classList.remove('va-hidden'); },
+            hide(delay = 0) { setTimeout(() => this.el.classList.add('va-hidden'), delay); }
+        };
+        window.addEventListener('load', () => VoiceAILoader.hide(600));
+        document.getElementById('logoutBtn').addEventListener('click', (e) => {
+            e.preventDefault();
+            VoiceAILoader.show('Signing out');
+            setTimeout(() => { window.location.href = '/logout'; }, 700);
+        });
     </script>
 </body>
 
