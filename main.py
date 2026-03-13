@@ -643,6 +643,7 @@ with open('Audio/Transcribe.txt', 'a', encoding='utf-8') as file:
                     category = 'UPDATES'
                 else:
                     category = 'ALL'
+                print(f'[DEBUG] Category selected: {category}')
                 inbox = get_top_senders(category=category)
                 for i, mail_item in enumerate(inbox, 1):
                     if 'error' in mail_item:

@@ -195,21 +195,34 @@ def get_top_senders(count: int = FETCH_COUNT, category: str='ALL'):
         mail.login(EMAIL_USER, EMAIL_PASS)
         mail.select('inbox')
         
-        if category=='PRIMARY':
-            result,data=mail.search(None,'(X-GM-RAW "category: primary")')
-            # Fallback: To give from all if no primary mail is present
-            if result!='OK' or not data[0].split():
-                result,data=mail.search(None,'ALL')
-        elif category=='UPDATES':
-            result, data = mail.search(None, '(X-GM-RAW "category:updates")')
+        # status, folders = mail.list()
+        # print('[DEBUG] Gmail folders:')
+        # for f in folders:
+        #     print(' ', f.decode())
+
+        mail.select('"[Gmail]/All Mail"')
+
+        if category == 'PRIMARY':
+            result, data = mail.search(None, 'X-GM-LABELS primary')
+            print(f'[DEBUG] PRIMARY → result={result}, count={len(data[0].split()) if data[0] else 0}')
             if result != 'OK' or not data[0].split():
                 result, data = mail.search(None, 'ALL')
-        elif category=='PROMOTIONS':
-            result, data = mail.search(None, '(X-GM-RAW "category:promotions")')
+                print('[DEBUG] PRIMARY fell back to ALL')
+        
+        elif category == 'UPDATES':
+            result, data = mail.search(None, 'X-GM-LABELS updates')
+            print(f'[DEBUG] UPDATES → result={result}, count={len(data[0].split()) if data[0] else 0}')
             if result != 'OK' or not data[0].split():
                 result, data = mail.search(None, 'ALL')
-        # result, data = mail.search(None, '(X-GM-RAW "category:primary is:unread")')
-        # result, data = mail.search(None, '(X-GM-RAW "category:promotions is:unread")')
+                print('[DEBUG] UPDATES fell back to ALL')
+        
+        elif category == 'PROMOTIONS':
+            result, data = mail.search(None, 'X-GM-LABELS promotions')
+            print(f'[DEBUG] PROMOTIONS → result={result}, count={len(data[0].split()) if data[0] else 0}')
+            if result != 'OK' or not data[0].split():
+                result, data = mail.search(None, 'ALL')
+                print('[DEBUG] PROMOTIONS fell back to ALL')
+        
         else:
             result, data = mail.search(None, 'ALL')
         
