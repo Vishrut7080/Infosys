@@ -443,10 +443,10 @@ with open('Audio/Transcribe.txt', 'a', encoding='utf-8') as file:
                 time.sleep(0.5)           
 
         # Typing pause
-        if web_login.user_typing:
-            typing_pause_until = time.time() + 20
+        if web_login.user_typing or web_login.signup_open:
+            typing_pause_until = time.time() + 5
             web_login.user_typing = False
-
+        
         if time.time() < typing_pause_until and not login_initiated:
             time.sleep(0.5)
             continue
@@ -521,7 +521,7 @@ with open('Audio/Transcribe.txt', 'a', encoding='utf-8') as file:
             continue
 
         # ── LOGIN CONFIRMATION (audio password) ───────
-        elif login_initiated and clean_heard.strip() in confirmation_words:
+        elif login_initiated and web_login.login_status != "success":
             login_initiated = False
             matched, name, matched_email = verify_audio(clean_heard.strip())
             if matched:
@@ -542,13 +542,6 @@ with open('Audio/Transcribe.txt', 'a', encoding='utf-8') as file:
         elif 'signup' in clean_heard or 'sign up' in clean_heard or 'register' in clean_heard or 'साइनअप' in clean_heard:
             speak_text(r('signup_opening'), lang=user_lang)
             threading.Thread(target=webbrowser.open, args=("http://localhost:5000/signup",), daemon=True).start()
-            continue
-
-        # ── LOGIN CANCELLATION ────────────────────────
-        elif login_initiated and web_login.login_status != "success":
-            login_initiated = False
-            speak_text(r('login_cancelled'), lang=user_lang)
-            web_login.login_status = "failed"
             continue
 
         # ── TELEGRAM — SEND ───────────────────────────

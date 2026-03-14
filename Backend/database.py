@@ -229,7 +229,7 @@ def verify_user(email: str, password: str) -> tuple[bool, str]:
 # Verify Audio Password (Voice Login)
 # ----------------------
 
-def verify_audio(spoken_word: str) -> tuple[bool, str]:
+def verify_audio(spoken_word: str) -> tuple[bool, str, str]:
     """
     Checks the spoken audio password against ALL users' stored audio hashes.
     Since voice login doesn't ask for an email first, we check every user.
@@ -249,7 +249,7 @@ def verify_audio(spoken_word: str) -> tuple[bool, str]:
             rows = cursor.fetchall()
 
         if not rows:
-            return False, 'No users with audio passwords found.'
+            return False, 'No users with audio passwords found.', ''
 
         spoken_clean = spoken_word.strip().lower().encode('utf-8')
 
@@ -257,12 +257,12 @@ def verify_audio(spoken_word: str) -> tuple[bool, str]:
             if bcrypt.checkpw(spoken_clean, stored_hash.encode('utf-8')):
                 print(f"[DB] Audio login verified for: {email}")
                 return True, name, email
-            
+
         return False, 'Audio password not recognised.', ''
 
     except Exception as e:
         print(f"[DB] verify_audio error: {e}")
-        return False, f'Database error: {str(e)}', ''
+        return False, f'Database error: {str(e)}', ''  
 
 
 # ----------------------

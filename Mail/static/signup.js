@@ -319,6 +319,7 @@ function setLoading(isLoading) {
 function showSuccessScreen() {
     // Reveal the success screen (CSS animation handles fade-in)
     successScreen.hidden = false;
+    navigator.sendBeacon('/signup-closed');
 
     let seconds = 3;
     countdownEl.textContent = seconds;
@@ -338,12 +339,36 @@ function showSuccessScreen() {
 // ========================
 // SAYS THE WORD TO USER
 // ========================
-async function suggestAudioWord() {
+async function suggestAudioWord(forceReplace = false) {
     try {
         const res = await fetch('/suggest-audio');
         const data = await res.json();
-        audioInput.placeholder = `e.g. ${data.word}`;
-        audioInput.value = data.word;
+        if (forceReplace || !audioInput.value.trim()) {
+            // Only auto-fill if empty OR user clicked refresh
+            audioInput.value = data.word;
+            audioInput.placeholder = `e.g. ${data.word}`;
+        } else {
+            // On page load, just update placeholder — don't overwrite if user typed
+            audioInput.placeholder = `e.g. ${data.word}`;
+        }
     } catch (e) { }
 }
-suggestAudioWord();
+
+// Refresh button click - always replace with new suggestion
+document.getElementById('refreshAudioBtn').addEventListener('click', () => {
+    suggestAudioWord(true);
+    // Spin animation
+    const btn = document.getElementById('refreshAudioBtn');
+    btn.style.transition = 'transform 0.4s ease';
+    btn.style.transform = 'translateY(-50%) rotate(360deg)';
+    setTimeout(() => {
+        btn.style.transition = 'none';
+        btn.style.transform = 'translateY(-50%) rotate(0deg)';
+    }, 400);
+});
+
+suggestAudioWord(false);
+
+window.addEventListener('beforeunload', () => {
+    navigator.sendBeacon('/signup-closed');
+});

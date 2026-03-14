@@ -17,6 +17,7 @@ _feed_lock    = threading.Lock()
 feed_log      = []          # [{text, time, index}, ...]
 _feed_counter = 0
 _nav_command  = {'command': None}
+signup_open = False
 
 # -------------------------------------------------
 # Load Credentials from env
@@ -381,9 +382,17 @@ def logout():
 # Render the signup page
 @app.route('/signup')
 def signup_page():
+    global signup_open
+    signup_open = True
     # Run TTS in background so Flask can return the page immediately
     threading.Thread(target=speak_text, args=('[System]: Opening signup page',), daemon=True).start()
     return render_template('signup.html')
+
+@app.route('/signup-closed', methods=['POST'])
+def signup_closed():
+    global signup_open
+    signup_open = False
+    return '', 204
 
 @app.route('/register', methods=['POST'])
 def register():

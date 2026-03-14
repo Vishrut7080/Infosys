@@ -207,6 +207,28 @@ input.valid {
     color: var(--muted);
 }
 
+#refreshAudioBtn {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 16px;
+    padding: 0;
+    line-height: 1;
+    box-shadow: none;
+    width: auto;
+    color: var(--muted);
+    transition: transform 0.4s ease, color 0.2s;
+}
+
+#refreshAudioBtn:hover {
+    color: var(--accent);
+    transform: translateY(-50%) rotate(180deg);
+}
+
 .toggle-pw:hover {
     color: var(--text);
 }
