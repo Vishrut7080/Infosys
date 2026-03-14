@@ -85,28 +85,21 @@ def suggest_audio_word() -> str:
 # ----------------------
 
 def init_db():
-    """
-    Creates the 'users' table if it doesn't already exist.
-    Safe to call multiple times — uses IF NOT EXISTS.
-    Should be called once when the Flask server starts.
-
-    Table schema:
-        id          : Auto-incrementing primary key
-        name        : User's full name
-        email       : Unique email address (used as login identifier)
-        password    : bcrypt-hashed password (never stored plain)
-        secret_audio: bcrypt-hashed audio password for voice login
-        created_at  : Timestamp of account creation
-    """
     with sqlite3.connect(USER_DB_PATH) as conn:
         conn.execute('''
             CREATE TABLE IF NOT EXISTS users (
-                id           INTEGER PRIMARY KEY AUTOINCREMENT,
-                name         TEXT    NOT NULL,
-                email        TEXT    NOT NULL UNIQUE,
-                password     TEXT    NOT NULL,
-                secret_audio TEXT,
-                created_at   TEXT    NOT NULL
+                id              INTEGER PRIMARY KEY AUTOINCREMENT,
+                name            TEXT    NOT NULL,
+                email           TEXT    NOT NULL UNIQUE,
+                password        TEXT    NOT NULL,
+                secret_audio    TEXT,
+                gmail_address   TEXT,
+                gmail_app_pass  TEXT,
+                tg_api_id       TEXT,
+                tg_api_hash     TEXT,
+                tg_phone        TEXT,
+                role            TEXT    NOT NULL DEFAULT 'user',
+                created_at      TEXT    NOT NULL
             )
         ''')
         conn.commit()
@@ -117,6 +110,25 @@ def init_db():
                 logged_at  TEXT NOT NULL
             )
         ''')
+        conn.commit()
+
+        # ── Migrate existing DB — add columns if they don't exist ──
+        existing = [row[1] for row in conn.execute("PRAGMA table_info(users)").fetchall()]
+        for col, definition in [
+            ('gmail_address',  'TEXT'),
+            ('gmail_app_pass', 'TEXT'),
+            ('tg_api_id',      'TEXT'),
+            ('tg_api_hash',    'TEXT'),
+            ('tg_phone',       'TEXT'),
+            ('role',           "TEXT NOT NULL DEFAULT 'user'"),
+        ]:
+            if col not in existing:
+                try:
+                    conn.execute(f'ALTER TABLE users ADD COLUMN {col} {definition}')
+                    conn.commit()
+                except Exception as e:
+                    print(f'[DB] Migration warning for {col}: {e}')
+
     print(f"[DB] Database initialised at: {USER_DB_PATH}")
 
 def log_session(email: str):
@@ -134,45 +146,33 @@ def log_session(email: str):
 # Create User (Registration)
 # ----------------------
 
-def create_user(name: str, email: str, password: str, secret_audio: str = '') -> tuple[bool, str]:
-    """
-    Registers a new user in the database.
-    Hashes both the password and secret_audio before storing.
-
-    Args:
-        name:         Full name
-        email:        Email address (must be unique)
-        password:     Plain text password (will be hashed)
-        secret_audio: Plain text audio password (will be hashed, optional)
-
-    Returns:
-        (True,  'Registration successful!')  on success
-        (False, error_message)               on failure
-    """
+def create_user(name: str, email: str, password: str, secret_audio: str = '',
+                gmail_address: str = '', gmail_app_pass: str = '',
+                tg_api_id: str = '', tg_api_hash: str = '', tg_phone: str = '') -> tuple[bool, str]:
     try:
-        # Hash the password with bcrypt
-        # bcrypt.gensalt() generates a random salt — each hash is unique
-        # even if two users have the same password
         hashed_password = bcrypt.hashpw(
-            password.encode('utf-8'),
-            bcrypt.gensalt()
+            password.encode('utf-8'), bcrypt.gensalt()
         ).decode('utf-8')
 
-        # Hash secret audio if provided, otherwise store None
         hashed_audio = None
         if secret_audio and secret_audio.strip():
             hashed_audio = bcrypt.hashpw(
-                secret_audio.strip().lower().encode('utf-8'),
-                bcrypt.gensalt()
+                secret_audio.strip().lower().encode('utf-8'), bcrypt.gensalt()
             ).decode('utf-8')
 
         created_at = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
         with sqlite3.connect(USER_DB_PATH) as conn:
             conn.execute(
-                '''INSERT INTO users (name, email, password, secret_audio, created_at)
-                   VALUES (?, ?, ?, ?, ?)''',
-                (name, email.strip().lower(), hashed_password, hashed_audio, created_at)
+                '''INSERT INTO users
+                   (name, email, password, secret_audio,
+                    gmail_address, gmail_app_pass,
+                    tg_api_id, tg_api_hash, tg_phone, created_at)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+                (name, email.strip().lower(), hashed_password, hashed_audio,
+                 gmail_address.strip(), gmail_app_pass.strip(),
+                 tg_api_id.strip(), tg_api_hash.strip(), tg_phone.strip(),
+                 created_at)
             )
             conn.commit()
 
@@ -180,9 +180,7 @@ def create_user(name: str, email: str, password: str, secret_audio: str = '') ->
         return True, 'Registration successful!'
 
     except sqlite3.IntegrityError:
-        # UNIQUE constraint on email failed — account already exists
         return False, 'An account with this email already exists.'
-
     except Exception as e:
         print(f"[DB] create_user error: {e}")
         return False, f'Database error: {str(e)}'
@@ -386,9 +384,36 @@ def delete_user(email: str, password: str) -> tuple[bool, str]:
     except Exception as e:
         return False, f'Error: {str(e)}'
 
+def get_user_credentials(email: str) -> dict | None:
+    """
+    Fetches Gmail + Telegram credentials stored during signup.
+    Called after login to configure the active session.
+    """
+    try:
+        with sqlite3.connect(USER_DB_PATH) as conn:
+            cursor = conn.execute(
+                '''SELECT gmail_address, gmail_app_pass,
+                          tg_api_id, tg_api_hash, tg_phone
+                   FROM users WHERE email = ?''',
+                (email.strip().lower(),)
+            )
+            row = cursor.fetchone()
+        if not row:
+            return None
+        return {
+            'gmail_address':  row[0] or '',
+            'gmail_app_pass': row[1] or '',
+            'tg_api_id':      row[2] or '',
+            'tg_api_hash':    row[3] or '',
+            'tg_phone':       row[4] or '',
+        }
+    except Exception as e:
+        print(f'[DB] get_user_credentials error: {e}')
+        return None
+
 
 __all__ = [
     'init_db', 'create_user', 'verify_user', 'verify_audio',
-    'get_user_by_email', 'suggest_audio_word',
+    'get_user_by_email', 'suggest_audio_word','get_user_credentials',
     'update_name', 'update_password', 'update_audio', 'delete_user', 'log_session'
 ]

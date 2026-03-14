@@ -91,6 +91,46 @@
                 <span class="field-hint">Say this phrase to log in hands-free via voice.</span>
                 <span class="field-error" id="audioError"></span>
             </div>
+            <!-- Gmail Settings -->
+            <div class="field-group">
+                <label for="gmailAddress">Gmail Address</label>
+                <input type="email" id="gmailAddress" placeholder="you@gmail.com" autocomplete="off">
+                <span class="field-hint">The Gmail account this assistant will manage.</span>
+                <span class="field-error" id="gmailError"></span>
+            </div>
+
+            <div class="field-group">
+                <label for="gmailAppPass">
+                    Gmail App Password
+                    <span class="tooltip"
+                        title="Generate at myaccount.google.com/apppasswords — NOT your Gmail password">?</span>
+                </label>
+                <div class="input-wrap">
+                    <input type="password" id="gmailAppPass" placeholder="xxxx xxxx xxxx xxxx" autocomplete="off">
+                    <button type="button" class="toggle-pw" data-target="gmailAppPass">👁</button>
+                </div>
+                <span class="field-hint">16-character App Password from Google Account settings.</span>
+                <span class="field-error" id="gmailAppError"></span>
+            </div>
+
+            <!-- Telegram Settings (optional) -->
+            <div class="field-group">
+                <label for="tgApiId">
+                    Telegram API ID
+                    <span class="tooltip" title="Optional. Get from my.telegram.org">?</span>
+                </label>
+                <input type="text" id="tgApiId" placeholder="12345678 (optional)" autocomplete="off">
+            </div>
+
+            <div class="field-group">
+                <label for="tgApiHash">Telegram API Hash</label>
+                <input type="text" id="tgApiHash" placeholder="abcdef1234... (optional)" autocomplete="off">
+            </div>
+
+            <div class="field-group">
+                <label for="tgPhone">Telegram Phone Number</label>
+                <input type="tel" id="tgPhone" placeholder="+91xxxxxxxxxx (optional)" autocomplete="off">
+            </div>
 
             <!-- Submit -->
             <button type="submit" class="btn-submit" id="submitBtn">

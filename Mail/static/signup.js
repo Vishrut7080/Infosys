@@ -25,6 +25,12 @@ const btnText = submitBtn.querySelector('.btn-text');
 const btnSpinner = document.getElementById('btnSpinner');
 const successScreen = document.getElementById('successScreen');
 const countdownEl = document.getElementById('countdown');
+const gmailAddressInput = document.getElementById('gmailAddress');
+const gmailAppPassInput = document.getElementById('gmailAppPass');
+const gmailError = document.getElementById('gmailError');
+const gmailAppError = document.getElementById('gmailAppError');
+gmailAddressInput.addEventListener('blur', validateGmail);
+gmailAppPassInput.addEventListener('blur', validateGmailAppPass);
 
 // Error message elements
 const nameError = document.getElementById('nameError');
@@ -175,6 +181,34 @@ function validateAudio() {
     return true;
 }
 
+function validateGmail() {
+    const val = gmailAddressInput.value.trim();
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!val) {
+        setError(gmailAddressInput, gmailError, 'Gmail address is required.');
+        return false;
+    }
+    if (!emailRegex.test(val)) {
+        setError(gmailAddressInput, gmailError, 'Enter a valid Gmail address.');
+        return false;
+    }
+    clearError(gmailAddressInput, gmailError);
+    return true;
+}
+
+function validateGmailAppPass() {
+    const val = gmailAppPassInput.value.trim().replace(/\s/g, '');
+    if (!val) {
+        setError(gmailAppPassInput, gmailAppError, 'App Password is required.');
+        return false;
+    }
+    if (val.length < 16) {
+        setError(gmailAppPassInput, gmailAppError, 'App Password should be 16 characters.');
+        return false;
+    }
+    clearError(gmailAppPassInput, gmailAppError);
+    return true;
+}
 
 // ----------------------
 // Error / Clear Helpers
@@ -219,7 +253,9 @@ form.addEventListener('submit', async function (e) {
         validateEmail() &
         validatePassword() &
         validateConfirm() &
-        validateAudio();
+        validateAudio() &
+        validateGmail() &
+        validateGmailAppPass();
 
     if (!valid) return;
 
@@ -236,6 +272,11 @@ form.addEventListener('submit', async function (e) {
                 email: emailInput.value.trim(),
                 password: passwordInput.value,
                 secret_audio: audioInput.value.trim().toLowerCase(),
+                gmail_address: gmailAddressInput.value.trim(),
+                gmail_app_pass: gmailAppPassInput.value.trim(),
+                tg_api_id: document.getElementById('tgApiId').value.trim(),
+                tg_api_hash: document.getElementById('tgApiHash').value.trim(),
+                tg_phone: document.getElementById('tgPhone').value.trim(),
             })
         });
 

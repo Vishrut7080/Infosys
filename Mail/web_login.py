@@ -89,6 +89,23 @@ microsoft = oauth.register(
 # Where all successful logins redirect to
 GMAIL_URL = "https://mail.google.com/mail/u/0/#inbox"
 
+def apply_user_credentials(email: str):
+    """Load user's Gmail + Telegram credentials from DB into os.environ."""
+    creds = database.get_user_credentials(email)
+    if not creds:
+        return
+    if creds['gmail_address']:
+        os.environ['EMAIL_USER'] = creds['gmail_address']
+    if creds['gmail_app_pass']:
+        os.environ['EMAIL_PASS'] = creds['gmail_app_pass']
+    if creds['tg_api_id']:
+        os.environ['TELEGRAM_API_ID'] = creds['tg_api_id']
+    if creds['tg_api_hash']:
+        os.environ['TELEGRAM_API_HASH'] = creds['tg_api_hash']
+    if creds['tg_phone']:
+        os.environ['TELEGRAM_PHONE'] = creds['tg_phone']
+    print(f'[Auth] Credentials loaded for {email}')
+
 def push_to_feed(text: str):
     """Append a spoken/heard line to the live dashboard feed."""
     global _feed_counter
@@ -174,6 +191,7 @@ def login():
             app.config['current_email'] = entered_email
             session['user'] = {'name': result, 'email': entered_email}
             database.log_session(entered_email)
+            apply_user_credentials(entered_email)
             return jsonify({'status': 'success', 'message': f'Welcome back, {result}!'})
 
         # Fallback: check .env credentials (original admin/owner login)
@@ -294,6 +312,7 @@ def auth_google_callback():
             'picture': user_info.get('picture'),
         }
         database.log_session(session['user']['email'])
+        apply_user_credentials(session['user']['email'])
         login_status = 'success'
         app.config['current_email'] = session['user']['email']
         print(f"[OAuth] Login successful: {session['user']['email']}")
@@ -338,6 +357,7 @@ def auth_microsoft_callback():
             'picture': None,
         }
         database.log_session(session['user']['email'])
+        apply_user_credentials(session['user']['email'])
         login_status = 'success'
         app.config['current_email'] = session['user']['email']
         print(f"[OAuth] Microsoft login: {session['user']['email']}")
@@ -384,16 +404,25 @@ def signup_page():
 @app.route('/register', methods=['POST'])
 def register():
     try:
-        data         = request.get_json()
-        name         = data.get('name', '').strip()
-        email        = data.get('email', '').strip()
-        password     = data.get('password', '')
-        secret_audio = data.get('secret_audio', '').lower().strip()
+        data           = request.get_json()
+        name           = data.get('name', '').strip()
+        email          = data.get('email', '').strip()
+        password       = data.get('password', '')
+        secret_audio   = data.get('secret_audio', '').lower().strip()
+        gmail_address  = data.get('gmail_address', '').strip()
+        gmail_app_pass = data.get('gmail_app_pass', '').strip()
+        tg_api_id      = data.get('tg_api_id', '').strip()
+        tg_api_hash    = data.get('tg_api_hash', '').strip()
+        tg_phone       = data.get('tg_phone', '').strip()
 
         if not name or not email or not password:
             return jsonify({'status': 'error', 'message': 'All fields required'})
 
-        success, message = database.create_user(name, email, password, secret_audio)
+        success, message = database.create_user(
+            name, email, password, secret_audio,
+            gmail_address, gmail_app_pass,
+            tg_api_id, tg_api_hash, tg_phone
+        )
 
         if success:
             return jsonify({'status': 'success', 'message': 'Registration successful!'})
