@@ -481,39 +481,64 @@ def get_stats():
 def get_inbox():
     if 'user' not in session:
         return jsonify({'messages': []})
+    
     messages = []
+    services = selected_services or []
 
-    try:
-        from Telegram.telegram import telegram_get_messages
-        tg_msgs = telegram_get_messages(5)
-        for m in tg_msgs:
-            messages.append({
-                'source': 'telegram',
-                'from': m['name'],
-                'to': 'me',
-                'text': m['message'],
-                'dir': 'incoming',
-                'time': m['date']
-            })
-    except Exception as e:
-        print(f'[Inbox] Telegram error: {e}')
+    # ── Gmail ──────────────────────────────────────
+    if 'gmail' in services:
+        try:
+            from Mail.email_handler import get_top_senders
+            emails = get_top_senders(count=5)
+            for e in emails:
+                if 'error' not in e:
+                    messages.append({
+                        'source':  'gmail',
+                        'from':    e['sender'],
+                        'to':      'Me',
+                        'text':    e['subject'] + ' — ' + e['summary'],
+                        'dir':     'Incoming',
+                        'time':    e['date'],
+                    })
+        except Exception as ex:
+            print(f'[Inbox] Gmail error: {ex}')
 
-    try:
-        from Mail.email_handler import get_top_senders
-        emails = get_top_senders(count=5)
-        for e in emails:
-            if 'error' not in e:
+    # ── Telegram ───────────────────────────────────
+    if 'telegram' in services:
+        try:
+            from Telegram.telegram import telegram_get_messages
+            tg_msgs = telegram_get_messages(5)
+            for m in tg_msgs:
                 messages.append({
-                    'source': 'gmail',
-                    'from': e['sender'],
-                    'to': 'me',
-                    'text': e['subject'],
-                    'dir': 'incoming',
-                    'time': e['date']
+                    'source':  'telegram',
+                    'from':    m['name'],
+                    'to':      'Me',
+                    'text':    m['message'],
+                    'dir':     f"{m['unread']} unread" if m.get('unread') else 'Incoming',
+                    'time':    m['date'],
                 })
-    except Exception as e:
-        print(f'[Inbox] Gmail error: {e}')
+        except Exception as ex:
+            print(f'[Inbox] Telegram error: {ex}')
 
+    # ── WhatsApp ───────────────────────────────────
+    if 'whatsapp' in services:
+        try:
+            from Whatsapp.whatsapp import whatsapp_get_messages
+            wa_msgs = whatsapp_get_messages(5)
+            for m in wa_msgs:
+                messages.append({
+                    'source':  'whatsapp',
+                    'from':    m['name'],
+                    'to':      'Me',
+                    'text':    m['message'],
+                    'dir':     'Incoming',
+                    'time':    m['date'],
+                })
+        except Exception as ex:
+            print(f'[Inbox] WhatsApp error: {ex}')
+
+    # Sort newest first — best effort (strings, so sort descending)
+    messages.sort(key=lambda x: x.get('time', ''), reverse=True)
     return jsonify({'messages': messages})
 
 # -------------------------------------------------

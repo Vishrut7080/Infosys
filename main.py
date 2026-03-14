@@ -1,3 +1,6 @@
+# # =================================================
+# IMPORTS
+# # =================================================
 from Audio.text_to_speech import speak_text as _speak_text_orig
 from Audio.speech_to_text import listen_text
 from Mail.email_handler import open_gmail_compose, get_top_senders
@@ -9,6 +12,7 @@ import threading, webbrowser, requests
 from dotenv import load_dotenv
 import os, time, datetime, random, re
 from Telegram.telegram import start_telegram_in_thread, telegram_get_messages, telegram_send_message, telegram_get_latest, set_notification_callback
+from Whatsapp.whatsapp import whatsapp_send_message, whatsapp_get_messages
 
 load_dotenv()
 
@@ -193,7 +197,10 @@ NAV_PHRASES = [
     'deselect telegram','disable telegram','remove telegram',
     'save services',   'confirm services','save and continue',
     'select both', 'enable both', 'both services',
-    'select gmail and telegram', 'select telegram and gmail'
+    'select gmail and telegram', 'select telegram and gmail',
+    'select whatsapp',  'enable whatsapp',  'add whatsapp',
+    'deselect whatsapp','disable whatsapp', 'remove whatsapp',
+    'select all',       'enable all',       'all services',
 ]
 
 def normalize_hindi(text: str) -> str:
@@ -433,6 +440,9 @@ with open('Audio/Transcribe.txt', 'a', encoding='utf-8') as file:
                 connected_msg = f'[System]: Connected: {", ".join(services)}. Ready.' if user_lang == 'en' \
                     else f'[System]: कनेक्ट हुआ: {", ".join(services)}। तैयार।'
                 speak_text(connected_msg, lang=user_lang)
+                if 'whatsapp' in services:
+                    speak_text('[System]: WhatsApp ready.', lang=user_lang)
+                continue
             else:
                 time.sleep(0.5)           
 
@@ -461,11 +471,14 @@ with open('Audio/Transcribe.txt', 'a', encoding='utf-8') as file:
                 services = web_login.selected_services
                 if 'gmail' in services:
                     speak_text(r('gmail_ready'), lang=user_lang)
+                if 'whatsapp' in services:
+                    speak_text('[System]: WhatsApp ready.', lang=user_lang)
                 connected_msg = f'[System]: Connected: {", ".join(services)}. Ready.' if user_lang == 'en' \
                     else f'[System]: कनेक्ट हुआ: {", ".join(services)}। तैयार।'
                 speak_text(connected_msg, lang=user_lang)
+                continue
             else:
-                time.sleep(0.5)            
+                time.sleep(0.5)                
 
         speak_text(f'[User]: {heard}')
         clean_heard = heard.lower().strip().replace('.', '')
@@ -602,6 +615,41 @@ with open('Audio/Transcribe.txt', 'a', encoding='utf-8') as file:
                 speak_text(f"[System]: Latest Telegram message. From: {msg['name']}. Message: {msg['message']}. Date: {msg['date']}.")
             else:
                 speak_text(r('tg_none'), lang=user_lang)
+            continue
+            
+        # ── WHATSAPP — SEND ───────────────────────────────
+        elif web_login.login_status == "success" and 'whatsapp' in clean_heard and ('send' in clean_heard or 'भेजो' in clean_heard):
+            speak_text('[System]: Who do you want to WhatsApp?', lang=user_lang)
+            recipient, _ = listen_text()
+            recipient = recipient.strip()
+            speak_text(f'[User]: {recipient}')
+            if not recipient:
+                speak_text('[System]: No recipient heard. Cancelled.', lang=user_lang)
+                continue
+            speak_text('[System]: What is your message?', lang=user_lang)
+            message, _ = listen_text(duration=10)
+            message = message.strip()
+            speak_text(f'[User]: {message}')
+            if not message:
+                speak_text('[System]: Message was empty. Cancelled.', lang=user_lang)
+                continue
+            speak_text(f'[System]: Sending WhatsApp to {recipient}. Please confirm.', lang=user_lang)
+            confirm, _ = listen_text()
+            if any(w in confirm.lower() for w in affirmation):
+                success, result = whatsapp_send_message(recipient, message)
+                speak_text(f'[System]: {result}')
+            else:
+                speak_text('[System]: WhatsApp message cancelled.', lang=user_lang)
+
+        # ── WHATSAPP — CHECK ──────────────────────────────
+        elif web_login.login_status == "success" and 'whatsapp' in clean_heard and any(w in clean_heard for w in inbox_req + ['message', 'messages']):
+            speak_text('[System]: Fetching your WhatsApp messages.', lang=user_lang)
+            messages = whatsapp_get_messages(5)
+            if not messages:
+                speak_text('[System]: No WhatsApp messages found.', lang=user_lang)
+            else:
+                for i, msg in enumerate(messages, 1):
+                    speak_text(f"WhatsApp {i}. From: {msg['name']}. Message: {msg['message']}. Date: {msg['date']}.")
             continue
 
         # ── NOT LOGGED IN GUARD ───────────────────────

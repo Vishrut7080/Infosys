@@ -135,8 +135,12 @@ async function pollServices() {
         // Sidebar pills
         const pillGmail = document.getElementById('pill-gmail');
         const pillTelegram = document.getElementById('pill-telegram');
+        const pillWhatsapp = document.getElementById('pill-whatsapp');
         if (pillGmail) pillGmail.style.display = services.includes('gmail') ? 'flex' : 'none';
         if (pillTelegram) pillTelegram.style.display = services.includes('telegram') ? 'flex' : 'none';
+        if (pillWhatsapp) pillWhatsapp.style.display = services.includes('whatsapp') ? 'flex' : 'none';
+        const chkW = document.getElementById('chk-whatsapp');
+        if (chkW) chkW.checked = services.includes('whatsapp');
 
         // Profile checkboxes
         const chkG = document.getElementById('chk-gmail');
@@ -210,6 +214,23 @@ async function pollNavCommands() {
         if (cmd.includes('select telegram') || cmd.includes('enable telegram') || cmd.includes('add telegram')) {
             const el = document.getElementById('chk-telegram');
             if (el) { el.checked = true; saveServices(); showServiceMsg('Telegram connected ✓'); }
+        }
+        if (cmd.includes('select whatsapp') || cmd.includes('enable whatsapp') || cmd.includes('add whatsapp')) {
+            const el = document.getElementById('chk-whatsapp');
+            if (el) { el.checked = true; saveServices(); showServiceMsg('WhatsApp connected ✓'); }
+        }
+        if (cmd.includes('deselect whatsapp') || cmd.includes('disable whatsapp') || cmd.includes('remove whatsapp')) {
+            const el = document.getElementById('chk-whatsapp');
+            if (el) { el.checked = false; showServiceMsg('WhatsApp removed'); }
+        }
+        // Update the "select both" block to include whatsapp:
+        if (cmd.includes('select all') || cmd.includes('enable all') || cmd.includes('all services')) {
+            ['chk-gmail', 'chk-telegram', 'chk-whatsapp'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.checked = true;
+            });
+            saveServices();
+            showServiceMsg('All services connected ✓');
         }
         // ★ Select BOTH at once
         if (cmd.includes('select both') || cmd.includes('enable both') || (cmd.includes('gmail') && cmd.includes('telegram'))) {

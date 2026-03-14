@@ -21,9 +21,44 @@ EMAIL_PASS=os.getenv('EMAIL_PASS')
 # ========================
 # CONFIGURATION
 # ========================
-LANGUAGE       = "english"          # Language for sumy tokenizer and stop words
 SENTENCE_COUNT = 2                  # Number of sentences to keep in the summary
 FETCH_COUNT    = 3                  # How many of the latest emails to fetch
+
+# # =================================================
+# TEXT SUMMARIZATION
+# # =================================================
+try:
+    from langdetect import detect as _detect_lang
+    _langdetect_available = True
+except ImportError:
+    _langdetect_available = False
+
+def summarize_body(body: str, sentence_count: int = SENTENCE_COUNT) -> str:
+    body = body[:2000]
+    cleaned = re.sub(r'\n+', ' ', body).strip()
+    if len(cleaned.split()) < 30:
+        return cleaned if cleaned else "No body content."
+
+    # ★ Detect language
+    sumy_lang = 'english'
+    if _langdetect_available:
+        try:
+            detected = _detect_lang(cleaned)
+            if detected == 'hi':
+                sumy_lang = 'hindi'
+        except Exception:
+            pass
+
+    try:
+        parser     = PlaintextParser.from_string(cleaned, Tokenizer(sumy_lang))
+        stemmer    = Stemmer(sumy_lang)
+        summarizer = LsaSummarizer(stemmer)
+        summarizer.stop_words = get_stop_words(sumy_lang)
+        summary_sentences = summarizer(parser.document, sentence_count)
+        summary = ' '.join(str(s) for s in summary_sentences)
+        return summary if summary else cleaned[:300]
+    except Exception:
+        return cleaned[:300] + '...' if len(cleaned) > 300 else cleaned
 
 # to open a webpage to compose a new mail
 def open_gmail_compose():
@@ -93,53 +128,6 @@ def strip_html(raw_html: str) -> str:
     # Collapse whitespace
     text = re.sub(r'\s+', ' ', text)
     return text.strip()
-
-# ----------------------
-# Helper: Summarize text using Sumy LSA
-# ----------------------
-
-def summarize_body(body: str, sentence_count: int = SENTENCE_COUNT) -> str:
-    """
-    Uses Sumy's LSA summarizer to extract the most important sentences
-    from the email body.
-
-    LSA (Latent Semantic Analysis) works by decomposing the term-sentence
-    matrix using SVD, then ranking sentences by how much they contribute
-    to the main topics. It handles longer emails better than greedy methods.
-
-    Args:
-        body:           The raw plain-text email body.
-        sentence_count: Number of sentences to include in the summary.
-
-    Returns:
-        A summarized string, or the original body if it's too short to summarize.
-    """
-
-    # Cap body at 2000 chars before summarizing — prevents reading entire HTML emails
-    body = body[:2000]
-
-    # Clean up excessive whitespace and newlines before summarizing
-    cleaned = re.sub(r'\n+', ' ', body).strip()
-
-    # If the body is very short (e.g. a one-liner), just return it as-is
-    if len(cleaned.split()) < 30:
-        return cleaned if cleaned else "No body content."
-
-    try:
-        parser     = PlaintextParser.from_string(cleaned, Tokenizer(LANGUAGE))
-        stemmer    = Stemmer(LANGUAGE)
-        summarizer = LsaSummarizer(stemmer)
-        summarizer.stop_words = get_stop_words(LANGUAGE)
-
-        # Extract the top N sentences
-        summary_sentences = summarizer(parser.document, sentence_count)
-        summary = ' '.join(str(s) for s in summary_sentences)
-        return summary if summary else cleaned[:300]  # fallback to first 300 chars
-
-    except Exception as e:
-        # If sumy fails for any reason, return a truncated version of the body
-        return cleaned[:300] + "..." if len(cleaned) > 300 else cleaned
-
 
 # ----------------------
 # Helper: Extract important details from email body
