@@ -23,14 +23,9 @@ import smtplib
 import os
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
-from dotenv import load_dotenv
 from Audio.speech_to_text import listen_text
 from Audio.text_to_speech import speak_text
 
-load_dotenv()
-
-EMAIL_USER = os.getenv('EMAIL_USER')
-EMAIL_PASS = os.getenv('EMAIL_PASS')
 
 # Words that count as confirmation
 CONFIRM_WORDS = ['yes', 'ok', 'yah', 'ya', 'confirm', 'send', 'correct']
@@ -43,6 +38,8 @@ CANCEL_WORDS  = ['no', 'nah', 'nope', 'cancel', 'stop', "don't"]
 # ----------------------
 
 def send_email(to: str, subject: str, body: str) -> tuple[bool, str]:
+    EMAIL_USER = os.getenv('EMAIL_USER')
+    EMAIL_PASS = os.getenv('EMAIL_PASS') 
     """
     Sends a plain-text email via Gmail SMTP.
 
@@ -231,6 +228,8 @@ def compose_email_by_voice() -> str:
 # ----------------------
 
 def send_reply_direct(reply_to: str, subject: str, msg_id: str, body: str) -> str:
+    EMAIL_USER = os.getenv('EMAIL_USER')
+    EMAIL_PASS = os.getenv('EMAIL_PASS')
     """
     Sends a reply directly with a pre-composed body (used for AI suggested replies).
     """
@@ -255,6 +254,8 @@ def send_reply_direct(reply_to: str, subject: str, msg_id: str, body: str) -> st
         return f'[System]: Failed to send. {str(e)}'
 
 def reply_email_by_voice(reply_to: str, original_subject: str, original_msg_id: str) -> str:
+    EMAIL_USER = os.getenv('EMAIL_USER')
+    EMAIL_PASS = os.getenv('EMAIL_PASS')
     try:
         speak_text('[System]: What would you like to say in your reply?')
         body, _ = listen_text(duration=10)

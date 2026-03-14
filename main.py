@@ -236,12 +236,6 @@ confirmation_words = ['correct', 'confirm', 'yes', 'हाँ', 'सही']
 if SECRET_AUD:
     confirmation_words.append(SECRET_AUD.lower().strip())
 
-# ========================
-# TELEGRAM VARIABLES
-# ========================
-API_ID   = int(os.getenv('TELEGRAM_API_ID', 0))
-API_HASH = os.getenv('TELEGRAM_API_HASH', '')
-
 def on_new_telegram(sender, text):
     speak_text(f'[Telegram]: New message from {sender}: {text}')
 
@@ -406,7 +400,9 @@ with open('Audio/Transcribe.txt', 'a', encoding='utf-8') as file:
 
                 if 'telegram' in services:
                     speak_text(r('tg_starting'), lang=user_lang)
-                    if API_ID and API_HASH:
+                    api_id   = int(os.getenv('TELEGRAM_API_ID', 0))
+                    api_hash = os.getenv('TELEGRAM_API_HASH', '')
+                    if api_id and api_hash:
                         start_telegram_in_thread()
                         time.sleep(2)
                         from Telegram.telegram import _client
@@ -529,6 +525,7 @@ with open('Audio/Transcribe.txt', 'a', encoding='utf-8') as file:
             login_initiated = False
             matched, name = verify_audio(clean_heard.strip())
             if matched:
+                from Backend.database import get_user_email_by_name
                 welcome = f'[System]: Welcome, {name}. Login confirmed.' if user_lang == 'en' \
                     else f'[System]: स्वागत है, {name}। लॉगिन सफल।'
                 speak_text(welcome, lang=user_lang)

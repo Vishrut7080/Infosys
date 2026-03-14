@@ -24,10 +24,6 @@ from telethon.tl.types import User, Chat, Channel
 
 load_dotenv()
 
-API_ID   = int(os.getenv('TELEGRAM_API_ID', 0))
-API_HASH = os.getenv('TELEGRAM_API_HASH', '')
-PHONE    = os.getenv('TELEGRAM_PHONE', '')
-
 # Session file stored in Telegram/ folder — created on first login
 SESSION_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'telegram_session')
 
@@ -56,8 +52,10 @@ def _get_name(entity) -> str:
 # ----------------------
 async def _init_client(phone_callback=None, code_callback=None):
     global _client
+    api_id   = int(os.getenv('TELEGRAM_API_ID', 0))
+    api_hash = os.getenv('TELEGRAM_API_HASH', '')
     _client = TelegramClient(
-        SESSION_FILE, API_ID, API_HASH,
+        SESSION_FILE, api_id, api_hash,
         device_model="Desktop", system_version="Windows 10",
         app_version="1.0", lang_code="en", system_lang_code="en",
         request_retries=1,

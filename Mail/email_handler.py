@@ -1,5 +1,4 @@
 import os, webbrowser, imaplib, email, re, html
-from dotenv import load_dotenv
 from email.header import decode_header
 from email.utils import parsedate_to_datetime
 
@@ -11,12 +10,6 @@ from sumy.nlp.tokenizers import Tokenizer
 from sumy.summarizers.lsa import LsaSummarizer
 from sumy.nlp.stemmers import Stemmer
 from sumy.utils import get_stop_words
-
-load_dotenv()
-
-# loads the passowrd and email address
-EMAIL_USER=os.getenv('EMAIL_USER')
-EMAIL_PASS=os.getenv('EMAIL_PASS')
 
 # ========================
 # CONFIGURATION
@@ -178,6 +171,8 @@ def extract_important_details(msg, body: str) -> dict:
 
 # open webpage and return the name of the top mail(sender)
 def get_top_senders(count: int = FETCH_COUNT, category: str='ALL'):
+    EMAIL_USER = os.getenv('EMAIL_USER')
+    EMAIL_PASS = os.getenv('EMAIL_PASS')
     try:
         mail = imaplib.IMAP4_SSL('imap.gmail.com')
         mail.login(EMAIL_USER, EMAIL_PASS)

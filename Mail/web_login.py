@@ -21,9 +21,6 @@ _nav_command  = {'command': None}
 # -------------------------------------------------
 # Load Credentials from env
 # -------------------------------------------------
-
-EMAIL_USER          = os.getenv("EMAIL_USER")
-EMAIL_PASS          = os.getenv("EMAIL_PASS")
 SECRET_AUD          = os.getenv("SECRET_AUD")           # Audio authentication password
 GOOGLE_CLIENT_ID    = os.getenv("GOOGLE_CLIENT_ID")     # From Google Cloud Console
 GOOGLE_CLIENT_SECRET= os.getenv("GOOGLE_CLIENT_SECRET") # From Google Cloud Console
@@ -142,9 +139,7 @@ def login_page():
     # Reset failed status on page load so polling doesn't immediately trigger overlay
     if login_status == 'failed':
         login_status = 'waiting'
-    return render_template('login.html',
-        username=EMAIL_USER,
-        password_mask="*" * len(EMAIL_PASS))
+    return render_template('login.html')
 
 # Flag to pause audio listening when user is active in browser
 user_typing = False
@@ -193,16 +188,6 @@ def login():
             database.log_session(entered_email)
             apply_user_credentials(entered_email)
             return jsonify({'status': 'success', 'message': f'Welcome back, {result}!'})
-
-        # Fallback: check .env credentials (original admin/owner login)
-        elif entered_email == EMAIL_USER and (
-            entered_password == EMAIL_PASS or
-            entered_password == SECRET_AUD
-        ):
-            login_status = 'success'
-            app.config['current_email'] = entered_email
-            session['user'] = {'name': 'Admin', 'email': entered_email}
-            return jsonify({'status': 'success', 'message': 'Login successful'})
 
         else:
             login_status = 'failed'
@@ -289,7 +274,6 @@ def auth_google():
     print(f"[OAuth] Redirect URI being sent to Google: {redirect_uri}")
     return google.authorize_redirect(
         redirect_uri,
-        login_hint=EMAIL_USER,  # pre-selects this account
         prompt='select_account'            # forces account chooser every time
     )
 
@@ -321,7 +305,6 @@ def auth_google_callback():
             args=(f"[System]: Welcome {session['user']['name']}.",),
             daemon=True
         ).start()
-        email = session['user']['email']
         return redirect(url_for('dashboard'))
 
     except Exception as e:
@@ -366,7 +349,6 @@ def auth_microsoft_callback():
             args=(f"[System]: Welcome {session['user']['name']}.",),
             daemon=True
         ).start()
-        email = session['user']['email']
         return redirect(url_for('dashboard'))
 
     except Exception as e:
