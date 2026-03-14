@@ -471,9 +471,11 @@ with open('Audio/Transcribe.txt', 'a', encoding='utf-8') as file:
         clean_heard = normalize_hindi(clean_heard)
         file.write(f'{clean_heard}\n')
 
+        _is_nav = False
         for phrase in NAV_PHRASES:
             if phrase in clean_heard:
                 push_nav_command(clean_heard)
+                _is_nav = True
                 break
 
         # ── GREETING ──────────────────────────────────
@@ -843,7 +845,7 @@ with open('Audio/Transcribe.txt', 'a', encoding='utf-8') as file:
             break
 
         # ── FALLBACK ──────────────────────────────────
-        else:
+        elif not _is_nav:
             speak_text(r('not_understood'), lang=user_lang)
 
     file.close()

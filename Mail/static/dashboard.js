@@ -205,11 +205,20 @@ async function pollNavCommands() {
         // ── Service selection ──
         if (cmd.includes('select gmail') || cmd.includes('enable gmail') || cmd.includes('add gmail')) {
             const el = document.getElementById('chk-gmail');
-            if (el) { el.checked = true; showServiceMsg('Gmail selected ✓'); }
+            if (el) { el.checked = true; saveServices(); showServiceMsg('Gmail connected ✓'); }
         }
         if (cmd.includes('select telegram') || cmd.includes('enable telegram') || cmd.includes('add telegram')) {
             const el = document.getElementById('chk-telegram');
-            if (el) { el.checked = true; showServiceMsg('Telegram selected ✓'); }
+            if (el) { el.checked = true; saveServices(); showServiceMsg('Telegram connected ✓'); }
+        }
+        // ★ Select BOTH at once
+        if (cmd.includes('select both') || cmd.includes('enable both') || (cmd.includes('gmail') && cmd.includes('telegram'))) {
+            const g = document.getElementById('chk-gmail');
+            const t = document.getElementById('chk-telegram');
+            if (g) g.checked = true;
+            if (t) t.checked = true;
+            saveServices();
+            showServiceMsg('Gmail + Telegram connected ✓');
         }
         if (cmd.includes('deselect gmail') || cmd.includes('disable gmail') || cmd.includes('remove gmail')) {
             const el = document.getElementById('chk-gmail');
