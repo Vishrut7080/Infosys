@@ -192,6 +192,8 @@ NAV_PHRASES = [
     'deselect gmail',  'disable gmail',   'remove gmail',
     'deselect telegram','disable telegram','remove telegram',
     'save services',   'confirm services','save and continue',
+    'select both', 'enable both', 'both services',
+    'select gmail and telegram', 'select telegram and gmail'
 ]
 
 def normalize_hindi(text: str) -> str:
@@ -387,8 +389,7 @@ with open('Audio/Transcribe.txt', 'a', encoding='utf-8') as file:
         # Check OAuth login completed between recordings
         if login_initiated and web_login.login_status == "success":
             login_initiated = False
-            awaiting_services = True
-            speak_text(r('select_services'), lang=user_lang)
+            awaiting_services = True            
             continue
 
         if awaiting_services:

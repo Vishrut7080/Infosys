@@ -211,6 +211,10 @@ def select_services():
     data = request.get_json()
     selected_services = data.get('services', [])
     print(f"[Dashboard] Services selected: {selected_services}")
+    # Acknowledgement
+    if selected_services:
+       names = ' and '.join(s.capitalize() for s in selected_services)
+       push_to_feed(f'[System]: {names} selected. Say "save services" or wait for confirmation.')
     return jsonify({'status': 'ok'})
 
 @app.route('/get-services')
