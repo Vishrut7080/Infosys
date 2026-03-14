@@ -170,43 +170,30 @@ def extract_important_details(msg, body: str) -> dict:
 # ----------------------
 
 # open webpage and return the name of the top mail(sender)
-def get_top_senders(count: int = FETCH_COUNT, category: str='ALL'):
+def get_top_senders(count: int = FETCH_COUNT, category: str = 'ALL'):
     EMAIL_USER = os.getenv('EMAIL_USER')
     EMAIL_PASS = os.getenv('EMAIL_PASS')
     try:
         mail = imaplib.IMAP4_SSL('imap.gmail.com')
         mail.login(EMAIL_USER, EMAIL_PASS)
-        mail.select('inbox')
-        
-        # status, folders = mail.list()
-        # print('[DEBUG] Gmail folders:')
-        # for f in folders:
-        #     print(' ', f.decode())
-
-        mail.select('"[Gmail]/All Mail"')
 
         if category == 'PRIMARY':
-            result, data = mail.search(None, 'X-GM-LABELS primary')
-            print(f'[DEBUG] PRIMARY → result={result}, count={len(data[0].split()) if data[0] else 0}')
-            if result != 'OK' or not data[0].split():
-                result, data = mail.search(None, 'ALL')
-                print('[DEBUG] PRIMARY fell back to ALL')
-        
-        elif category == 'UPDATES':
-            result, data = mail.search(None, 'X-GM-LABELS updates')
-            print(f'[DEBUG] UPDATES → result={result}, count={len(data[0].split()) if data[0] else 0}')
-            if result != 'OK' or not data[0].split():
-                result, data = mail.search(None, 'ALL')
-                print('[DEBUG] UPDATES fell back to ALL')
-        
+            mail.select('inbox')
+            result, data = mail.search(None, 'ALL')
         elif category == 'PROMOTIONS':
-            result, data = mail.search(None, 'X-GM-LABELS promotions')
-            print(f'[DEBUG] PROMOTIONS → result={result}, count={len(data[0].split()) if data[0] else 0}')
+            mail.select('"[Gmail]/Promotions"')
+            result, data = mail.search(None, 'ALL')
             if result != 'OK' or not data[0].split():
+                mail.select('"[Gmail]/All Mail"')
                 result, data = mail.search(None, 'ALL')
-                print('[DEBUG] PROMOTIONS fell back to ALL')
-        
+        elif category == 'UPDATES':
+            mail.select('"[Gmail]/Updates"')
+            result, data = mail.search(None, 'ALL')
+            if result != 'OK' or not data[0].split():
+                mail.select('"[Gmail]/All Mail"')
+                result, data = mail.search(None, 'ALL')
         else:
+            mail.select('"[Gmail]/All Mail"')
             result, data = mail.search(None, 'ALL')
         
         mail_ids = data[0].split()

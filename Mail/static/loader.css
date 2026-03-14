@@ -24,6 +24,10 @@
     pointer-events: none;
 }
 
+.va-hidden {
+    display: none !important;
+}
+
 /* ---------- logo wrap ---------- */
 #va-loader .va-logo {
     width: 140px;

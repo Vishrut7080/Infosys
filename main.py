@@ -523,26 +523,19 @@ with open('Audio/Transcribe.txt', 'a', encoding='utf-8') as file:
         # ── LOGIN CONFIRMATION (audio password) ───────
         elif login_initiated and clean_heard.strip() in confirmation_words:
             login_initiated = False
-            matched, name = verify_audio(clean_heard.strip())
+            matched, name, matched_email = verify_audio(clean_heard.strip())
             if matched:
-                from Backend.database import get_user_email_by_name
                 welcome = f'[System]: Welcome, {name}. Login confirmed.' if user_lang == 'en' \
                     else f'[System]: स्वागत है, {name}। लॉगिन सफल।'
                 speak_text(welcome, lang=user_lang)
                 web_login.login_status = "success"
-                web_login.app.config['current_email'] = os.getenv('EMAIL_USER', '')
+                web_login.app.config['current_email'] = matched_email
+                web_login.apply_user_credentials(matched_email)
                 awaiting_services = True
                 speak_text(r('select_services'), lang=user_lang)
             else:
-                if clean_heard.strip().lower() == SECRET_AUD.lower().strip():
-                    speak_text(r('login_confirmed'), lang=user_lang)
-                    web_login.login_status = "success"
-                    web_login.app.config['current_email'] = os.getenv('EMAIL_USER', '')
-                    awaiting_services = True
-                    speak_text(r('select_services'), lang=user_lang)
-                else:
-                    speak_text(r('login_failed'), lang=user_lang)
-                    web_login.login_status = "failed"
+                speak_text(r('login_failed'), lang=user_lang)
+                web_login.login_status = "failed"
             continue
 
         # ── SIGNUP ────────────────────────────────────

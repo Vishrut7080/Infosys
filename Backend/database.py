@@ -28,9 +28,6 @@ import bcrypt
 import os
 import random
 from datetime import datetime
-from dotenv import load_dotenv
-
-load_dotenv()
 
 # ----------------------
 # Database file location
@@ -259,13 +256,13 @@ def verify_audio(spoken_word: str) -> tuple[bool, str]:
         for name, email, stored_hash in rows:
             if bcrypt.checkpw(spoken_clean, stored_hash.encode('utf-8')):
                 print(f"[DB] Audio login verified for: {email}")
-                return True, name
-
-        return False, 'Audio password not recognised.'
+                return True, name, email
+            
+        return False, 'Audio password not recognised.', ''
 
     except Exception as e:
         print(f"[DB] verify_audio error: {e}")
-        return False, f'Database error: {str(e)}'
+        return False, f'Database error: {str(e)}', ''
 
 
 # ----------------------

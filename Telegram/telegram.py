@@ -154,16 +154,22 @@ def _run_async(coro):
 
 def telegram_get_messages(count: int = 5) -> list[dict]:
     """Fetches latest N Telegram conversations."""
+    if _loop is None or _client is None:
+        return []
     return _run_async(_get_messages(count))
 
 
 def telegram_send_message(recipient: str, message: str) -> tuple[bool, str]:
     """Sends a Telegram message to a contact by name."""
+    if _loop is None or _client is None:
+        return False, 'Telegram not connected.'
     return _run_async(_send_message(recipient, message))
 
 
 def telegram_get_latest() -> dict | None:
     """Returns the single most recent Telegram message."""
+    if _loop is None or _client is None:
+        return None
     messages = _run_async(_get_messages(1))
     return messages[0] if messages else None
 

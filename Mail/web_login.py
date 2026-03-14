@@ -139,6 +139,8 @@ def login_page():
     # Reset failed status on page load so polling doesn't immediately trigger overlay
     if login_status == 'failed':
         login_status = 'waiting'
+    if 'user' not in session:
+        login_status = 'waiting'
     return render_template('login.html')
 
 # Flag to pause audio listening when user is active in browser

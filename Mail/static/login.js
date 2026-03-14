@@ -93,6 +93,7 @@ document.getElementById('loginForm').addEventListener('submit', async function (
 async function checkAudioLogin() {
     if (keyboardLoginAttempted) return;
     if (!pollingActive) return;
+    if (window.location.pathname !== '/') return;
 
     try {
         const res = await fetch('/check');

@@ -29,8 +29,6 @@ const gmailAddressInput = document.getElementById('gmailAddress');
 const gmailAppPassInput = document.getElementById('gmailAppPass');
 const gmailError = document.getElementById('gmailError');
 const gmailAppError = document.getElementById('gmailAppError');
-gmailAddressInput.addEventListener('blur', validateGmail);
-gmailAppPassInput.addEventListener('blur', validateGmailAppPass);
 
 // Error message elements
 const nameError = document.getElementById('nameError');
@@ -239,6 +237,8 @@ passwordInput.addEventListener('blur', validatePassword);
 confirmInput.addEventListener('blur', validateConfirm);
 audioInput.addEventListener('blur', validateAudio);
 
+gmailAddressInput.addEventListener('blur', validateGmail);
+gmailAppPassInput.addEventListener('blur', validateGmailAppPass);
 
 // ----------------------
 // Form Submission
