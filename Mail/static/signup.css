@@ -328,7 +328,6 @@ input.valid {
     opacity: 0.6;
 }
 
-
 /* ─────────────────────────────────────────────
    SUCCESS SCREEN
    ───────────────────────────────────────────── */
@@ -342,6 +341,10 @@ input.valid {
     justify-content: center;
     z-index: 100;
     animation: fadeIn 0.3s ease both;
+}
+
+.success-screen[hidden] {
+    display: none !important;
 }
 
 @keyframes fadeIn {
