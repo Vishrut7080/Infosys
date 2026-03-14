@@ -650,6 +650,41 @@ with open('Audio/Transcribe.txt', 'a', encoding='utf-8') as file:
             else:
                 for i, msg in enumerate(messages, 1):
                     speak_text(f"WhatsApp {i}. From: {msg['name']}. Message: {msg['message']}. Date: {msg['date']}.")
+                    speak_text('[System]: Would you like to reply to this message?', lang=user_lang)
+                    reply_decision, _ = listen_text()
+                    reply_decision = reply_decision.lower().strip()
+                    speak_text(f'[User]: {reply_decision}')
+                    if any(word in reply_decision for word in affirmation):
+                        # ★ AI suggested reply — same pattern as Telegram
+                        speak_text(r('suggest_generating'), lang=user_lang)
+                        suggestion = generate_local_reply(msg['message'])
+                        if suggestion:
+                            speak_text(f'[System]: {suggestion}. Shall I send this?', lang=user_lang)
+                            confirm, _ = listen_text()
+                            confirm = confirm.lower().strip()
+                            speak_text(f'[User]: {confirm}')
+                            if any(w in confirm for w in affirmation):
+                                success, result = whatsapp_send_message(msg['name'], suggestion)
+                                speak_text(f'[System]: {result}')
+                                continue
+                            speak_text(r('suggest_custom'), lang=user_lang)
+                        else:
+                            speak_text(r('suggest_failed'), lang=user_lang)
+                        # Manual reply fallback
+                        speak_text('[System]: What is your reply?', lang=user_lang)
+                        reply_msg, _ = listen_text(duration=10)
+                        reply_msg = reply_msg.strip()
+                        speak_text(f'[User]: {reply_msg}')
+                        if reply_msg:
+                            speak_text(f'[System]: Sending reply to {msg["name"]}. Confirm?', lang=user_lang)
+                            confirm, _ = listen_text()
+                            if any(w in confirm.lower() for w in affirmation):
+                                success, result = whatsapp_send_message(msg['name'], reply_msg)
+                                speak_text(f'[System]: {result}')
+                            else:
+                                speak_text('[System]: Reply cancelled.', lang=user_lang)
+                    else:
+                        speak_text('[System]: Okay, moving to the next message.', lang=user_lang)
             continue
 
         # ── NOT LOGGED IN GUARD ───────────────────────
