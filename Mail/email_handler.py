@@ -177,24 +177,47 @@ def get_top_senders(count: int = FETCH_COUNT, category: str = 'ALL'):
         mail = imaplib.IMAP4_SSL('imap.gmail.com')
         mail.login(EMAIL_USER, EMAIL_PASS)
 
+        # ── Temporary: print all folders once to verify names ──
+        _, folders = mail.list()
+        for f in folders:
+            print('[FOLDER]', f.decode())
+
         if category == 'PRIMARY':
-            mail.select('inbox')
-            result, data = mail.search(None, 'ALL')
+            # Primary inbox is just the regular inbox
+            status, _ = mail.select('inbox')
+            if status != 'OK':
+                mail.select('"[Gmail]/All Mail"')
+
         elif category == 'PROMOTIONS':
-            mail.select('"[Gmail]/Promotions"')
-            result, data = mail.search(None, 'ALL')
-            if result != 'OK' or not data[0].split():
+            # Try multiple possible folder names Gmail uses
+            selected = False
+            for folder in ['"[Gmail]/Promotions"', 
+                          '"[Google Mail]/Promotions"',
+                          'Promotions']:
+                status, _ = mail.select(folder)
+                if status == 'OK':
+                    selected = True
+                    break
+            if not selected:
                 mail.select('"[Gmail]/All Mail"')
-                result, data = mail.search(None, 'ALL')
+
         elif category == 'UPDATES':
-            mail.select('"[Gmail]/Updates"')
-            result, data = mail.search(None, 'ALL')
-            if result != 'OK' or not data[0].split():
+            selected = False
+            for folder in ['"[Gmail]/Updates"',
+                          '"[Google Mail]/Updates"',
+                          'Updates']:
+                status, _ = mail.select(folder)
+                if status == 'OK':
+                    selected = True
+                    break
+            if not selected:
                 mail.select('"[Gmail]/All Mail"')
-                result, data = mail.search(None, 'ALL')
+
         else:
             mail.select('"[Gmail]/All Mail"')
-            result, data = mail.search(None, 'ALL')
+
+        # ── Search selected mailbox ──
+        result, data = mail.search(None, 'ALL')
         
         mail_ids = data[0].split()
 
