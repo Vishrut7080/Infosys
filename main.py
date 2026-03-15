@@ -1014,6 +1014,12 @@ with open('Audio/Transcribe.txt', 'a', encoding='utf-8') as file:
                 speak_text('[System]: Logging you out.' if user_lang == 'en' else '[System]: लॉगआउट हो रहे हैं।', lang=user_lang)
                 web_login.login_status = "waiting"
                 login_initiated = False
+                # ── Clear Flask session so dashboard redirects ──
+                try:
+                    import requests as _req
+                    _req.post('http://localhost:5000/voice-logout')
+                except Exception:
+                    pass
                 speak_text(r('logout_success'), lang=user_lang)
             else:
                 speak_text(r('not_logged_in_lo'), lang=user_lang)

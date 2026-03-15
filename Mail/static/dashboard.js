@@ -321,5 +321,17 @@ function notifyTyping(isTyping) {
     }).catch(() => { });
 }
 
+// ── Detect voice logout ──────────────────────────────────────
+async function checkLogoutStatus() {
+    try {
+        const res = await fetch('/check-session');
+        const data = await res.json();
+        if (!data.logged_in) {
+            window.location.href = '/';
+        }
+    } catch (e) { }
+}
+setInterval(checkLogoutStatus, 2000);
+
 document.addEventListener('focusin', e => { if (e.target.tagName === 'INPUT') notifyTyping(true); });
 document.addEventListener('focusout', e => { if (e.target.tagName === 'INPUT') notifyTyping(false); });

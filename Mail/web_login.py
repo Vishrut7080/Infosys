@@ -175,14 +175,31 @@ def check_login():
     # For audio login — session isn't set by a form/OAuth
     # so we set a minimal session here so /dashboard doesn't reject it
     if login_status == 'success' and 'user' not in session:
+        email = app.config.get('current_email', '')
         session['user'] = {
             'name' : 'User',
             'email': app.config.get('current_email', ''),
         }
+        if email:
+            database.log_session(email)
     status = login_status
     if login_status == 'failed':
         login_status = 'waiting'
     return jsonify({'status': status})
+
+@app.route('/check-session')
+def check_session():
+    return jsonify({'logged_in': 'user' in session})
+
+@app.route('/voice-logout', methods=['POST'])
+def voice_logout():
+    """Called by main.py when voice logout command is detected."""
+    global login_status
+    if 'user' in session:
+        database.log_activity(session['user'].get('email', ''), 'logout', 'voice')
+    session.clear()
+    login_status = 'waiting'
+    return '', 204
 
 # Handle Keyboard Login
 @app.route('/login', methods=['POST'])
