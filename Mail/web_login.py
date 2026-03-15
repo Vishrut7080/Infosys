@@ -408,8 +408,6 @@ def logout():
 def signup_page():
     global signup_open
     signup_open = True
-    # Run TTS in background so Flask can return the page immediately
-    threading.Thread(target=speak_text, args=('[System]: Opening signup page',), daemon=True).start()
     return render_template('signup.html')
 
 @app.route('/signup-closed', methods=['POST'])

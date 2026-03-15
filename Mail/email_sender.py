@@ -24,8 +24,13 @@ import os
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from Audio.speech_to_text import listen_text
-from Audio.text_to_speech import speak_text
+from Backend.database import verify_pin
+import Mail.web_login as _web_login
+from Audio.text_to_speech import speak_text as _tts_orig
 
+def speak_text(text: str, lang: str = 'en'):
+    _web_login.push_to_feed(text)
+    _tts_orig(text, lang=lang)
 
 # Words that count as confirmation
 CONFIRM_WORDS = ['yes', 'ok', 'yah', 'ya', 'confirm', 'send', 'correct']
@@ -83,6 +88,12 @@ def send_email(to: str, subject: str, body: str) -> tuple[bool, str]:
 
 def spoken_to_email(spoken: str) -> str:
     text = spoken.lower().strip()
+    
+     # ── Remove dots between single letters (e.g. "v.i.s.h." → "vish") ──
+    import re
+    # Pattern: single letter followed by dot, repeated
+    text = re.sub(r'\b([a-z])\.', r'\1', text)   # remove trailing dots on single letters
+    text = re.sub(r'(?<=[a-z])\.(?=[a-z])', '', text)  # remove dots between letters
 
     # Replace spoken words with symbols
     replacements = {
@@ -100,6 +111,9 @@ def spoken_to_email(spoken: str) -> str:
         ' yahoo'       : '@yahoo',
         ' outlook'     : '@outlook',
         ' hotmail'     : '@hotmail',
+        ' at the rate ':  '@',
+        ' at the rate':   '@',
+        'at the rate ':   '@'
     }
 
     for spoken_form, symbol in replacements.items():
@@ -199,28 +213,45 @@ def compose_email_by_voice() -> str:
 
     # ── Step 4: Confirmation ──
     # Read back the full details so the user can verify before sending
+    # ── Step 4: Confirmation ──
     speak_text(
         f'[System]: Ready to send. '
         f'To: {recipient_clean}. '
         f'Subject: {subject}. '
         f'Message: {body}. '
-        f'Shall I send this email?'
+        f'Say yes to send or no to cancel.'
     )
-
+    
     confirm, _ = listen_text(duration=5)
     confirm = confirm.lower().strip().replace('.', '')
     speak_text(f'[User]: {confirm}')
-
+    
     if any(word in confirm for word in CONFIRM_WORDS):
-        # ── Step 5: Send ──
-        success, message = send_email(recipient_clean, subject, body)
-        return message
-
+        # ── Step 5: PIN verification ──
+        speak_text('[System]: Please say your Gmail PIN to authorise sending.')
+        pin_heard, _ = listen_text(duration=8)
+        pin_heard = pin_heard.strip().lower()
+        speak_text(f'[User]: {pin_heard}')
+    
+        word_to_digit = {
+            'zero':'0','one':'1','two':'2','three':'3','four':'4',
+            'five':'5','six':'6','seven':'7','eight':'8','nine':'9',
+        }
+        pin_digits = pin_heard
+        for word, digit in word_to_digit.items():
+            pin_digits = pin_digits.replace(word, digit)
+        pin_digits = ''.join(c for c in pin_digits if c.isdigit())
+    
+        current_email = _web_login.app.config.get('current_email', '')
+        if verify_pin(current_email, 'gmail', pin_digits):
+            success, message = send_email(recipient_clean, subject, body)
+            return message
+        else:
+            return '[System]: Incorrect PIN. Email not sent.'
+    
     elif any(word in confirm for word in CANCEL_WORDS):
         return '[System]: Email cancelled. No message was sent.'
-
     else:
-        # Unclear response — cancel to be safe
         return '[System]: Response unclear. Email cancelled to be safe.'
 
 # ----------------------
@@ -265,27 +296,43 @@ def reply_email_by_voice(reply_to: str, original_subject: str, original_msg_id: 
         speak_text(f'[User]: {body}')
 
         subject = f'Re: {original_subject}' if not original_subject.startswith('Re:') else original_subject
-        speak_text(f'[System]: Ready to send. To: {reply_to}. Subject: {subject}. Message: {body}. Shall I send it?')
-        confirm = listen_text().lower().strip()
-        speak_text(f'[User]: {confirm}')
+        speak_text(f'[System]: Ready to send. To: {reply_to}. Subject: {subject}. Message: {body}. Say yes to send.')
+        confirm, _ = listen_text(duration=5)
+        confirm_text = confirm[0].lower().strip() if isinstance(confirm, tuple) else confirm.lower().strip()
+        speak_text(f'[User]: {confirm_text}')
 
         affirmation = ['yes', 'ok', 'yah', 'ya', 'send', 'confirm']
-        if not any(w in confirm for w in affirmation):
-            return '[System]: Reply cancelled.'
+        if any(w in confirm_text for w in affirmation):
+            # ── PIN check ──
+            speak_text('[System]: Please say your Gmail PIN to authorise.')
+            pin_heard, _ = listen_text(duration=8)
+            pin_heard = pin_heard.strip().lower()
+            word_to_digit = {
+                'zero':'0','one':'1','two':'2','three':'3','four':'4',
+                'five':'5','six':'6','seven':'7','eight':'8','nine':'9',
+            }
+            pin_digits = pin_heard
+            for word, digit in word_to_digit.items():
+                pin_digits = pin_digits.replace(word, digit)
+            pin_digits = ''.join(c for c in pin_digits if c.isdigit())
+            current_email = _web_login.app.config.get('current_email', '')
+            if not verify_pin(current_email, 'gmail', pin_digits):
+                return '[System]: Incorrect PIN. Reply not sent.'
 
-        msg                = MIMEMultipart()
-        msg['From']        = EMAIL_USER
-        msg['To']          = reply_to
-        msg['Subject']     = subject
-        msg['In-Reply-To'] = original_msg_id
-        msg['References']  = original_msg_id
-        msg.attach(MIMEText(body, 'plain'))
 
-        with smtplib.SMTP_SSL('smtp.gmail.com', 465) as server:
-            server.login(EMAIL_USER, EMAIL_PASS)
-            server.sendmail(EMAIL_USER, reply_to, msg.as_string())
+            msg                = MIMEMultipart()
+            msg['From']        = EMAIL_USER
+            msg['To']          = reply_to
+            msg['Subject']     = subject
+            msg['In-Reply-To'] = original_msg_id
+            msg['References']  = original_msg_id
+            msg.attach(MIMEText(body, 'plain'))
 
-        return f'[System]: Reply sent to {reply_to}.'
+            with smtplib.SMTP_SSL('smtp.gmail.com', 465) as server:
+                server.login(EMAIL_USER, EMAIL_PASS)
+                server.sendmail(EMAIL_USER, reply_to, msg.as_string())
+
+            return f'[System]: Reply sent to {reply_to}.'
     except Exception as e:
         return f'[System]: Failed to send reply. {str(e)}'
 

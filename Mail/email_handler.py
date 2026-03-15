@@ -1,7 +1,8 @@
 import os, webbrowser, imaplib, email, re, html
 from email.header import decode_header
 from email.utils import parsedate_to_datetime
-
+import Mail.web_login as _web_login
+from Audio.text_to_speech import speak_text as _tts_orig
 # ----------------------
 # SUNNY IMPORTS- lightweight
 # ----------------------
@@ -10,6 +11,10 @@ from sumy.nlp.tokenizers import Tokenizer
 from sumy.summarizers.lsa import LsaSummarizer
 from sumy.nlp.stemmers import Stemmer
 from sumy.utils import get_stop_words
+
+def speak_text(text: str, lang: str = 'en'):
+    _web_login.push_to_feed(text)
+    _tts_orig(text, lang=lang)
 
 # ========================
 # CONFIGURATION
@@ -177,23 +182,18 @@ def get_top_senders(count: int = FETCH_COUNT, category: str = 'ALL'):
         mail = imaplib.IMAP4_SSL('imap.gmail.com')
         mail.login(EMAIL_USER, EMAIL_PASS)
 
-        # ── Temporary: print all folders once to verify names ──
-        _, folders = mail.list()
-        for f in folders:
-            print('[FOLDER]', f.decode())
+        pre_fetched_ids = None
 
         if category == 'PRIMARY':
-            # Primary inbox is just the regular inbox
             status, _ = mail.select('inbox')
             if status != 'OK':
                 mail.select('"[Gmail]/All Mail"')
 
         elif category == 'PROMOTIONS':
-            # Try multiple possible folder names Gmail uses
             selected = False
-            for folder in ['"[Gmail]/Promotions"', 
-                          '"[Google Mail]/Promotions"',
-                          'Promotions']:
+            for folder in ['"[Gmail]/Promotions"',
+                           '"[Google Mail]/Promotions"',
+                           'Promotions']:
                 status, _ = mail.select(folder)
                 if status == 'OK':
                     selected = True
@@ -203,23 +203,30 @@ def get_top_senders(count: int = FETCH_COUNT, category: str = 'ALL'):
 
         elif category == 'UPDATES':
             selected = False
-            for folder in ['"[Gmail]/Updates"',
-                          '"[Google Mail]/Updates"',
-                          'Updates']:
+            for folder in ['"[Gmail]/Updates"', '"[Google Mail]/Updates"']:
                 status, _ = mail.select(folder)
                 if status == 'OK':
                     selected = True
                     break
             if not selected:
                 mail.select('"[Gmail]/All Mail"')
+                # Try Gmail label search for Updates category
+                try:
+                    result, data = mail.search(None, 'X-GM-LABELS', 'updates')
+                    if result == 'OK' and data[0].split():
+                        pre_fetched_ids = data[0].split()
+                except Exception:
+                    pass  # fall through to ALL search if label search fails
 
         else:
             mail.select('"[Gmail]/All Mail"')
 
-        # ── Search selected mailbox ──
-        result, data = mail.search(None, 'ALL')
-        
-        mail_ids = data[0].split()
+        # ── Search ──
+        if pre_fetched_ids is not None:
+            mail_ids = pre_fetched_ids
+        else:
+            result, data = mail.search(None, 'ALL')
+            mail_ids = data[0].split()
 
         if not mail_ids:
             mail.logout()

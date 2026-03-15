@@ -31,6 +31,22 @@ login_initiated    = False
 bye_en = '[System]: Goodbye! Take care.'
 bye_hi = '[System]: अलविदा! अपना ख्याल रखें।'
 
+# # =================================================
+# HANDLER FUNCTION
+# # =================================================
+def spoken_pin_to_digits(spoken: str) -> str:
+    """Convert spoken PIN like 'one two three four' to '1234'."""
+    word_to_digit = {
+        'zero':'0','one':'1','two':'2','three':'3','four':'4',
+        'five':'5','six':'6','seven':'7','eight':'8','nine':'9',
+        'शून्य':'0','एक':'1','दो':'2','तीन':'3','चार':'4',
+        'पाँच':'5','छः':'6','सात':'7','आठ':'8','नौ':'9',
+    }
+    result = spoken.strip().lower()
+    for word, digit in word_to_digit.items():
+        result = result.replace(word, digit)
+    return ''.join(c for c in result if c.isdigit())
+
 # ----------------------
 # BILINGUAL RESPONSES
 # ----------------------
@@ -413,7 +429,7 @@ with open('Audio/Transcribe.txt', 'a', encoding='utf-8') as file:
             if web_login.selected_services:
                 services = web_login.selected_services
                 current_email = web_login.app.config.get('current_email', '')
-        
+
                 # ── PIN verification for each selected service ──
                 verified_services = []
                 for service in services:
@@ -424,7 +440,7 @@ with open('Audio/Transcribe.txt', 'a', encoding='utf-8') as file:
                     pin_heard, _ = listen_text(duration=8)
                     pin_heard = pin_heard.strip().lower()
                     speak_text(f'[User]: {pin_heard}')
-        
+
                     # Convert spoken numbers to digits — "one two three" → "123"
                     word_to_digit = {
                         'zero':'0','one':'1','two':'2','three':'3','four':'4',
@@ -437,7 +453,7 @@ with open('Audio/Transcribe.txt', 'a', encoding='utf-8') as file:
                         pin_digits = pin_digits.replace(word, digit)
                     # Remove all non-digit characters
                     pin_digits = ''.join(c for c in pin_digits if c.isdigit())
-        
+
                     from Backend.database import verify_pin
                     if verify_pin(current_email, service, pin_digits):
                         speak_text(
@@ -453,7 +469,7 @@ with open('Audio/Transcribe.txt', 'a', encoding='utf-8') as file:
                             else f'[System]: {service.capitalize()} का PIN गलत है। कनेक्ट नहीं होगा।',
                             lang=user_lang
                         )
-        
+
                 if not verified_services:
                     speak_text(
                         '[System]: No services verified. Please try again.' if user_lang == 'en'
@@ -467,7 +483,7 @@ with open('Audio/Transcribe.txt', 'a', encoding='utf-8') as file:
                 web_login.selected_services = verified_services
                 awaiting_services = False
                 services = verified_services
-        
+
                 if 'telegram' in services:
                     speak_text(r('tg_starting'), lang=user_lang)
                     api_id   = int(os.getenv('TELEGRAM_API_ID', 0))
@@ -488,7 +504,7 @@ with open('Audio/Transcribe.txt', 'a', encoding='utf-8') as file:
                                 authorized = False
                         else:
                             authorized = False
-        
+
                         if not authorized:
                             speak_text(r('tg_auth_prompt'), lang=user_lang)
                             auth_word, _ = listen_text(duration=8)
@@ -501,13 +517,13 @@ with open('Audio/Transcribe.txt', 'a', encoding='utf-8') as file:
                                 speak_text(r('tg_auth_fail'), lang=user_lang)
                         else:
                             speak_text(r('tg_auto'), lang=user_lang)
-        
+
                 if 'gmail' in services:
                     speak_text(r('gmail_ready'), lang=user_lang)
-        
+
                 if 'whatsapp' in services:
                     speak_text('[System]: WhatsApp ready.', lang=user_lang)
-        
+
                 connected_msg = (
                     f'[System]: Connected: {", ".join(services)}. Ready.'
                     if user_lang == 'en'
@@ -519,10 +535,15 @@ with open('Audio/Transcribe.txt', 'a', encoding='utf-8') as file:
                 time.sleep(0.5)           
 
         # Typing pause
-        if web_login.user_typing or web_login.signup_open:
+        if web_login.user_typing:
             typing_pause_until = time.time() + 5
             web_login.user_typing = False
         
+        # ── Pause while signup page is open ──
+        if web_login.signup_open:
+            time.sleep(0.5)
+            continue
+
         if time.time() < typing_pause_until and not login_initiated:
             time.sleep(0.5)
             continue
@@ -595,6 +616,14 @@ with open('Audio/Transcribe.txt', 'a', encoding='utf-8') as file:
             webbrowser.open("http://localhost:5000")
             speak_text(r('login_opened'), lang=user_lang)
             continue
+           
+        # ── SIGNUP ────────────────────────────────────
+        elif 'signup' in clean_heard or 'sign up' in clean_heard or 'register' in clean_heard or 'साइनअप' in clean_heard:
+            login_initiated = False           # ← reset login state
+            web_login.login_status = 'waiting'
+            speak_text(r('signup_opening'), lang=user_lang)
+            threading.Thread(target=webbrowser.open, args=("http://localhost:5000/signup",), daemon=True).start()
+            continue
 
         # ── LOGIN CONFIRMATION (audio password) ───────
         elif login_initiated and web_login.login_status != "success":
@@ -612,12 +641,6 @@ with open('Audio/Transcribe.txt', 'a', encoding='utf-8') as file:
             else:
                 speak_text(r('login_failed'), lang=user_lang)
                 web_login.login_status = "failed"
-            continue
-
-        # ── SIGNUP ────────────────────────────────────
-        elif 'signup' in clean_heard or 'sign up' in clean_heard or 'register' in clean_heard or 'साइनअप' in clean_heard:
-            speak_text(r('signup_opening'), lang=user_lang)
-            threading.Thread(target=webbrowser.open, args=("http://localhost:5000/signup",), daemon=True).start()
             continue
 
         # ── TELEGRAM — SEND ───────────────────────────
@@ -639,8 +662,25 @@ with open('Audio/Transcribe.txt', 'a', encoding='utf-8') as file:
             speak_text(r('tg_confirm_send'), lang=user_lang)
             confirm, _ = listen_text()
             if any(word in confirm.lower() for word in affirmation):
-                success, result = telegram_send_message(recipient, message)
-                speak_text(f'[System]: {result}')
+                speak_text('[System]: Please say your Telegram PIN to authorise.', lang=user_lang)
+                pin_heard, _ = listen_text(duration=8)
+                pin_heard = pin_heard.strip().lower()
+                word_to_digit = {
+                    'zero':'0','one':'1','two':'2','three':'3','four':'4',
+                    'five':'5','six':'6','seven':'7','eight':'8','nine':'9',
+                }
+                pin_digits = pin_heard
+                for word, digit in word_to_digit.items():
+                    pin_digits = pin_digits.replace(word, digit)
+                pin_digits = ''.join(c for c in pin_digits if c.isdigit())
+                current_email = web_login.app.config.get('current_email', '')
+                from Backend.database import verify_pin
+                if verify_pin(current_email, 'telegram', pin_digits):
+                    success, result = telegram_send_message(recipient, message)
+                    speak_text(f'[System]: {result}')
+                    log_activity('telegram_sent', f'to:{recipient}')
+                else:
+                    speak_text('[System]: Incorrect PIN. Telegram message not sent.', lang=user_lang)
             else:
                 speak_text(r('tg_cancelled'), lang=user_lang)
 
@@ -695,8 +735,25 @@ with open('Audio/Transcribe.txt', 'a', encoding='utf-8') as file:
             speak_text(f'[System]: Sending WhatsApp to {recipient}. Please confirm.', lang=user_lang)
             confirm, _ = listen_text()
             if any(w in confirm.lower() for w in affirmation):
-                success, result = whatsapp_send_message(recipient, message)
-                speak_text(f'[System]: {result}')
+                speak_text('[System]: Please say your WhatsApp PIN to authorise.', lang=user_lang)
+                pin_heard, _ = listen_text(duration=8)
+                pin_heard = pin_heard.strip().lower()
+                word_to_digit = {
+                    'zero':'0','one':'1','two':'2','three':'3','four':'4',
+                    'five':'5','six':'6','seven':'7','eight':'8','nine':'9',
+                }
+                pin_digits = pin_heard
+                for word, digit in word_to_digit.items():
+                    pin_digits = pin_digits.replace(word, digit)
+                pin_digits = ''.join(c for c in pin_digits if c.isdigit())
+                current_email = web_login.app.config.get('current_email', '')
+                from Backend.database import verify_pin
+                if verify_pin(current_email, 'whatsapp', pin_digits):
+                    success, result = whatsapp_send_message(recipient, message)
+                    speak_text(f'[System]: {result}')
+                    log_activity('whatsapp_sent', f'to:{recipient}')
+                else:
+                    speak_text('[System]: Incorrect PIN. WhatsApp message not sent.', lang=user_lang)
             else:
                 speak_text('[System]: WhatsApp message cancelled.', lang=user_lang)
 
