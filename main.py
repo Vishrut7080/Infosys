@@ -221,6 +221,15 @@ def speak_text(text: str, lang: str = 'en'):
     push_to_feed(text)
     _speak_text_orig(text, lang=lang)
 
+def log_activity(action: str, detail: str = ''):
+    """Log to admin DB — only when logged in."""
+    if web_login.login_status != 'success':
+        return
+    email = web_login.app.config.get('current_email', '')
+    if email:
+        from Backend.database import log_activity as _log
+        _log(email, action, detail)
+
 # ----------------------
 # Commands (bilingual)
 # ----------------------
@@ -387,6 +396,13 @@ def handle_telegram_reply(recipient: str, original_message: str):
 with open('Audio/Transcribe.txt', 'a', encoding='utf-8') as file:
     while True:
 
+        # ── AUTO-LOGIN from signup ──────────────────────────
+        if web_login.login_from_signup and not login_initiated and web_login.login_status != 'success':
+            web_login.login_from_signup = False
+            login_initiated = True
+            speak_text('[System]: Welcome! Say your audio password to complete login.', lang=user_lang)
+            continue
+        
         # Check OAuth login completed between recordings
         if login_initiated and web_login.login_status == "success":
             login_initiated = False

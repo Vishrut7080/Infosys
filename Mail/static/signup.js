@@ -331,7 +331,7 @@ function showSuccessScreen() {
         if (seconds <= 0) {
             clearInterval(interval);
             // Redirect to login page after countdown
-            window.location.href = '/';
+            window.location.href = '/pin-reveal';
         }
     }, 1000);
 }

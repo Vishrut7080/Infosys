@@ -1,5 +1,6 @@
 from flask import Flask, render_template, jsonify, request, redirect, url_for, session
 from authlib.integrations.flask_client import OAuth
+from functools import wraps
 import os, asyncio
 from Backend import database
 from Audio.text_to_speech import speak_text
@@ -10,7 +11,7 @@ from datetime import datetime
 load_dotenv()
 
 # ========================
-# GLOBAL VARIABLES
+# GLOBAL VARIABLES/FLAGS
 # ========================
 selected_services = [] # for email or telegram services
 _feed_lock    = threading.Lock()
@@ -18,6 +19,7 @@ feed_log      = []          # [{text, time, index}, ...]
 _feed_counter = 0
 _nav_command  = {'command': None}
 signup_open = False
+login_from_signup = False
 
 # -------------------------------------------------
 # Load Credentials from env
@@ -104,6 +106,16 @@ def apply_user_credentials(email: str):
         os.environ['TELEGRAM_PHONE'] = creds['tg_phone']
     print(f'[Auth] Credentials loaded for {email}')
 
+def admin_required(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        if 'user' not in session:
+            return redirect(url_for('login_page'))
+        if not database.is_admin(session['user'].get('email', '')):
+            return redirect(url_for('dashboard'))
+        return f(*args, **kwargs)
+    return decorated
+
 def push_to_feed(text: str):
     """Append a spoken/heard line to the live dashboard feed."""
     global _feed_counter
@@ -136,13 +148,13 @@ def push_nav_command(command: str):
 # Render the login page
 @app.route('/')
 def login_page():
-    global login_status
-    # Reset failed status on page load so polling doesn't immediately trigger overlay
+    global login_status, login_from_signup
     if login_status == 'failed':
         login_status = 'waiting'
     if 'user' not in session:
         login_status = 'waiting'
-    return render_template('login.html')
+    from_signup = request.args.get('from') == 'signup'
+    return render_template('login.html', from_signup=from_signup)
 
 # Flag to pause audio listening when user is active in browser
 user_typing = False
@@ -190,6 +202,7 @@ def login():
             session['user'] = {'name': result, 'email': entered_email}
             database.log_session(entered_email)
             apply_user_credentials(entered_email)
+            database.log_activity(entered_email, 'login', 'keyboard')
             return jsonify({'status': 'success', 'message': f'Welcome back, {result}!'})
 
         else:
@@ -200,6 +213,13 @@ def login():
         print(f"Login error: {e}")
         login_status = 'failed'
         return jsonify({'status': 'error', 'message': str(e)})
+
+@app.route('/start-audio-login', methods=['POST'])
+def start_audio_login():
+    """Called by login page when arriving from signup — signals main.py to start listening."""
+    global login_from_signup
+    login_from_signup = True
+    return '', 204
 
 # -------------------------------------------------
 # DASHBOARD
@@ -300,6 +320,7 @@ def auth_google_callback():
         }
         database.log_session(session['user']['email'])
         apply_user_credentials(session['user']['email'])
+        database.log_activity(session['user']['email'], 'login', 'google_oauth')
         login_status = 'success'
         app.config['current_email'] = session['user']['email']
         print(f"[OAuth] Login successful: {session['user']['email']}")
@@ -344,6 +365,7 @@ def auth_microsoft_callback():
         }
         database.log_session(session['user']['email'])
         apply_user_credentials(session['user']['email'])
+        database.log_activity(session['user']['email'], 'login', 'microsoft_oauth')
         login_status = 'success'
         app.config['current_email'] = session['user']['email']
         print(f"[OAuth] Microsoft login: {session['user']['email']}")
@@ -370,6 +392,8 @@ def logout():
     Note: this logs the user out of the assistant, not their Google account.
     """
     global login_status
+    if 'user' in session:
+        database.log_activity(session['user'].get('email', ''), 'logout', '')
     session.clear()
     login_status = 'waiting'
     return redirect(url_for('login_page'))
@@ -418,12 +442,38 @@ def register():
         )
 
         if success:
+            # ── Generate PINs ──
+            tg_included = bool(tg_api_id and tg_api_hash)
+            pins = database.generate_pins(tg_included=tg_included)
+            database.store_pins(
+                email,
+                pins['gmail_pin'],
+                pins.get('telegram_pin')
+            )
+            session['pending_pins'] = {
+                'email':        email,
+                'name':         name,
+                'gmail_pin':    pins['gmail_pin'],
+                'telegram_pin': pins.get('telegram_pin'),
+            }
             return jsonify({'status': 'success', 'message': 'Registration successful!'})
         else:
             return jsonify({'status': 'error', 'message': message})
 
     except Exception as e:
         return jsonify({'status': 'error', 'message': str(e)})
+
+# -------------------------------------------------
+# PIN ROUTE
+# -------------------------------------------------
+@app.route('/pin-reveal')
+def pin_reveal():
+    pins = session.get('pending_pins')
+    if not pins:
+        return redirect(url_for('login_page'))
+    # Clear from session after reading — shown only once
+    session.pop('pending_pins', None)
+    return render_template('pin_reveal.html', pins=pins)
 
 # -------------------------------------------------
 # TELEGRAM
@@ -562,6 +612,119 @@ def get_inbox():
     # Sort newest first — best effort (strings, so sort descending)
     messages.sort(key=lambda x: x.get('time', ''), reverse=True)
     return jsonify({'messages': messages})
+
+# -------------------------------------------------
+# ADMIN
+# -------------------------------------------------
+
+@app.route('/admin')
+def admin_page():
+    if 'user' not in session:
+        return redirect(url_for('login_page'))
+    if not database.is_admin(session['user'].get('email', '')):
+        return redirect(url_for('dashboard'))
+    return render_template('admin.html', user=session['user'])
+
+
+@app.route('/admin/users')
+@admin_required
+def admin_get_users():
+    users = database.get_all_users()
+    return jsonify({'users': users})
+
+
+@app.route('/admin/active-users')
+@admin_required
+def admin_active_users():
+    users  = database.get_all_users()
+    active = database.get_active_users(minutes=30)
+    return jsonify({
+        'total_users':    len(users),
+        'active_users':   len(active),
+        'total_admins':   sum(1 for u in users if u['is_admin']),
+        'total_commands': len(database.get_activity_log(action='voice_command', limit=10000)),
+        'total_logins':   len(database.get_activity_log(action='login', limit=10000)),
+        'emails_sent':    len(database.get_activity_log(action='email_sent', limit=10000)),
+        'tg_sent':        len(database.get_activity_log(action='telegram_sent', limit=10000)),
+        'wa_sent':        len(database.get_activity_log(action='whatsapp_sent', limit=10000)),
+    })
+
+
+@app.route('/admin/activity')
+@admin_required
+def admin_get_activity():
+    email  = request.args.get('email', None)
+    action = request.args.get('action', None)
+    limit  = int(request.args.get('limit', 100))
+    log    = database.get_activity_log(email=email, action=action, limit=limit)
+    return jsonify({'log': log})
+
+
+@app.route('/admin/delete-user', methods=['POST'])
+@admin_required
+def admin_delete_user_route():
+    data  = request.get_json()
+    email = data.get('email', '')
+    if email == session['user'].get('email', ''):
+        return jsonify({'status': 'error',
+                        'message': "You can't delete your own account from admin panel."})
+    success, msg = database.admin_delete_user(email)
+    return jsonify({'status': 'success' if success else 'error', 'message': msg})
+
+
+@app.route('/admin/add-admin', methods=['POST'])
+@admin_required
+def admin_add_admin():
+    data  = request.get_json()
+    email = data.get('email', '')
+    success, msg = database.add_admin(email)
+    return jsonify({'status': 'success' if success else 'error', 'message': msg})
+
+
+@app.route('/admin/remove-admin', methods=['POST'])
+@admin_required
+def admin_remove_admin():
+    data  = request.get_json()
+    email = data.get('email', '')
+    if email == session['user'].get('email', ''):
+        return jsonify({'status': 'error',
+                        'message': "You can't remove your own admin access."})
+    success, msg = database.remove_admin(email)
+    return jsonify({'status': 'success' if success else 'error', 'message': msg})
+
+
+@app.route('/admin/stats')
+@admin_required
+def admin_stats():
+    users  = database.get_all_users()
+    active = database.get_active_users(minutes=30)
+    return jsonify({
+        'total_users':    len(users),
+        'active_users':   len(active),
+        'total_admins':   sum(1 for u in users if u['is_admin']),
+        'total_commands': len(database.get_activity_log(action='voice_command', limit=10000)),
+        'total_logins':   len(database.get_activity_log(action='login', limit=10000)),
+        'emails_sent':    len(database.get_activity_log(action='email_sent', limit=10000)),
+        'tg_sent':        len(database.get_activity_log(action='telegram_sent', limit=10000)),
+        'wa_sent':        len(database.get_activity_log(action='whatsapp_sent', limit=10000)),
+    })
+
+
+# -------------------------------------------------
+# ACTIVITY LOGGING (called from dashboard JS)
+# -------------------------------------------------
+
+@app.route('/log-activity', methods=['POST'])
+def log_activity_route():
+    if 'user' not in session:
+        return '', 204
+    data   = request.get_json()
+    action = data.get('action', '')
+    detail = data.get('detail', '')
+    email  = session['user'].get('email', '')
+    if email and action:
+        database.log_activity(email, action, detail)
+    return '', 204
 
 # -------------------------------------------------
 # START SERVER

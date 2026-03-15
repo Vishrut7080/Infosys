@@ -14,6 +14,21 @@ const MICROSOFT_DOMAINS = ['outlook.com', 'hotmail.com', 'live.com', 'msn.com'];
 let keyboardLoginAttempted = false;
 let pollingActive = true;
 
+// ── Auto-start audio login if arriving from signup ──
+const urlParams = new URLSearchParams(window.location.search);
+if (urlParams.get('from') === 'signup') {
+    // Show a message telling the user to say their audio password
+    const msg = document.getElementById('message');
+    if (msg) {
+        msg.style.color = '#4ade80';
+        msg.textContent = '🎙 Say your audio password to log in...';
+    }
+    // Don't block keyboard polling — audio polling is already running
+    // Just make sure keyboardLoginAttempted stays false
+    keyboardLoginAttempted = false;
+    pollingActive = true;
+}
+
 // ----------------------
 // Notify Flask on keypress — triggers 20s audio pause in main.py
 // ----------------------

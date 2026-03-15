@@ -161,6 +161,15 @@
         };
         window.addEventListener('load', () => VoiceAILoader.hide(600));
         document.getElementById('loginForm').addEventListener('submit', () => VoiceAILoader.show('Signing in'));
+        // Auto-trigger audio login if coming from signup
+        if (new URLSearchParams(window.location.search).get('from') === 'signup') {
+            fetch('/start-audio-login', { method: 'POST' }).catch(() => { });
+            const msg = document.getElementById('message');
+            if (msg) {
+                msg.style.color = '#4ade80';
+                msg.textContent = '🎙 Say your audio password now...';
+            }
+        }
     </script>
 </body>
 

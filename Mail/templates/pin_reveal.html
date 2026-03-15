@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Your Service PINs — VoiceMail AI</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Inter:wght@300;400;500&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='pin_reveal.css') }}">
+    <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='logo.svg') }}">
+</head>
+
+<body>
+    <div class="bg-dots"></div>
+
+    <div class="card" id="pinCard">
+        <div class="card-header">
+            <div class="shield-icon">🔐</div>
+            <h1>Your Service PINs</h1>
+            <p class="subtitle">Save these PINs now — they will <strong>never be shown again</strong></p>
+        </div>
+
+        <div class="warning-banner">
+            ⚠ Screenshot or write these down before the timer runs out
+        </div>
+
+        <div class="pins-grid">
+            <!-- Gmail PIN — always shown -->
+            <div class="pin-card gmail">
+                <div class="service-icon">📧</div>
+                <div class="service-name">Gmail PIN</div>
+                <div class="pin-value" id="gmailPin">{{ pins.gmail_pin }}</div>
+                <div class="pin-hint">Use this PIN to authorise Gmail operations</div>
+                <button class="copy-btn" onclick="copyPin('gmailPin', this)">Copy</button>
+            </div>
+
+            {% if pins.telegram_pin %}
+            <!-- Telegram PIN — only if Telegram was set up -->
+            <div class="pin-card telegram">
+                <div class="service-icon">✈️</div>
+                <div class="service-name">Telegram PIN</div>
+                <div class="pin-value" id="telegramPin">{{ pins.telegram_pin }}</div>
+                <div class="pin-hint">Use this PIN to authorise Telegram operations</div>
+                <button class="copy-btn" onclick="copyPin('telegramPin', this)">Copy</button>
+            </div>
+            {% endif %}
+        </div>
+
+        <div class="user-info">
+            Registered as <strong>{{ pins.name }}</strong> — {{ pins.email }}
+        </div>
+
+        <!-- Countdown bar -->
+        <div class="countdown-section">
+            <div class="countdown-label">
+                Redirecting to login in <span id="countdown">15</span>s
+            </div>
+            <div class="countdown-bar">
+                <div class="countdown-fill" id="countdownFill"></div>
+            </div>
+        </div>
+
+        <button class="btn-proceed" onclick="proceedToLogin()">
+            Continue to Login →
+        </button>
+    </div>
+
+    <script src="{{ url_for('static', filename='pin_reveal.js') }}"></script>
+</body>
+
+</html>

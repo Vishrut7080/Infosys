@@ -1,0 +1,49 @@
+// ── Countdown ──
+const TOTAL = 15;
+let remaining = TOTAL;
+const countdownEl = document.getElementById('countdown');
+const countdownFill = document.getElementById('countdownFill');
+
+// Set initial width
+countdownFill.style.transform = 'scaleX(1)';
+
+const timer = setInterval(() => {
+    remaining--;
+    countdownEl.textContent = remaining;
+    // Shrink bar proportionally
+    countdownFill.style.transform = `scaleX(${remaining / TOTAL})`;
+    if (remaining <= 0) {
+        clearInterval(timer);
+        proceedToLogin();
+    }
+}, 1000);
+
+function proceedToLogin() {
+    clearInterval(timer);
+    window.location.href = '/?from=signup';
+}
+
+// ── Copy PIN ──
+function copyPin(elementId, btn) {
+    const val = document.getElementById(elementId).textContent.trim();
+    navigator.clipboard.writeText(val).then(() => {
+        btn.textContent = 'Copied!';
+        btn.classList.add('copied');
+        setTimeout(() => {
+            btn.textContent = 'Copy';
+            btn.classList.remove('copied');
+        }, 2000);
+    }).catch(() => {
+        // Fallback for older browsers
+        const el = document.getElementById(elementId);
+        const range = document.createRange();
+        range.selectNode(el);
+        window.getSelection().removeAllRanges();
+        window.getSelection().addRange(range);
+        document.execCommand('copy');
+        window.getSelection().removeAllRanges();
+        btn.textContent = 'Copied!';
+        btn.classList.add('copied');
+        setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
+    });
+}

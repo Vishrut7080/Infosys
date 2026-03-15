@@ -23,10 +23,7 @@
 #   pip install bcrypt
 # ----------------------
 
-import sqlite3
-import bcrypt
-import os
-import random
+import sqlite3,bcrypt,os,random ,secrets,string
 from datetime import datetime
 
 # ----------------------
@@ -78,7 +75,7 @@ def suggest_audio_word() -> str:
 
 
 # ----------------------
-# Database Initialization
+# Database Initialization - User
 # ----------------------
 
 def init_db():
@@ -127,6 +124,251 @@ def init_db():
                     print(f'[DB] Migration warning for {col}: {e}')
 
     print(f"[DB] Database initialised at: {USER_DB_PATH}")
+    init_admin_db()
+
+# # =================================================
+# DATABASE - ADMIN
+# # =================================================
+def init_admin_db():
+    """
+    Separate admin database — stores:
+    - activity_log: every user action
+    - admin_users: who has admin access
+    """
+    with sqlite3.connect(ADMIN_DB_PATH) as conn:
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS activity_log (
+                id         INTEGER PRIMARY KEY AUTOINCREMENT,
+                email      TEXT    NOT NULL,
+                action     TEXT    NOT NULL,
+                detail     TEXT,
+                logged_at  TEXT    NOT NULL
+            )
+        ''')
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS admin_users (
+                id         INTEGER PRIMARY KEY AUTOINCREMENT,
+                email      TEXT    NOT NULL UNIQUE,
+                created_at TEXT    NOT NULL
+            )
+        ''')
+        conn.commit()
+    print(f"[DB] Admin database initialised at: {ADMIN_DB_PATH}")
+
+def generate_pins(tg_included: bool = False) -> dict:
+    """
+    Generate service PINs for a new user.
+    Gmail PIN is always generated.
+    Telegram PIN only if user provided Telegram details.
+    Returns plain PINs — show once, then store hashed.
+    """
+    def make_pin(length=6):
+        return ''.join(secrets.choice(string.digits) for _ in range(length))
+
+    pins = {'gmail_pin': make_pin()}
+    if tg_included:
+        pins['telegram_pin'] = make_pin()
+    return pins
+
+
+def store_pins(email: str, gmail_pin: str, telegram_pin: str = None) -> tuple[bool, str]:
+    """Store hashed PINs for a user after generation."""
+    try:
+        hashed_gmail = bcrypt.hashpw(
+            gmail_pin.encode('utf-8'), bcrypt.gensalt()
+        ).decode('utf-8')
+
+        hashed_tg = None
+        if telegram_pin:
+            hashed_tg = bcrypt.hashpw(
+                telegram_pin.encode('utf-8'), bcrypt.gensalt()
+            ).decode('utf-8')
+
+        with sqlite3.connect(USER_DB_PATH) as conn:
+            # Add columns if they don't exist
+            existing = [row[1] for row in conn.execute(
+                "PRAGMA table_info(users)").fetchall()]
+            if 'gmail_pin' not in existing:
+                conn.execute('ALTER TABLE users ADD COLUMN gmail_pin TEXT')
+            if 'telegram_pin' not in existing:
+                conn.execute('ALTER TABLE users ADD COLUMN telegram_pin TEXT')
+            conn.commit()
+
+            conn.execute(
+                'UPDATE users SET gmail_pin = ?, telegram_pin = ? WHERE email = ?',
+                (hashed_gmail, hashed_tg, email.strip().lower())
+            )
+            conn.commit()
+        return True, 'PINs stored.'
+    except Exception as e:
+        print(f'[DB] store_pins error: {e}')
+        return False, str(e)
+
+
+def verify_pin(email: str, service: str, pin: str) -> bool:
+    """Verify a service PIN for a user. service = 'gmail' or 'telegram'."""
+    try:
+        col = f'{service}_pin'
+        with sqlite3.connect(USER_DB_PATH) as conn:
+            cursor = conn.execute(
+                f'SELECT {col} FROM users WHERE email = ?',
+                (email.strip().lower(),)
+            )
+            row = cursor.fetchone()
+        if not row or not row[0]:
+            return False
+        return bcrypt.checkpw(pin.encode('utf-8'), row[0].encode('utf-8'))
+    except Exception:
+        return False
+
+def log_activity(email: str, action: str, detail: str = ''):
+    """Log every user action to the admin DB activity_log."""
+    try:
+        with sqlite3.connect(ADMIN_DB_PATH) as conn:
+            conn.execute(
+                'INSERT INTO activity_log (email, action, detail, logged_at) VALUES (?, ?, ?, ?)',
+                (email.strip().lower(), action, detail,
+                 datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+            )
+            conn.commit()
+    except Exception as e:
+        print(f'[DB] log_activity error: {e}')
+
+
+def is_admin(email: str) -> bool:
+    """Check if email has admin access."""
+    try:
+        with sqlite3.connect(ADMIN_DB_PATH) as conn:
+            cur = conn.execute(
+                'SELECT id FROM admin_users WHERE email = ?',
+                (email.strip().lower(),)
+            )
+            return cur.fetchone() is not None
+    except Exception:
+        return False
+
+
+def add_admin(email: str) -> tuple[bool, str]:
+    """Grant admin access to an email."""
+    try:
+        with sqlite3.connect(ADMIN_DB_PATH) as conn:
+            conn.execute(
+                'INSERT OR IGNORE INTO admin_users (email, created_at) VALUES (?, ?)',
+                (email.strip().lower(), datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+            )
+            conn.commit()
+        return True, f'{email} is now an admin.'
+    except Exception as e:
+        return False, str(e)
+
+
+def remove_admin(email: str) -> tuple[bool, str]:
+    """Revoke admin access."""
+    try:
+        with sqlite3.connect(ADMIN_DB_PATH) as conn:
+            conn.execute(
+                'DELETE FROM admin_users WHERE email = ?',
+                (email.strip().lower(),)
+            )
+            conn.commit()
+        return True, f'{email} removed from admins.'
+    except Exception as e:
+        return False, str(e)
+
+
+def get_all_users() -> list[dict]:
+    """Returns all registered users with session count."""
+    try:
+        with sqlite3.connect(USER_DB_PATH) as conn:
+            cursor = conn.execute(
+                'SELECT id, name, email, created_at FROM users ORDER BY created_at DESC'
+            )
+            rows = cursor.fetchall()
+        users = []
+        for r in rows:
+            # Get session count
+            try:
+                with sqlite3.connect(USER_DB_PATH) as conn2:
+                    cur = conn2.execute(
+                        'SELECT COUNT(*) FROM sessions WHERE email = ?', (r[2],)
+                    )
+                    sessions = cur.fetchone()[0]
+            except Exception:
+                sessions = 0
+            # Check if admin
+            admin = is_admin(r[2])
+            users.append({
+                'id': r[0], 'name': r[1], 'email': r[2],
+                'created_at': r[3], 'sessions': sessions, 'is_admin': admin
+            })
+        return users
+    except Exception as e:
+        print(f'[DB] get_all_users error: {e}')
+        return []
+
+
+def get_active_users(minutes: int = 30) -> list[dict]:
+    """
+    Returns users who have logged in within the last N minutes.
+    Uses sessions table in user DB.
+    """
+    try:
+        from datetime import timedelta
+        cutoff = (datetime.now() - timedelta(minutes=minutes)).strftime('%Y-%m-%d %H:%M:%S')
+        with sqlite3.connect(USER_DB_PATH) as conn:
+            cursor = conn.execute(
+                '''SELECT DISTINCT s.email, u.name, MAX(s.logged_at) as last_seen
+                   FROM sessions s
+                   LEFT JOIN users u ON u.email = s.email
+                   WHERE s.logged_at >= ?
+                   GROUP BY s.email''',
+                (cutoff,)
+            )
+            rows = cursor.fetchall()
+        return [{'email': r[0], 'name': r[1] or r[0], 'last_seen': r[2]} for r in rows]
+    except Exception as e:
+        print(f'[DB] get_active_users error: {e}')
+        return []
+
+
+def get_activity_log(email: str = None, action: str = None,
+                     limit: int = 100) -> list[dict]:
+    """Fetch activity log from admin DB with optional filters."""
+    try:
+        query  = 'SELECT email, action, detail, logged_at FROM activity_log'
+        params = []
+        where  = []
+        if email:
+            where.append('email = ?')
+            params.append(email.strip().lower())
+        if action:
+            where.append('action = ?')
+            params.append(action)
+        if where:
+            query += ' WHERE ' + ' AND '.join(where)
+        query += ' ORDER BY logged_at DESC LIMIT ?'
+        params.append(limit)
+
+        with sqlite3.connect(ADMIN_DB_PATH) as conn:
+            cursor = conn.execute(query, params)
+            rows   = cursor.fetchall()
+        return [{'email': r[0], 'action': r[1],
+                 'detail': r[2], 'logged_at': r[3]} for r in rows]
+    except Exception as e:
+        print(f'[DB] get_activity_log error: {e}')
+        return []
+
+
+def admin_delete_user(email: str) -> tuple[bool, str]:
+    """Admin force-delete a user without password confirmation."""
+    try:
+        with sqlite3.connect(USER_DB_PATH) as conn:
+            conn.execute('DELETE FROM users WHERE email = ?', (email.strip().lower(),))
+            conn.commit()
+        log_activity('admin', 'admin_delete_user', f'deleted: {email}')
+        return True, f'User {email} deleted.'
+    except Exception as e:
+        return False, str(e)
 
 def log_session(email: str):
     try:
@@ -410,7 +652,11 @@ def get_user_credentials(email: str) -> dict | None:
 
 
 __all__ = [
-    'init_db', 'create_user', 'verify_user', 'verify_audio',
-    'get_user_by_email', 'suggest_audio_word','get_user_credentials',
-    'update_name', 'update_password', 'update_audio', 'delete_user', 'log_session'
+    'init_db', 'init_admin_db', 'create_user', 'verify_user', 'verify_audio',
+    'get_user_by_email', 'get_user_credentials', 'suggest_audio_word',
+    'update_name', 'update_password', 'update_audio', 'delete_user',
+    'log_session', 'log_activity', 'get_all_users', 'get_active_users',
+    'get_activity_log', 'is_admin', 'add_admin', 'remove_admin',
+    'admin_delete_user', 'USER_DB_PATH', 'ADMIN_DB_PATH',
+    'generate_pins', 'store_pins', 'verify_pin'
 ]
