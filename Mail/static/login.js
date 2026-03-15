@@ -133,6 +133,83 @@ async function checkAudioLogin() {
 }
 setInterval(checkAudioLogin, 1000);
 
+// ─────────────────────────────────────────────────────────────
+//  login_init.js
+//  Page-level initialisation for login.html.
+//  Runs after login.js has loaded.
+// ─────────────────────────────────────────────────────────────
+
+// ── Password show/hide ────────────────────────────────────────
+document.getElementById('eyeBtn').addEventListener('click', () => {
+    const input = document.getElementById('password');
+    input.type = input.type === 'password' ? 'text' : 'password';
+});
+
+// ── Email domain hint ─────────────────────────────────────────
+const emailInput = document.getElementById('email');
+const hint = document.getElementById('emailHint');
+const passInput = document.getElementById('password');
+const googleDomains = ['gmail.com', 'googlemail.com'];
+const microsoftDomains = ['outlook.com', 'hotmail.com', 'live.com', 'msn.com'];
+
+function updateEmailHint() {
+    const domain = emailInput.value.split('@')[1]?.toLowerCase();
+    if (!domain) { hint.textContent = ''; passInput.required = true; return; }
+
+    if (googleDomains.includes(domain)) {
+        hint.textContent = window.LangManager?.isHindi()
+            ? '→ Google से जारी रहेगा'
+            : '→ Will continue with Google';
+        hint.style.color = '#4285F4';
+        passInput.required = false;
+    } else if (microsoftDomains.includes(domain)) {
+        hint.textContent = window.LangManager?.isHindi()
+            ? '→ Microsoft से जारी रहेगा'
+            : '→ Will continue with Microsoft';
+        hint.style.color = '#00a4ef';
+        passInput.required = false;
+    } else {
+        hint.textContent = '';
+        passInput.required = true;
+    }
+}
+
+emailInput.addEventListener('input', updateEmailHint);
+
+// Re-evaluate hint text when language switches
+document.addEventListener('langChanged', updateEmailHint);
+
+// ── Loader ────────────────────────────────────────────────────
+const VoiceAILoader = {
+    el: document.getElementById('va-loader'),
+    label: document.getElementById('va-label'),
+    show(text = 'Loading') {
+        this.label.textContent = text;
+        this.el.classList.remove('va-hidden');
+    },
+    hide(delay = 0) {
+        setTimeout(() => this.el.classList.add('va-hidden'), delay);
+    }
+};
+window.addEventListener('load', () => VoiceAILoader.hide(600));
+
+document.getElementById('loginForm').addEventListener('submit', () => {
+    VoiceAILoader.show(
+        window.LangManager?.isHindi() ? 'साइन इन हो रहा है' : 'Signing in'
+    );
+});
+
+// ── Auto-trigger audio login if arriving from signup ──────────
+if (new URLSearchParams(window.location.search).get('from') === 'signup') {
+    fetch('/start-audio-login', { method: 'POST' }).catch(() => { });
+    const msg = document.getElementById('message');
+    if (msg) {
+        msg.style.color = '#4ade80';
+        msg.textContent = window.LangManager?.isHindi()
+            ? '🎙 अभी अपना ऑडियो पासवर्ड बोलें...'
+            : '🎙 Say your audio password now...';
+    }
+}
 
 // ----------------------
 // 3. OVERLAY — shown on audio login failure

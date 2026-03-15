@@ -473,3 +473,61 @@ input.valid {
     color: var(--muted);
     margin-bottom: 0;
 }
+
+.lang-toggle-btn {
+    position: fixed;
+    top: 16px;
+    right: 20px;
+    z-index: 1000;
+    padding: 7px 14px;
+    border-radius: 20px;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--text, #fff);
+    font-size: 13px;
+    cursor: pointer;
+    backdrop-filter: blur(8px);
+    transition: all 0.2s;
+    font-family: inherit;
+}
+
+.lang-toggle-btn:hover {
+    background: rgba(255, 255, 255, 0.15);
+    border-color: rgba(255, 255, 255, 0.3);
+}
+
+/* ─────────────────────────────────────────────────────────────
+   signup_extra.css
+   Styles that previously lived inline in signup.html.
+   Link this alongside signup.css in signup.html.
+   ───────────────────────────────────────────────────────────── */
+
+/* ── Audio tip box ── */
+.audio-tip {
+    margin-top: 6px;
+    padding: 8px 10px;
+    background: #fefce8;
+    border: 1px solid #fde68a;
+    border-radius: 2px;
+    font-size: 11px;
+    color: #92400e;
+    font-family: var(--mono, monospace);
+    line-height: 1.5;
+}
+
+/* ── Admin checkbox label ── */
+.admin-check-label {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+}
+
+.admin-check-label input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    accent-color: var(--accent);
+    margin: 0;
+    flex-shrink: 0;
+}

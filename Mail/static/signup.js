@@ -416,6 +416,26 @@ function toggleAdminSection() {
     }
 }
 
+// ─────────────────────────────────────────────────────────────
+//  signup_init.js
+//  Page-level initialisation for signup.html.
+//  Runs after signup.js has loaded.
+// ─────────────────────────────────────────────────────────────
+
+const VoiceAILoader = {
+    el: document.getElementById('va-loader'),
+    label: document.getElementById('va-label'),
+    show(text = 'Loading') {
+        this.label.textContent = text;
+        this.el.classList.remove('va-hidden');
+    },
+    hide(delay = 0) {
+        setTimeout(() => this.el.classList.add('va-hidden'), delay);
+    }
+};
+window.VoiceAILoader = VoiceAILoader;
+window.addEventListener('load', () => VoiceAILoader.hide(600));
+
 window.addEventListener('beforeunload', () => {
     navigator.sendBeacon('/signup-closed');
 });

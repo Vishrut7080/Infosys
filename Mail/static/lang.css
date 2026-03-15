@@ -1,0 +1,39 @@
+/* ─────────────────────────────────────────────────────────────
+   lang.css
+   Shared styles for the EN/HI language toggle button.
+   Linked by login.html, signup.html, and dashboard.html.
+   ───────────────────────────────────────────────────────────── */
+
+.lang-toggle-btn {
+    position: fixed;
+    top: 16px;
+    right: 20px;
+    z-index: 1000;
+    padding: 7px 14px;
+    border-radius: 20px;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    background: rgba(255, 255, 255, 0.08);
+    color: #fff;
+    font-size: 13px;
+    cursor: pointer;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    transition: background 0.2s, border-color 0.2s;
+    font-family: inherit;
+    letter-spacing: 0.2px;
+}
+
+.lang-toggle-btn:hover {
+    background: rgba(255, 255, 255, 0.15);
+    border-color: rgba(255, 255, 255, 0.3);
+}
+
+/* Adjust position on mobile so it doesn't overlap content */
+@media (max-width: 600px) {
+    .lang-toggle-btn {
+        top: 10px;
+        right: 10px;
+        padding: 5px 11px;
+        font-size: 12px;
+    }
+}

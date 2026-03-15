@@ -12,11 +12,15 @@
         rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='dashboard.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='loader.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='lang.css') }}">
+    <script src="{{ url_for('static', filename='lang.js') }}"></script>
 </head>
 
 <body>
 
-    <!-- LOADER (hidden on dashboard, shown on transitions) -->
+    <button class="lang-toggle-btn" id="langToggleBtn" onclick="LangManager.toggle()">🇮🇳 हिंदी</button>
+
+    <!-- LOADER -->
     <div id="va-loader" class="va-hidden">
         <div class="va-logo">
             <img src="{{ url_for('static', filename='logo.svg') }}" width="140" height="140">
@@ -42,38 +46,42 @@
 
         <nav class="nav">
             <a class="nav-item active" onclick="showPage('dashboard', this)">
-                <span class="nav-icon">⚡</span> Dashboard
+                <span class="nav-icon">⚡</span>
+                <span data-en="Dashboard" data-hi="डैशबोर्ड">Dashboard</span>
             </a>
             <a class="nav-item" onclick="showPage('profile', this)">
-                <span class="nav-icon">👤</span> Profile
+                <span class="nav-icon">👤</span>
+                <span data-en="Profile" data-hi="प्रोफ़ाइल">Profile</span>
             </a>
             <a class="nav-item" onclick="showPage('inbox', this)">
-                <span class="nav-icon">📬</span> Unified Inbox
+                <span class="nav-icon">📬</span>
+                <span data-en="Unified Inbox" data-hi="एकीकृत इनबॉक्स">Unified Inbox</span>
             </a>
         </nav>
 
-        <!-- Status pills -->
         <div class="pills-group">
             <div class="status-pill">
-                <span class="status-dot"></span> System Online
+                <span class="status-dot"></span>
+                <span data-en="System Online" data-hi="सिस्टम ऑनलाइन">System Online</span>
             </div>
-            <!-- ★ Service pills — shown when connected -->
             <div class="status-pill service-pill" id="pill-gmail" style="display:none;">
-                <span class="status-dot" style="background:#34d399;box-shadow:0 0 6px #34d39966;"></span> Gmail Online
+                <span class="status-dot" style="background:#34d399;box-shadow:0 0 6px #34d39966;"></span>
+                <span data-en="Gmail Online" data-hi="Gmail ऑनलाइन">Gmail Online</span>
             </div>
             <div class="status-pill service-pill" id="pill-telegram" style="display:none;">
-                <span class="status-dot" style="background:#38bdf8;box-shadow:0 0 6px #38bdf866;"></span> Telegram
-                Online
+                <span class="status-dot" style="background:#38bdf8;box-shadow:0 0 6px #38bdf866;"></span>
+                <span data-en="Telegram Online" data-hi="Telegram ऑनलाइन">Telegram Online</span>
             </div>
             <div class="status-pill service-pill" id="pill-whatsapp" style="display:none;">
-                <span class="status-dot" style="background:#25d366;box-shadow:0 0 6px #25d36666;"></span> WhatsApp
-                Online
+                <span class="status-dot" style="background:#25d366;box-shadow:0 0 6px #25d36666;"></span>
+                <span data-en="WhatsApp Online" data-hi="WhatsApp ऑनलाइन">WhatsApp Online</span>
             </div>
         </div>
 
         <div class="sidebar-footer">
             <a href="/logout" class="logout-btn" id="logoutBtn">
-                <span>🔴</span> Logout
+                <span>🔴</span>
+                <span data-en="Logout" data-hi="लॉगआउट">Logout</span>
             </a>
         </div>
     </aside>
@@ -85,38 +93,50 @@
         <div class="page active" id="page-dashboard">
             <div class="page-header">
                 <div>
-                    <div class="page-title">Dashboard</div>
-                    <div class="page-sub">Welcome back — your assistant is ready.</div>
+                    <div class="page-title" data-en="Dashboard" data-hi="डैशबोर्ड">Dashboard</div>
+                    <div class="page-sub" data-en="Welcome back — your assistant is ready."
+                        data-hi="वापस स्वागत है — आपका असिस्टेंट तैयार है।">
+                        Welcome back — your assistant is ready.
+                    </div>
                 </div>
-                <!-- ★ Persistent listening badge -->
                 <div class="listen-badge" id="listenBadge">
                     <span class="listen-dot"></span>
-                    <span id="listenLabel">Listening</span>
+                    <span id="listenLabel" data-en="Listening" data-hi="सुन रहा है">Listening</span>
                 </div>
             </div>
 
             <div class="stats-row">
                 <div class="stat-card">
-                    <div class="stat-label"><span class="stat-icon">📧</span> Emails Read</div>
+                    <div class="stat-label">
+                        <span class="stat-icon">📧</span>
+                        <span data-en="Emails Read" data-hi="पढ़े गए ईमेल">Emails Read</span>
+                    </div>
                     <div class="stat-value" id="statEmails">—</div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-label"><span class="stat-icon">🎙</span> Commands</div>
+                    <div class="stat-label">
+                        <span class="stat-icon">🎙</span>
+                        <span data-en="Commands" data-hi="कमांड">Commands</span>
+                    </div>
                     <div class="stat-value" id="statCommands">—</div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-label"><span class="stat-icon">⚡</span> Sessions</div>
+                    <div class="stat-label">
+                        <span class="stat-icon">⚡</span>
+                        <span data-en="Sessions" data-hi="सत्र">Sessions</span>
+                    </div>
                     <div class="stat-value" id="statSessions">—</div>
                 </div>
             </div>
 
-            <!-- ★ Voice card: waveform left, conversation feed right -->
             <div class="voice-card voice-split">
-
-                <!-- Left: waveform + controls -->
                 <div class="voice-left">
-                    <div class="voice-title">Voice Command Center</div>
-                    <div class="voice-sub">Always listening — speak any command</div>
+                    <div class="voice-title" data-en="Voice Command Center" data-hi="वॉइस कमांड सेंटर">Voice Command
+                        Center</div>
+                    <div class="voice-sub" data-en="Always listening — speak any command"
+                        data-hi="हमेशा सुन रहा है — कोई भी कमांड बोलें">
+                        Always listening — speak any command
+                    </div>
 
                     <div class="waveform" id="waveform">
                         <div class="wave-bar"></div>
@@ -133,37 +153,57 @@
                         <div class="wave-bar"></div>
                     </div>
 
-                    <div class="voice-status" id="voiceStatus">
+                    <div class="voice-status" id="voiceStatus" data-en="🎧 Always on — listening for your command..."
+                        data-hi="🎧 हमेशा चालू — आपकी कमांड का इंतज़ार...">
                         🎧 Always on — listening for your command...
                     </div>
 
-                    <!-- Audio nav hint card -->
                     <div class="audio-nav-hint">
-                        <div class="hint-title">🎙 Audio Commands</div>
-                        <div class="hint-row"><span class="hint-cmd">"go to profile"</span><span class="hint-arrow">→
-                                Profile</span></div>
-                        <div class="hint-row"><span class="hint-cmd">"open inbox"</span><span class="hint-arrow">→
-                                Inbox</span></div>
-                        <div class="hint-row"><span class="hint-cmd">"select gmail"</span><span class="hint-arrow">→
-                                Enable Gmail</span></div>
-                        <div class="hint-row"><span class="hint-cmd">"select telegram"</span><span class="hint-arrow">→
-                                Enable Telegram</span></div>
-                        <div class="hint-row"><span class="hint-cmd">"save services"</span><span class="hint-arrow">→
-                                Confirm</span></div>
+                        <div class="hint-title" data-en="🎙 Audio Commands" data-hi="🎙 ऑडियो कमांड">🎙 Audio Commands
+                        </div>
+                        <div class="hint-row">
+                            <span class="hint-cmd">"go to profile"</span>
+                            <span class="hint-arrow">→ <span data-en="Profile" data-hi="प्रोफ़ाइल">Profile</span></span>
+                        </div>
+                        <div class="hint-row">
+                            <span class="hint-cmd">"open inbox"</span>
+                            <span class="hint-arrow">→ <span data-en="Inbox" data-hi="इनबॉक्स">Inbox</span></span>
+                        </div>
+                        <div class="hint-row">
+                            <span class="hint-cmd">"select gmail"</span>
+                            <span class="hint-arrow">→ <span data-en="Enable Gmail" data-hi="Gmail चालू करें">Enable
+                                    Gmail</span></span>
+                        </div>
+                        <div class="hint-row">
+                            <span class="hint-cmd">"select telegram"</span>
+                            <span class="hint-arrow">→ <span data-en="Enable Telegram"
+                                    data-hi="Telegram चालू करें">Enable Telegram</span></span>
+                        </div>
+                        <div class="hint-row">
+                            <span class="hint-cmd">"save services"</span>
+                            <span class="hint-arrow">→ <span data-en="Confirm"
+                                    data-hi="पुष्टि करें">Confirm</span></span>
+                        </div>
+                        <div class="hint-row">
+                            <span class="hint-cmd">"hindi mode"</span>
+                            <span class="hint-arrow">→ <span data-en="Switch to Hindi" data-hi="हिंदी में बदलें">Switch
+                                    to Hindi</span></span>
+                        </div>
                     </div>
                 </div>
 
-                <!-- Right: ★ Live conversation feed -->
                 <div class="voice-right">
                     <div class="feed-header">
-                        <div class="voice-title">Live Conversation</div>
-                        <button class="clear-btn" onclick="clearFeed()">Clear</button>
+                        <div class="voice-title" data-en="Live Conversation" data-hi="लाइव बातचीत">Live Conversation
+                        </div>
+                        <button class="clear-btn" onclick="clearFeed()" data-en="Clear"
+                            data-hi="साफ़ करें">Clear</button>
                     </div>
                     <div class="conv-feed" id="convFeed">
-                        <div class="feed-empty">Conversation will appear here…</div>
+                        <div class="feed-empty" data-en="Conversation will appear here…"
+                            data-hi="बातचीत यहाँ दिखाई देगी…">Conversation will appear here…</div>
                     </div>
                 </div>
-
             </div>
         </div>
 
@@ -171,68 +211,70 @@
         <div class="page" id="page-profile">
             <div class="page-header">
                 <div>
-                    <div class="page-title">Profile</div>
-                    <div class="page-sub">Your account information</div>
+                    <div class="page-title" data-en="Profile" data-hi="प्रोफ़ाइल">Profile</div>
+                    <div class="page-sub" data-en="Your account information" data-hi="आपकी खाता जानकारी">Your account
+                        information</div>
                 </div>
                 <div class="listen-badge">
-                    <span class="listen-dot"></span><span>Listening</span>
+                    <span class="listen-dot"></span>
+                    <span data-en="Listening" data-hi="सुन रहा है">Listening</span>
                 </div>
             </div>
 
             <div class="profile-grid">
                 <div class="profile-card">
-                    <div class="profile-card-title">Account Details</div>
+                    <div class="profile-card-title" data-en="Account Details" data-hi="खाता विवरण">Account Details</div>
                     <div class="profile-field">
-                        <div class="field-label">Full Name</div>
+                        <div class="field-label" data-en="Full Name" data-hi="पूरा नाम">Full Name</div>
                         <div class="field-value" id="profileName">{{ user.name }}</div>
                     </div>
                     <div class="profile-field">
-                        <div class="field-label">Email Address</div>
+                        <div class="field-label" data-en="Email Address" data-hi="ईमेल पता">Email Address</div>
                         <div class="field-value" id="profileEmail">{{ user.email }}</div>
                     </div>
                 </div>
                 <div class="profile-card">
-                    <div class="profile-card-title">Voice Settings</div>
+                    <div class="profile-card-title" data-en="Voice Settings" data-hi="वॉइस सेटिंग्स">Voice Settings
+                    </div>
                     <div class="profile-field">
-                        <div class="field-label">Audio Password</div>
+                        <div class="field-label" data-en="Audio Password" data-hi="ऑडियो पासवर्ड">Audio Password</div>
                         <div class="field-value">••••••••</div>
                     </div>
                     <div class="profile-field">
-                        <div class="field-label">Connected Services</div>
+                        <div class="field-label" data-en="Connected Services" data-hi="कनेक्टेड सेवाएं">Connected
+                            Services</div>
                         <div class="field-value" id="profileServices">—</div>
                     </div>
                     <div class="profile-field">
-                        <div class="field-label" style="margin-bottom:10px;">Select Services</div>
-                        <!-- ★ Audio hint -->
-                        <div class="audio-select-hint">🎙 Say "select gmail" or "select telegram" to toggle by voice
+                        <div class="field-label" data-en="Select Services" data-hi="सेवाएं चुनें"
+                            style="margin-bottom:10px;">Select Services</div>
+                        <div class="audio-select-hint">
+                            🎙 <span data-en='Say "select gmail" or "select telegram" to toggle by voice'
+                                data-hi='"select gmail" या "select telegram" बोलें'>
+                                Say "select gmail" or "select telegram" to toggle by voice
+                            </span>
                         </div>
-                        <div style="display:flex;flex-direction:column;gap:10px;margin-top:10px;">
-                            <label
-                                style="display:flex;align-items:center;gap:12px;font-size:14px;cursor:pointer;padding:14px 16px;background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:10px;transition:border-color 0.2s;">
-                                <input type="checkbox" class="service-checkbox" id="chk-gmail" value="gmail"
-                                    style="width:16px;height:16px;accent-color:var(--accent);">
-                                <span>📧 Gmail — voice-controlled email</span>
+                        <div class="service-list">
+                            <label class="service-label">
+                                <input type="checkbox" class="service-checkbox" id="chk-gmail" value="gmail">
+                                <span data-en="📧 Gmail — voice-controlled email"
+                                    data-hi="📧 Gmail — वॉइस-नियंत्रित ईमेल">📧 Gmail — voice-controlled email</span>
                             </label>
-                            <label
-                                style="display:flex;align-items:center;gap:12px;font-size:14px;cursor:pointer;padding:14px 16px;background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:10px;transition:border-color 0.2s;">
-                                <input type="checkbox" class="service-checkbox" id="chk-telegram" value="telegram"
-                                    style="width:16px;height:16px;accent-color:var(--accent);">
-                                <span>✈️ Telegram — messaging integration</span>
+                            <label class="service-label">
+                                <input type="checkbox" class="service-checkbox" id="chk-telegram" value="telegram">
+                                <span data-en="✈️ Telegram — messaging integration"
+                                    data-hi="✈️ Telegram — मैसेजिंग एकीकरण">✈️ Telegram — messaging integration</span>
                             </label>
-                            <label
-                                style="display:flex;align-items:center;gap:12px;font-size:14px;cursor:pointer;padding:14px 16px;background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:10px;">
-                                <input type="checkbox" class="service-checkbox" id="chk-whatsapp" value="whatsapp"
-                                    style="width:16px;height:16px;accent-color:var(--accent);">
-                                <span>💬 WhatsApp — messaging integration</span>
+                            <label class="service-label">
+                                <input type="checkbox" class="service-checkbox" id="chk-whatsapp" value="whatsapp">
+                                <span data-en="💬 WhatsApp — messaging integration"
+                                    data-hi="💬 WhatsApp — मैसेजिंग एकीकरण">💬 WhatsApp — messaging integration</span>
                             </label>
                         </div>
-                        <button class="btn btn-primary" onclick="saveServices()"
-                            style="margin-top:16px;width:100%;justify-content:center;">
-                            💾 Save Services
+                        <button class="btn btn-primary save-services-btn" onclick="saveServices()">
+                            💾 <span data-en="Save Services" data-hi="सेवाएं सहेजें">Save Services</span>
                         </button>
-                        <div id="serviceMsg"
-                            style="font-size:13px;margin-top:10px;color:var(--accent);min-height:18px;text-align:center;">
-                        </div>
+                        <div id="serviceMsg" class="service-msg"></div>
                     </div>
                 </div>
             </div>
@@ -242,25 +284,34 @@
         <div class="page" id="page-inbox">
             <div class="page-header">
                 <div>
-                    <div class="page-title">Unified Inbox</div>
-                    <div class="page-sub">All your messages in one place</div>
+                    <div class="page-title" data-en="Unified Inbox" data-hi="एकीकृत इनबॉक्स">Unified Inbox</div>
+                    <div class="page-sub" data-en="All your messages in one place" data-hi="सभी संदेश एक जगह">All your
+                        messages in one place</div>
                 </div>
                 <div class="listen-badge">
-                    <span class="listen-dot"></span><span>Listening</span>
+                    <span class="listen-dot"></span>
+                    <span data-en="Listening" data-hi="सुन रहा है">Listening</span>
                 </div>
             </div>
 
             <div class="inbox-filters">
-                <button class="filter-pill active" onclick="filterInbox('all', this)">All</button>
-                <button class="filter-pill" onclick="filterInbox('whatsapp', this)">WhatsApp</button>
-                <button class="filter-pill" onclick="filterInbox('telegram', this)">Telegram</button>
-                <button class="filter-pill" onclick="filterInbox('gmail', this)">Gmail</button>
+                <button class="filter-pill active" onclick="filterInbox('all', this)" data-en="All"
+                    data-hi="सभी">All</button>
+                <button class="filter-pill" onclick="filterInbox('whatsapp', this)" data-en="WhatsApp"
+                    data-hi="WhatsApp">WhatsApp</button>
+                <button class="filter-pill" onclick="filterInbox('telegram', this)" data-en="Telegram"
+                    data-hi="Telegram">Telegram</button>
+                <button class="filter-pill" onclick="filterInbox('gmail', this)" data-en="Gmail"
+                    data-hi="Gmail">Gmail</button>
             </div>
 
             <div class="msg-list" id="msgList">
                 <div class="empty-state">
                     <div class="empty-icon">📭</div>
-                    No messages yet. Connect a service to get started.
+                    <span data-en="No messages yet. Connect a service to get started."
+                        data-hi="अभी कोई संदेश नहीं। शुरू करने के लिए कोई सेवा जोड़ें।">
+                        No messages yet. Connect a service to get started.
+                    </span>
                 </div>
             </div>
         </div>
@@ -268,21 +319,7 @@
     </main>
 
     <script src="{{ url_for('static', filename='dashboard.js') }}"></script>
-    <script>
-        const VoiceAILoader = {
-            el: document.getElementById('va-loader'),
-            label: document.getElementById('va-label'),
-            show(text = 'Loading') { this.label.textContent = text; this.el.classList.remove('va-hidden'); },
-            hide(delay = 0) { setTimeout(() => this.el.classList.add('va-hidden'), delay); }
-        };
-        window.VoiceAILoader = VoiceAILoader;
-
-        document.getElementById('logoutBtn').addEventListener('click', e => {
-            e.preventDefault();
-            VoiceAILoader.show('Signing out');
-            setTimeout(() => { window.location.href = '/logout'; }, 700);
-        });
-    </script>
+    <script src="{{ url_for('static', filename='dashboard_init.js') }}"></script>
 
 </body>
 

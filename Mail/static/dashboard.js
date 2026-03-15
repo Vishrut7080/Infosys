@@ -1,7 +1,8 @@
 // ─────────────────────────────────────────────────────────────
 //  dashboard.js  —  VoiceMail AI
 //  Handles: page nav, user info, stats, waveform always-on,
-//  live conversation feed, audio navigation, service pills
+//  live conversation feed, audio navigation, service pills,
+//  Hindi/English translation support
 // ─────────────────────────────────────────────────────────────
 
 // ─── PAGE NAV ─────────────────────────────────────────────────
@@ -43,9 +44,7 @@ async function loadStats() {
 }
 loadStats();
 
-// ─── WAVEFORM — always animated (system is always listening) ──
-// The waveform is always "active" — it reflects that the system
-// is perpetually listening, not a manual start/stop.
+// ─── WAVEFORM — always animated ───────────────────────────────
 window.addEventListener('DOMContentLoaded', () => {
     const wf = document.getElementById('waveform');
     if (wf) wf.classList.add('active');
@@ -53,9 +52,6 @@ window.addEventListener('DOMContentLoaded', () => {
 
 // ─────────────────────────────────────────────────────────────
 //  CONVERSATION FEED
-//  Polls /api/feed every 800ms. Appends new entries as chat
-//  bubbles. Distinguishes [User] / [System] / [Telegram] roles
-//  by their prefix in the text string.
 // ─────────────────────────────────────────────────────────────
 let lastFeedIndex = 0;
 
@@ -65,29 +61,46 @@ function getRoleFromText(text) {
     return 'system';
 }
 
-function appendFeedMessage(entry) {
+async function appendFeedMessage(entry) {
     const feed = document.getElementById('convFeed');
     if (!feed) return;
 
-    // Remove placeholder if present
+    // Remove placeholder
     const empty = feed.querySelector('.feed-empty');
     if (empty) empty.remove();
 
     const role = getRoleFromText(entry.text);
+
+    // Clean prefix
+    let displayText = entry.text
+        .replace(/^\[System\]:\s*/i, '')
+        .replace(/^\[User\]:\s*/i, '')
+        .replace(/^\[Telegram\]:\s*/i, '');
+
+    // Translate if Hindi mode active
+    if (window.LangManager && LangManager.isHindi()) {
+        try {
+            const translated = await LangManager.translate([displayText]);
+            displayText = translated[0] || displayText;
+        } catch (e) { }
+    }
 
     const div = document.createElement('div');
     div.className = `feed-msg feed-${role}`;
 
     const label = document.createElement('span');
     label.className = 'feed-label';
-    label.textContent = role === 'user' ? 'You' : role === 'telegram' ? 'Telegram' : 'Assistant';
+    if (role === 'user') {
+        label.textContent = LangManager?.isHindi() ? 'आप' : 'You';
+    } else if (role === 'telegram') {
+        label.textContent = 'Telegram';
+    } else {
+        label.textContent = LangManager?.isHindi() ? 'असिस्टेंट' : 'Assistant';
+    }
 
     const text = document.createElement('span');
     text.className = 'feed-text';
-    text.textContent = entry.text
-        .replace(/^\[System\]:\s*/i, '')
-        .replace(/^\[User\]:\s*/i, '')
-        .replace(/^\[Telegram\]:\s*/i, '');
+    text.textContent = displayText;
 
     const time = document.createElement('span');
     time.className = 'feed-time';
@@ -106,7 +119,9 @@ async function pollFeed() {
         if (!res.ok) return;
         const data = await res.json();
         if (data.entries && data.entries.length > 0) {
-            data.entries.forEach(appendFeedMessage);
+            for (const entry of data.entries) {
+                await appendFeedMessage(entry);
+            }
             lastFeedIndex = data.next_index;
         }
     } catch (e) { }
@@ -114,7 +129,12 @@ async function pollFeed() {
 
 function clearFeed() {
     const feed = document.getElementById('convFeed');
-    if (feed) feed.innerHTML = '<div class="feed-empty">Conversation will appear here…</div>';
+    if (feed) {
+        const emptyText = LangManager?.isHindi()
+            ? 'बातचीत यहाँ दिखाई देगी…'
+            : 'Conversation will appear here…';
+        feed.innerHTML = `<div class="feed-empty">${emptyText}</div>`;
+    }
     lastFeedIndex = 0;
     fetch('/api/feed/clear', { method: 'POST' }).catch(() => { });
 }
@@ -123,8 +143,6 @@ setInterval(pollFeed, 800);
 
 // ─────────────────────────────────────────────────────────────
 //  SERVICE STATUS PILLS
-//  Polls /get-services every 2s. Shows/hides Gmail/Telegram
-//  pills in the sidebar and keeps profile checkboxes in sync.
 // ─────────────────────────────────────────────────────────────
 async function pollServices() {
     try {
@@ -132,28 +150,27 @@ async function pollServices() {
         const data = await res.json();
         const services = data.services || [];
 
-        // Sidebar pills
         const pillGmail = document.getElementById('pill-gmail');
         const pillTelegram = document.getElementById('pill-telegram');
         const pillWhatsapp = document.getElementById('pill-whatsapp');
         if (pillGmail) pillGmail.style.display = services.includes('gmail') ? 'flex' : 'none';
         if (pillTelegram) pillTelegram.style.display = services.includes('telegram') ? 'flex' : 'none';
         if (pillWhatsapp) pillWhatsapp.style.display = services.includes('whatsapp') ? 'flex' : 'none';
-        const chkW = document.getElementById('chk-whatsapp');
-        if (chkW) chkW.checked = services.includes('whatsapp');
 
-        // Profile checkboxes
         const chkG = document.getElementById('chk-gmail');
         const chkT = document.getElementById('chk-telegram');
+        const chkW = document.getElementById('chk-whatsapp');
         if (chkG) chkG.checked = services.includes('gmail');
         if (chkT) chkT.checked = services.includes('telegram');
+        if (chkW) chkW.checked = services.includes('whatsapp');
 
-        // Profile "Connected Services" field
         const ps = document.getElementById('profileServices');
         if (ps) {
-            ps.textContent = services.length
-                ? services.map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(', ')
-                : 'None connected';
+            if (services.length) {
+                ps.textContent = services.map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(', ');
+            } else {
+                ps.textContent = LangManager?.isHindi() ? 'कोई सेवा नहीं' : 'None connected';
+            }
         }
     } catch (e) { }
 }
@@ -166,7 +183,7 @@ pollServices();
 // ─────────────────────────────────────────────────────────────
 async function saveServices() {
     const selected = [...document.querySelectorAll('.service-checkbox:checked')].map(c => c.value);
-    if (window.VoiceAILoader) VoiceAILoader.show('Connecting');
+    if (window.VoiceAILoader) VoiceAILoader.show(LangManager?.isHindi() ? 'कनेक्ट हो रहा है' : 'Connecting');
     try {
         await fetch('/select-services', {
             method: 'POST',
@@ -175,7 +192,12 @@ async function saveServices() {
         });
     } catch (e) { }
     if (window.VoiceAILoader) VoiceAILoader.hide(400);
-    showServiceMsg(selected.length ? `Connected: ${selected.join(', ')}` : 'No services selected');
+    const msg = selected.length
+        ? (LangManager?.isHindi()
+            ? `कनेक्ट हुआ: ${selected.join(', ')}`
+            : `Connected: ${selected.join(', ')}`)
+        : (LangManager?.isHindi() ? 'कोई सेवा नहीं चुनी' : 'No services selected');
+    showServiceMsg(msg);
     pollServices();
 }
 
@@ -185,9 +207,7 @@ function showServiceMsg(msg) {
 }
 
 // ─────────────────────────────────────────────────────────────
-//  AUDIO NAVIGATION + AUDIO SERVICE SELECTION
-//  Polls /api/nav_command every 600ms.
-//  main.py pushes the raw heard text; we parse it here.
+//  AUDIO NAVIGATION
 // ─────────────────────────────────────────────────────────────
 async function pollNavCommands() {
     try {
@@ -196,7 +216,6 @@ async function pollNavCommands() {
         if (!data.command) return;
         const cmd = data.command.toLowerCase();
 
-        // ── Page navigation ──
         const navItems = document.querySelectorAll('.nav-item');
         if (cmd.includes('dashboard') || cmd.includes('home')) {
             showPage('dashboard', navItems[0]);
@@ -206,48 +225,45 @@ async function pollNavCommands() {
             showPage('inbox', navItems[2]);
         }
 
-        // ── Service selection ──
         if (cmd.includes('select gmail') || cmd.includes('enable gmail') || cmd.includes('add gmail')) {
             const el = document.getElementById('chk-gmail');
-            if (el) { el.checked = true; saveServices(); showServiceMsg('Gmail connected ✓'); }
+            if (el) { el.checked = true; saveServices(); showServiceMsg(LangManager?.isHindi() ? 'Gmail जोड़ा ✓' : 'Gmail connected ✓'); }
         }
         if (cmd.includes('select telegram') || cmd.includes('enable telegram') || cmd.includes('add telegram')) {
             const el = document.getElementById('chk-telegram');
-            if (el) { el.checked = true; saveServices(); showServiceMsg('Telegram connected ✓'); }
+            if (el) { el.checked = true; saveServices(); showServiceMsg(LangManager?.isHindi() ? 'Telegram जोड़ा ✓' : 'Telegram connected ✓'); }
         }
         if (cmd.includes('select whatsapp') || cmd.includes('enable whatsapp') || cmd.includes('add whatsapp')) {
             const el = document.getElementById('chk-whatsapp');
-            if (el) { el.checked = true; saveServices(); showServiceMsg('WhatsApp connected ✓'); }
+            if (el) { el.checked = true; saveServices(); showServiceMsg(LangManager?.isHindi() ? 'WhatsApp जोड़ा ✓' : 'WhatsApp connected ✓'); }
         }
         if (cmd.includes('deselect whatsapp') || cmd.includes('disable whatsapp') || cmd.includes('remove whatsapp')) {
             const el = document.getElementById('chk-whatsapp');
-            if (el) { el.checked = false; showServiceMsg('WhatsApp removed'); }
+            if (el) { el.checked = false; showServiceMsg(LangManager?.isHindi() ? 'WhatsApp हटाया' : 'WhatsApp removed'); }
         }
-        // Update the "select both" block to include whatsapp:
         if (cmd.includes('select all') || cmd.includes('enable all') || cmd.includes('all services')) {
             ['chk-gmail', 'chk-telegram', 'chk-whatsapp'].forEach(id => {
                 const el = document.getElementById(id);
                 if (el) el.checked = true;
             });
             saveServices();
-            showServiceMsg('All services connected ✓');
+            showServiceMsg(LangManager?.isHindi() ? 'सभी सेवाएं जुड़ीं ✓' : 'All services connected ✓');
         }
-        // ★ Select BOTH at once
         if (cmd.includes('select both') || cmd.includes('enable both') || (cmd.includes('gmail') && cmd.includes('telegram'))) {
             const g = document.getElementById('chk-gmail');
             const t = document.getElementById('chk-telegram');
             if (g) g.checked = true;
             if (t) t.checked = true;
             saveServices();
-            showServiceMsg('Gmail + Telegram connected ✓');
+            showServiceMsg(LangManager?.isHindi() ? 'Gmail + Telegram जुड़े ✓' : 'Gmail + Telegram connected ✓');
         }
         if (cmd.includes('deselect gmail') || cmd.includes('disable gmail') || cmd.includes('remove gmail')) {
             const el = document.getElementById('chk-gmail');
-            if (el) { el.checked = false; showServiceMsg('Gmail removed'); }
+            if (el) { el.checked = false; showServiceMsg(LangManager?.isHindi() ? 'Gmail हटाया' : 'Gmail removed'); }
         }
         if (cmd.includes('deselect telegram') || cmd.includes('disable telegram') || cmd.includes('remove telegram')) {
             const el = document.getElementById('chk-telegram');
-            if (el) { el.checked = false; showServiceMsg('Telegram removed'); }
+            if (el) { el.checked = false; showServiceMsg(LangManager?.isHindi() ? 'Telegram हटाया' : 'Telegram removed'); }
         }
         if (cmd.includes('save services') || cmd.includes('confirm services') || cmd.includes('save and continue')) {
             saveServices();
@@ -267,14 +283,25 @@ let currentFilter = 'all';
 async function loadInbox() {
     const list = document.getElementById('msgList');
     if (!list) return;
-    list.innerHTML = '<div class="empty-state"><div class="empty-icon">⏳</div>Loading...</div>';
+    list.innerHTML = `<div class="empty-state"><div class="empty-icon">⏳</div>${LangManager?.isHindi() ? 'लोड हो रहा है...' : 'Loading...'}</div>`;
     try {
         const res = await fetch('/get-inbox');
         const data = await res.json();
         allMessages = data.messages || [];
+
+        // Translate message content if Hindi mode
+        if (window.LangManager && LangManager.isHindi() && allMessages.length) {
+            for (let msg of allMessages) {
+                try {
+                    const translated = await LangManager.translate([msg.text, msg.from]);
+                    msg.text = translated[0] || msg.text;
+                    msg.from = translated[1] || msg.from;
+                } catch (e) { }
+            }
+        }
         renderInbox();
     } catch (e) {
-        list.innerHTML = '<div class="empty-state"><div class="empty-icon">❌</div>Failed to load.</div>';
+        list.innerHTML = `<div class="empty-state"><div class="empty-icon">❌</div>${LangManager?.isHindi() ? 'लोड नहीं हो सका।' : 'Failed to load.'}</div>`;
     }
 }
 
@@ -293,7 +320,10 @@ function renderInbox() {
         : allMessages.filter(m => m.source === currentFilter);
 
     if (!filtered.length) {
-        list.innerHTML = `<div class="empty-state"><div class="empty-icon">📭</div>No ${currentFilter} messages.</div>`;
+        const msg = LangManager?.isHindi()
+            ? `कोई ${currentFilter === 'all' ? '' : currentFilter + ' '}संदेश नहीं।`
+            : `No ${currentFilter} messages.`;
+        list.innerHTML = `<div class="empty-state"><div class="empty-icon">📭</div>${msg}</div>`;
         return;
     }
 
@@ -310,8 +340,23 @@ function renderInbox() {
     `).join('');
 }
 
+// Re-render inbox when language switches
+document.addEventListener('langChanged', () => {
+    if (document.getElementById('page-inbox')?.classList.contains('active')) {
+        loadInbox();
+    }
+    // Update clear feed button placeholder
+    const feed = document.getElementById('convFeed');
+    const empty = feed?.querySelector('.feed-empty');
+    if (empty) {
+        empty.textContent = LangManager?.isHindi()
+            ? 'बातचीत यहाँ दिखाई देगी…'
+            : 'Conversation will appear here…';
+    }
+});
+
 // ─────────────────────────────────────────────────────────────
-//  TYPING NOTIFICATION  (pauses voice loop in main.py)
+//  TYPING NOTIFICATION
 // ─────────────────────────────────────────────────────────────
 function notifyTyping(isTyping) {
     fetch('/typing', {
@@ -332,6 +377,33 @@ async function checkLogoutStatus() {
     } catch (e) { }
 }
 setInterval(checkLogoutStatus, 2000);
+
+// ─────────────────────────────────────────────────────────────
+//  dashboard_init.js
+//  Page-level initialisation for dashboard.html.
+//  Runs after dashboard.js has loaded.
+// ─────────────────────────────────────────────────────────────
+
+const VoiceAILoader = {
+    el: document.getElementById('va-loader'),
+    label: document.getElementById('va-label'),
+    show(text = 'Loading') {
+        this.label.textContent = text;
+        this.el.classList.remove('va-hidden');
+    },
+    hide(delay = 0) {
+        setTimeout(() => this.el.classList.add('va-hidden'), delay);
+    }
+};
+window.VoiceAILoader = VoiceAILoader;
+
+document.getElementById('logoutBtn').addEventListener('click', e => {
+    e.preventDefault();
+    VoiceAILoader.show(
+        window.LangManager?.isHindi() ? 'साइन आउट हो रहा है' : 'Signing out'
+    );
+    setTimeout(() => { window.location.href = '/logout'; }, 700);
+});
 
 document.addEventListener('focusin', e => { if (e.target.tagName === 'INPUT') notifyTyping(true); });
 document.addEventListener('focusout', e => { if (e.target.tagName === 'INPUT') notifyTyping(false); });

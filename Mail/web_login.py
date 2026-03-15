@@ -772,6 +772,30 @@ def log_activity_route():
     return '', 204
 
 # -------------------------------------------------
+# LANGUAGE CONVERSION
+# -------------------------------------------------
+@app.route('/translate', methods=['POST'])
+def translate_text():
+    try:
+        from googletrans import Translator
+        data   = request.get_json()
+        texts  = data.get('texts', [])
+        target = data.get('target', 'en')
+        if target == 'en':
+            return jsonify({'translated': texts})
+        translator  = Translator()
+        translated  = []
+        for text in texts:
+            try:
+                result = translator.translate(text, dest=target)
+                translated.append(result.text)
+            except Exception:
+                translated.append(text)
+        return jsonify({'translated': translated})
+    except Exception as e:
+        return jsonify({'translated': texts, 'error': str(e)})
+
+# -------------------------------------------------
 # START SERVER
 # -------------------------------------------------
 

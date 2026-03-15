@@ -10,11 +10,15 @@
         href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Inter:wght@300;400;500&display=swap"
         rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='signup.css') }}">
-    <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='logo.svg') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='lang.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='loader.css') }}">
+    <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='logo.svg') }}">
+    <script src="{{ url_for('static', filename='lang.js') }}"></script>
 </head>
 
 <body>
+    <button class="lang-toggle-btn" id="langToggleBtn" onclick="LangManager.toggle()">🇮🇳 हिंदी</button>
+
     <div id="va-loader" class="va-hidden">
         <div class="va-logo">
             <img src="{{ url_for('static', filename='logo.svg') }}" width="140" height="140">
@@ -23,7 +27,7 @@
             <span id="va-label">Loading</span><span class="va-dots"><span>.</span><span>.</span><span>.</span></span>
         </p>
     </div>
-    <!-- Animated background dots -->
+
     <div class="bg-dots"></div>
 
     <!-- ── SIGNUP CARD ── -->
@@ -31,40 +35,42 @@
 
         <div class="card-header">
             <div class="logo">⬡</div>
-            <h1>Create Account</h1>
-            <p class="subtitle">Set up your assistant profile</p>
-            <!-- ← add this -->
-            <a href="/" class="cancel-btn" id="cancelBtn" onclick="handleCancel(event)">
-                ← Back to Login
-            </a>
+            <h1 data-en="Create Account" data-hi="खाता बनाएं">Create Account</h1>
+            <p class="subtitle" data-en="Set up your assistant profile" data-hi="अपना असिस्टेंट प्रोफ़ाइल सेट करें">
+                Set up your assistant profile
+            </p>
+            <a href="/" class="cancel-btn" id="cancelBtn" data-en="← Back to Login" data-hi="← लॉगिन पर वापस">← Back to
+                Login</a>
         </div>
 
         <form id="signupForm" novalidate>
 
             <!-- Full Name -->
             <div class="field-group">
-                <label for="name">Full Name</label>
-                <input type="text" id="name" placeholder="John Doe" autocomplete="name" required>
+                <label for="name" data-en="Full Name" data-hi="पूरा नाम">Full Name</label>
+                <input type="text" id="name" data-placeholder-en="John Doe" data-placeholder-hi="अपना नाम"
+                    placeholder="John Doe" autocomplete="name" required>
                 <span class="field-error" id="nameError"></span>
             </div>
 
             <!-- Email -->
             <div class="field-group">
-                <label for="email">Email</label>
-                <input type="email" id="email" placeholder="you@example.com" autocomplete="email" required>
+                <label for="email" data-en="Email" data-hi="ईमेल">Email</label>
+                <input type="email" id="email" data-placeholder-en="you@example.com" data-placeholder-hi="आपका@ईमेल.com"
+                    placeholder="you@example.com" autocomplete="email" required>
                 <span class="field-error" id="emailError"></span>
             </div>
 
             <!-- Password -->
             <div class="field-group">
-                <label for="password">Password</label>
+                <label for="password" data-en="Password" data-hi="पासवर्ड">Password</label>
                 <div class="input-wrap">
-                    <input type="password" id="password" placeholder="Min. 8 characters" autocomplete="new-password"
-                        required>
+                    <input type="password" id="password" data-placeholder-en="Min. 8 characters"
+                        data-placeholder-hi="कम से कम 8 अक्षर" placeholder="Min. 8 characters"
+                        autocomplete="new-password" required>
                     <button type="button" class="toggle-pw" data-target="password"
                         aria-label="Toggle password">👁</button>
                 </div>
-                <!-- Strength bar -->
                 <div class="strength-bar">
                     <div class="strength-fill" id="strengthFill"></div>
                 </div>
@@ -74,9 +80,11 @@
 
             <!-- Confirm Password -->
             <div class="field-group">
-                <label for="confirmPassword">Confirm Password</label>
+                <label for="confirmPassword" data-en="Confirm Password" data-hi="पासवर्ड पुष्टि करें">Confirm
+                    Password</label>
                 <div class="input-wrap">
-                    <input type="password" id="confirmPassword" placeholder="Re-enter password"
+                    <input type="password" id="confirmPassword" data-placeholder-en="Re-enter password"
+                        data-placeholder-hi="पासवर्ड दोबारा डालें" placeholder="Re-enter password"
                         autocomplete="new-password" required>
                     <button type="button" class="toggle-pw" data-target="confirmPassword"
                         aria-label="Toggle password">👁</button>
@@ -87,36 +95,43 @@
             <!-- Secret Audio Password -->
             <div class="field-group">
                 <label for="secretAudio">
-                    Secret Audio Password
+                    <span data-en="Secret Audio Password" data-hi="गुप्त ऑडियो पासवर्ड">Secret Audio Password</span>
                     <span class="tooltip"
                         title="A word or phrase you say out loud to log in by voice. Keep it unique and memorable.">?</span>
                 </label>
                 <div class="input-wrap">
-                    <input type="text" id="secretAudio" placeholder="e.g. sunshine phoenix" autocomplete="off">
+                    <input type="text" id="secretAudio" data-placeholder-en="e.g. sunshine phoenix"
+                        data-placeholder-hi="जैसे: nebula falcon" placeholder="e.g. sunshine phoenix"
+                        autocomplete="off">
                     <button type="button" id="refreshAudioBtn" title="Suggest a new word">↻</button>
                 </div>
-                <div style="margin-top:6px;padding:8px 10px;background:#fefce8;
-                border:1px solid #fde68a;border-radius:2px;font-size:11px;
-                color:#92400e;font-family:var(--mono);line-height:1.5;">
-                    💡 <strong>Tip:</strong> Choose a word that is easy to say clearly but hard to guess.
-                    Avoid common words like "hello". Good examples:
-                    <em>nebula, falcon, cobalt, swift maple</em>.
-                    Whisper works best with 2–3 syllable words.
+                <div class="audio-tip">
+                    💡 <strong data-en="Tip:" data-hi="सुझाव:">Tip:</strong>
+                    <span
+                        data-en="Choose a word easy to say clearly but hard to guess. Avoid common words like &quot;hello&quot;. Good examples: nebula, falcon, cobalt. Whisper works best with 2–3 syllable words."
+                        data-hi="ऐसा शब्द चुनें जो बोलने में आसान हो लेकिन अनुमान लगाना मुश्किल। &quot;hello&quot; जैसे आम शब्द न चुनें। अच्छे उदाहरण: nebula, falcon, cobalt।">
+                        Choose a word easy to say clearly but hard to guess. Avoid common words like "hello". Good
+                        examples: nebula, falcon, cobalt. Whisper works best with 2–3 syllable words.
+                    </span>
                 </div>
                 <span class="field-error" id="audioError"></span>
             </div>
 
             <!-- Gmail Settings -->
             <div class="field-group">
-                <label for="gmailAddress">Gmail Address</label>
-                <input type="email" id="gmailAddress" placeholder="you@gmail.com" autocomplete="off">
-                <span class="field-hint">The Gmail account this assistant will manage.</span>
+                <label for="gmailAddress" data-en="Gmail Address" data-hi="Gmail पता">Gmail Address</label>
+                <input type="email" id="gmailAddress" data-placeholder-en="you@gmail.com"
+                    data-placeholder-hi="आपका@gmail.com" placeholder="you@gmail.com" autocomplete="off">
+                <span class="field-hint" data-en="The Gmail account this assistant will manage."
+                    data-hi="वह Gmail खाता जिसे यह असिस्टेंट मैनेज करेगा।">
+                    The Gmail account this assistant will manage.
+                </span>
                 <span class="field-error" id="gmailError"></span>
             </div>
 
             <div class="field-group">
                 <label for="gmailAppPass">
-                    Gmail App Password
+                    <span data-en="Gmail App Password" data-hi="Gmail ऐप पासवर्ड">Gmail App Password</span>
                     <span class="tooltip"
                         title="Generate at myaccount.google.com/apppasswords — NOT your Gmail password">?</span>
                 </label>
@@ -124,44 +139,54 @@
                     <input type="password" id="gmailAppPass" placeholder="xxxx xxxx xxxx xxxx" autocomplete="off">
                     <button type="button" class="toggle-pw" data-target="gmailAppPass">👁</button>
                 </div>
-                <span class="field-hint">16-character App Password from Google Account settings.</span>
+                <span class="field-hint" data-en="16-character App Password from Google Account settings."
+                    data-hi="Google Account सेटिंग्स से 16 अक्षरों का ऐप पासवर्ड।">
+                    16-character App Password from Google Account settings.
+                </span>
                 <span class="field-error" id="gmailAppError"></span>
             </div>
 
             <!-- Telegram Settings (optional) -->
             <div class="field-group">
                 <label for="tgApiId">
-                    Telegram API ID
+                    <span data-en="Telegram API ID" data-hi="Telegram API ID">Telegram API ID</span>
                     <span class="tooltip" title="Optional. Get from my.telegram.org">?</span>
                 </label>
-                <input type="text" id="tgApiId" placeholder="12345678 (optional)" autocomplete="off">
+                <input type="text" id="tgApiId" data-placeholder-en="12345678 (optional)"
+                    data-placeholder-hi="12345678 (वैकल्पिक)" placeholder="12345678 (optional)" autocomplete="off">
             </div>
 
             <div class="field-group">
-                <label for="tgApiHash">Telegram API Hash</label>
-                <input type="text" id="tgApiHash" placeholder="abcdef1234... (optional)" autocomplete="off">
+                <label for="tgApiHash" data-en="Telegram API Hash" data-hi="Telegram API Hash">Telegram API Hash</label>
+                <input type="text" id="tgApiHash" data-placeholder-en="abcdef1234... (optional)"
+                    data-placeholder-hi="abcdef1234... (वैकल्पिक)" placeholder="abcdef1234... (optional)"
+                    autocomplete="off">
             </div>
 
             <div class="field-group">
-                <label for="tgPhone">Telegram Phone Number</label>
-                <input type="tel" id="tgPhone" placeholder="+91xxxxxxxxxx (optional)" autocomplete="off">
+                <label for="tgPhone" data-en="Telegram Phone Number" data-hi="Telegram फ़ोन नंबर">Telegram Phone
+                    Number</label>
+                <input type="tel" id="tgPhone" data-placeholder-en="+91xxxxxxxxxx (optional)"
+                    data-placeholder-hi="+91xxxxxxxxxx (वैकल्पिक)" placeholder="+91xxxxxxxxxx (optional)"
+                    autocomplete="off">
             </div>
 
             <!-- Admin Account (optional) -->
             <div class="field-group">
-                <label style="flex-direction:row;align-items:center;gap:10px;cursor:pointer;">
-                    <input type="checkbox" id="isAdminCheck" onchange="toggleAdminSection()"
-                        style="width:16px;height:16px;accent-color:var(--accent);margin:0;">
-                    Create as Admin Account
+                <label class="admin-check-label">
+                    <input type="checkbox" id="isAdminCheck" onchange="toggleAdminSection()">
+                    <span data-en="Create as Admin Account" data-hi="एडमिन खाता बनाएं">Create as Admin Account</span>
                 </label>
-                <span class="field-hint">Only for authorised personnel</span>
+                <span class="field-hint" data-en="Only for authorised personnel"
+                    data-hi="केवल अधिकृत कर्मियों के लिए">Only for authorised personnel</span>
             </div>
 
             <div id="adminSection" style="display:none;margin-bottom:18px;">
                 <div class="field-group" style="margin-bottom:0;">
-                    <label for="adminPassword">Admin Password</label>
+                    <label for="adminPassword" data-en="Admin Password" data-hi="एडमिन पासवर्ड">Admin Password</label>
                     <div class="input-wrap">
-                        <input type="password" id="adminPassword" placeholder="Enter admin password">
+                        <input type="password" id="adminPassword" data-placeholder-en="Enter admin password"
+                            data-placeholder-hi="एडमिन पासवर्ड डालें" placeholder="Enter admin password">
                         <button type="button" class="toggle-pw" data-target="adminPassword">👁</button>
                     </div>
                     <span class="field-error" id="adminPasswordError"></span>
@@ -170,39 +195,40 @@
 
             <!-- Submit -->
             <button type="submit" class="btn-submit" id="submitBtn">
-                <span class="btn-text">Create Account</span>
+                <span class="btn-text" data-en="Create Account" data-hi="खाता बनाएं">Create Account</span>
                 <span class="btn-spinner" id="btnSpinner" hidden>●</span>
             </button>
 
         </form>
 
-        <p class="login-link">Already have an account? <a href="/">Sign in</a></p>
+        <p class="login-link">
+            <span data-en="Already have an account?" data-hi="पहले से खाता है?">Already have an account?</span>
+            <a href="/" data-en="Sign in" data-hi="साइन इन करें">Sign in</a>
+        </p>
 
     </div>
 
-    <!-- ── SUCCESS SCREEN (hidden until signup succeeds) ── -->
+    <!-- ── SUCCESS SCREEN ── -->
     <div class="success-screen" id="successScreen" hidden>
         <div class="success-card">
             <div class="success-icon">✦</div>
-            <h2>You're all set!</h2>
-            <p>Your account has been created successfully.</p>
+            <h2 data-en="You're all set!" data-hi="सब तैयार है!">You're all set!</h2>
+            <p data-en="Your account has been created successfully." data-hi="आपका खाता सफलतापूर्वक बनाया गया है।">
+                Your account has been created successfully.
+            </p>
             <div class="redirect-bar">
                 <div class="redirect-fill" id="redirectFill"></div>
             </div>
-            <p class="redirect-note">Redirecting to login in <span id="countdown">3</span>s…</p>
+            <p class="redirect-note">
+                <span data-en="Redirecting to login in" data-hi="लॉगिन पर जा रहे हैं">Redirecting to login in</span>
+                <span id="countdown">3</span>s…
+            </p>
         </div>
     </div>
 
     <script src="{{ url_for('static', filename='signup.js') }}"></script>
-    <script>
-        const VoiceAILoader = {
-            el: document.getElementById('va-loader'),
-            label: document.getElementById('va-label'),
-            show(text = 'Loading') { this.label.textContent = text; this.el.classList.remove('va-hidden'); },
-            hide(delay = 0) { setTimeout(() => this.el.classList.add('va-hidden'), delay); }
-        };
-        window.addEventListener('load', () => VoiceAILoader.hide(600));
-    </script>
+    <script src="{{ url_for('static', filename='signup_init.js') }}"></script>
+
 </body>
 
 </html>

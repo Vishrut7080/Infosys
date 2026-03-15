@@ -10,11 +10,15 @@
         href="https://fonts.googleapis.com/css2?family=Cabinet+Grotesk:wght@400;500;600;700;800&family=Instrument+Sans:wght@400;500&display=swap"
         rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='login.css') }}">
-    <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='logo.svg') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='lang.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='loader.css') }}">
+    <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='logo.svg') }}">
+    <script src="{{ url_for('static', filename='lang.js') }}"></script>
 </head>
 
 <body>
+    <button class="lang-toggle-btn" id="langToggleBtn" onclick="LangManager.toggle()">🇮🇳 हिंदी</button>
+
     <div id="va-loader" class="va-hidden">
         <div class="va-logo">
             <img src="{{ url_for('static', filename='logo.svg') }}" width="140" height="140">
@@ -23,6 +27,7 @@
             <span id="va-label">Loading</span><span class="va-dots"><span>.</span><span>.</span><span>.</span></span>
         </p>
     </div>
+
     <div class="bg-grid"></div>
 
     <div class="page">
@@ -39,28 +44,36 @@
             </div>
 
             <div class="tagline">
-                <h1>Your voice.<br>Your inbox.<br><em>Your assistant.</em></h1>
-                <p>A personal AI assistant that listens, understands, and acts — so you don't have to.</p>
+                <h1>
+                    <span data-en="Your voice." data-hi="आपकी आवाज़।">Your voice.</span><br>
+                    <span data-en="Your inbox." data-hi="आपका इनबॉक्स।">Your inbox.</span><br>
+                    <em data-en="Your assistant." data-hi="आपका असिस्टेंट।">Your assistant.</em>
+                </h1>
+                <p data-en="A personal AI assistant that listens, understands, and acts — so you don't have to."
+                    data-hi="एक व्यक्तिगत AI असिस्टेंट जो सुनता है, समझता है और काम करता है — ताकि आपको न करना पड़े।">
+                    A personal AI assistant that listens, understands, and acts — so you don't have to.
+                </p>
             </div>
 
             <div class="features">
                 <div class="feature">
                     <div class="feature-icon">✉</div>
-                    <span>Voice-controlled email</span>
+                    <span data-en="Voice-controlled email" data-hi="वॉइस-नियंत्रित ईमेल">Voice-controlled email</span>
                 </div>
                 <div class="feature">
                     <div class="feature-icon">✈</div>
-                    <span>Telegram integration</span>
+                    <span data-en="Telegram integration" data-hi="Telegram एकीकरण">Telegram integration</span>
                 </div>
                 <div class="feature">
                     <div class="feature-icon">◎</div>
-                    <span>Natural language commands</span>
+                    <span data-en="Natural language commands" data-hi="प्राकृतिक भाषा कमांड">Natural language
+                        commands</span>
                 </div>
             </div>
 
             <div class="left-footer">
                 <span class="live-dot"></span>
-                <span>System online</span>
+                <span data-en="System online" data-hi="सिस्टम ऑनलाइन">System online</span>
             </div>
         </div>
 
@@ -68,21 +81,26 @@
         <div class="right">
             <div class="card">
                 <div class="card-header">
-                    <h2>Welcome back</h2>
-                    <p>Enter your email — we'll handle the rest.</p>
+                    <h2 data-en="Welcome back" data-hi="वापस स्वागत है">Welcome back</h2>
+                    <p data-en="Enter your email — we'll handle the rest."
+                        data-hi="अपना ईमेल डालें — बाकी हम संभाल लेंगे।">
+                        Enter your email — we'll handle the rest.
+                    </p>
                 </div>
 
                 <form id="loginForm" autocomplete="off">
                     <div class="field">
-                        <label for="email">Email address</label>
-                        <input type="email" id="email" placeholder="you@example.com" required autocomplete="off">
+                        <label for="email" data-en="Email address" data-hi="ईमेल पता">Email address</label>
+                        <input type="email" id="email" data-placeholder-en="you@example.com"
+                            data-placeholder-hi="आपका@ईमेल.com" placeholder="you@example.com" required
+                            autocomplete="off">
                     </div>
 
                     <div class="field" id="passwordField">
-                        <label for="password">Password</label>
+                        <label for="password" data-en="Password" data-hi="पासवर्ड">Password</label>
                         <div class="pass-wrap">
                             <input type="password" id="password" placeholder="••••••••">
-                            <button type="button" class="eye-btn" onclick="togglePassword()">
+                            <button type="button" class="eye-btn" id="eyeBtn">
                                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                                     stroke-width="1.8">
                                     <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z" />
@@ -94,7 +112,7 @@
                     </div>
 
                     <button type="submit" class="btn-submit" id="submitBtn">
-                        Continue
+                        <span data-en="Continue" data-hi="जारी रखें">Continue</span>
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                             stroke-width="2">
                             <path d="M5 12h14M12 5l7 7-7 7" />
@@ -105,8 +123,8 @@
                 <p id="message"></p>
 
                 <div class="card-footer">
-                    <span>No account yet?</span>
-                    <a href="/signup">Sign up free</a>
+                    <span data-en="No account yet?" data-hi="खाता नहीं है?">No account yet?</span>
+                    <a href="/signup" data-en="Sign up free" data-hi="मुफ़्त साइन अप करें">Sign up free</a>
                 </div>
 
                 <div class="audio-note">
@@ -114,7 +132,10 @@
                         <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
                         <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
                     </svg>
-                    Say your audio password to sign in hands-free
+                    <span data-en="Say your audio password to sign in hands-free"
+                        data-hi="हैंड्स-फ़्री साइन इन के लिए ऑडियो पासवर्ड बोलें">
+                        Say your audio password to sign in hands-free
+                    </span>
                 </div>
             </div>
         </div>
@@ -122,55 +143,8 @@
     </div>
 
     <script src="{{ url_for('static', filename='login.js') }}"></script>
-    <script>
-        function togglePassword() {
-            const input = document.getElementById('password');
-            input.type = input.type === 'password' ? 'text' : 'password';
-        }
+    <script src="{{ url_for('static', filename='login_init.js') }}"></script>
 
-        const emailInput = document.getElementById('email');
-        const hint = document.getElementById('emailHint');
-        const passInput = document.getElementById('password');
-
-        const googleDomains = ['gmail.com', 'googlemail.com'];
-        const microsoftDomains = ['outlook.com', 'hotmail.com', 'live.com', 'msn.com'];
-
-        emailInput.addEventListener('input', () => {
-            const domain = emailInput.value.split('@')[1]?.toLowerCase();
-            if (!domain) { hint.textContent = ''; passInput.required = true; return; }
-            if (googleDomains.includes(domain)) {
-                hint.textContent = '→ Will continue with Google';
-                hint.style.color = '#4285F4';
-                passInput.required = false;
-            } else if (microsoftDomains.includes(domain)) {
-                hint.textContent = '→ Will continue with Microsoft';
-                hint.style.color = '#00a4ef';
-                passInput.required = false;
-            } else {
-                hint.textContent = '';
-                passInput.required = true;
-            }
-        });
-    </script>
-    <script>
-        const VoiceAILoader = {
-            el: document.getElementById('va-loader'),
-            label: document.getElementById('va-label'),
-            show(text = 'Loading') { this.label.textContent = text; this.el.classList.remove('va-hidden'); },
-            hide(delay = 0) { setTimeout(() => this.el.classList.add('va-hidden'), delay); }
-        };
-        window.addEventListener('load', () => VoiceAILoader.hide(600));
-        document.getElementById('loginForm').addEventListener('submit', () => VoiceAILoader.show('Signing in'));
-        // Auto-trigger audio login if coming from signup
-        if (new URLSearchParams(window.location.search).get('from') === 'signup') {
-            fetch('/start-audio-login', { method: 'POST' }).catch(() => { });
-            const msg = document.getElementById('message');
-            if (msg) {
-                msg.style.color = '#4ade80';
-                msg.textContent = '🎙 Say your audio password now...';
-            }
-        }
-    </script>
 </body>
 
 </html>

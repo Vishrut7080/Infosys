@@ -1021,3 +1021,78 @@ body {
     gap: 12px;
     margin-bottom: 32px;
 }
+
+.lang-toggle-btn {
+    position: fixed;
+    top: 16px;
+    right: 20px;
+    z-index: 1000;
+    padding: 7px 14px;
+    border-radius: 20px;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--text, #fff);
+    font-size: 13px;
+    cursor: pointer;
+    backdrop-filter: blur(8px);
+    transition: all 0.2s;
+    font-family: inherit;
+}
+
+.lang-toggle-btn:hover {
+    background: rgba(255, 255, 255, 0.15);
+    border-color: rgba(255, 255, 255, 0.3);
+}
+
+/* ─────────────────────────────────────────────────────────────
+   dashboard_extra.css
+   Styles that previously lived inline in dashboard.html.
+   Add this file as a <link> in dashboard.html alongside
+   dashboard.css and loader.css.
+   ───────────────────────────────────────────────────────────── */
+
+/* ── Service list in profile panel ── */
+.service-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 10px;
+}
+
+.service-label {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 14px;
+    cursor: pointer;
+    padding: 14px 16px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    transition: border-color 0.2s;
+}
+
+.service-label:hover {
+    border-color: var(--accent);
+}
+
+.service-label input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    accent-color: var(--accent);
+    flex-shrink: 0;
+}
+
+.save-services-btn {
+    margin-top: 16px;
+    width: 100%;
+    justify-content: center;
+}
+
+.service-msg {
+    font-size: 13px;
+    margin-top: 10px;
+    color: var(--accent);
+    min-height: 18px;
+    text-align: center;
+}

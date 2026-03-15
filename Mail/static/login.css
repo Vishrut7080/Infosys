@@ -500,3 +500,25 @@ input:focus {
         align-items: flex-start;
     }
 }
+
+.lang-toggle-btn {
+    position: fixed;
+    top: 16px;
+    right: 20px;
+    z-index: 1000;
+    padding: 7px 14px;
+    border-radius: 20px;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--text, #fff);
+    font-size: 13px;
+    cursor: pointer;
+    backdrop-filter: blur(8px);
+    transition: all 0.2s;
+    font-family: inherit;
+}
+
+.lang-toggle-btn:hover {
+    background: rgba(255, 255, 255, 0.15);
+    border-color: rgba(255, 255, 255, 0.3);
+}
