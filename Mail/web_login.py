@@ -717,6 +717,25 @@ def admin_remove_admin():
     success, msg = database.remove_admin(email)
     return jsonify({'status': 'success' if success else 'error', 'message': msg})
 
+@app.route('/admin/api-usage')
+@admin_required
+def admin_api_usage():
+    log   = database.get_activity_log(limit=10000)
+    usage = {}
+    for entry in log:
+        usage[entry['action']] = usage.get(entry['action'], 0) + 1
+    return jsonify({'usage': usage})
+
+
+@app.route('/admin/error-logs')
+@admin_required
+def admin_error_logs():
+    log    = database.get_activity_log(limit=500)
+    errors = [l for l in log if
+              'fail'      in l['action'].lower() or
+              'error'     in (l['detail'] or '').lower() or
+              'incorrect' in (l['detail'] or '').lower()]
+    return jsonify({'errors': errors[:50]})
 
 @app.route('/admin/stats')
 @admin_required
@@ -732,6 +751,7 @@ def admin_stats():
         'emails_sent':    len(database.get_activity_log(action='email_sent', limit=10000)),
         'tg_sent':        len(database.get_activity_log(action='telegram_sent', limit=10000)),
         'wa_sent':        len(database.get_activity_log(action='whatsapp_sent', limit=10000)),
+        'pin_fails':      len(database.get_activity_log(action='pin_failed', limit=10000)),
     })
 
 
