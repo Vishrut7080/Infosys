@@ -696,11 +696,20 @@ with open('Audio/Transcribe.txt', 'a', encoding='utf-8') as file:
                     text   = msg['message']
                     unread = f"{msg['unread']} unread." if msg['unread'] else ''
                     speak_text(f"Telegram {i}. From: {sender}. {unread} Message: {text}. Date: {msg['date']}.")
-                    speak_text(r('tg_reply_prompt'), lang=user_lang)
+                    speak_text(
+                        '[System]: Say yes to reply, stop to stop reading, or no for next.' if user_lang == 'en'
+                        else '[System]: जवाब देने के लिए हाँ, पढ़ना बंद करने के लिए stop, या अगले के लिए नहीं बोलें।',
+                        lang=user_lang
+                    )
                     reply_decision, _ = listen_text()
                     reply_decision = reply_decision.lower().strip()
                     speak_text(f'[User]: {reply_decision}')
-                    if any(word in reply_decision for word in affirmation):
+
+                    if any(w in reply_decision for w in ['stop', 'enough', 'done', 'रुको', 'बस']):
+                        speak_text('[System]: Stopped reading messages.' if user_lang == 'en'
+                                   else '[System]: पढ़ना बंद किया।', lang=user_lang)
+                        break
+                    elif any(word in reply_decision for word in affirmation):
                         handle_telegram_reply(sender, text)
                     else:
                         speak_text(r('tg_next'), lang=user_lang)
@@ -766,11 +775,14 @@ with open('Audio/Transcribe.txt', 'a', encoding='utf-8') as file:
             else:
                 for i, msg in enumerate(messages, 1):
                     speak_text(f"WhatsApp {i}. From: {msg['name']}. Message: {msg['message']}. Date: {msg['date']}.")
-                    speak_text('[System]: Would you like to reply to this message?', lang=user_lang)
+                    speak_text('[System]: Say yes to reply, stop to stop reading, or no for next.', lang=user_lang)
                     reply_decision, _ = listen_text()
                     reply_decision = reply_decision.lower().strip()
                     speak_text(f'[User]: {reply_decision}')
-                    if any(word in reply_decision for word in affirmation):
+                    if any(w in reply_decision for w in ['stop', 'enough', 'done', 'रुको', 'बस']):
+                        speak_text('[System]: Stopped reading messages.', lang=user_lang)
+                        break
+                    elif any(word in reply_decision for word in affirmation):
                         # ★ AI suggested reply — same pattern as Telegram
                         speak_text(r('suggest_generating'), lang=user_lang)
                         suggestion = generate_local_reply(msg['message'])
@@ -885,6 +897,21 @@ with open('Audio/Transcribe.txt', 'a', encoding='utf-8') as file:
                     if mail_item['details'].get('attachments'):
                         summary_text += f" Has attachments: {', '.join(mail_item['details']['attachments'])}."
                     speak_text(summary_text)
+
+                    # ── Ask to stop after each email (except last) ──
+                    if i < len(inbox):
+                        speak_text(
+                            '[System]: Say stop to stop reading, or anything else to continue.' if user_lang == 'en'
+                            else '[System]: पढ़ना बंद करने के लिए stop बोलें, या जारी रखने के लिए कुछ और।',
+                            lang=user_lang
+                        )
+                        stop_heard, _ = listen_text(duration=4)
+                        stop_heard = stop_heard.lower().strip()
+                        speak_text(f'[User]: {stop_heard}')
+                        if any(w in stop_heard for w in ['stop', 'enough', 'done', 'रुको', 'बस']):
+                            speak_text('[System]: Stopped reading.' if user_lang == 'en'
+                                       else '[System]: पढ़ना बंद किया।', lang=user_lang)
+                            break
             elif any(s in response for s in negation):
                 speak_text(r('inbox_ok'), lang=user_lang)
             continue
@@ -1016,8 +1043,7 @@ with open('Audio/Transcribe.txt', 'a', encoding='utf-8') as file:
                 login_initiated = False
                 # ── Clear Flask session so dashboard redirects ──
                 try:
-                    import requests as _req
-                    _req.post('http://localhost:5000/voice-logout')
+                    requests.post('http://localhost:5000/voice-logout')
                 except Exception:
                     pass
                 speak_text(r('logout_success'), lang=user_lang)

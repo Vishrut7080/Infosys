@@ -33,11 +33,6 @@
             <div class="logo">⬡</div>
             <h1>Create Account</h1>
             <p class="subtitle">Set up your assistant profile</p>
-        </div>
-        <div class="card-header">
-            <div class="logo">⬡</div>
-            <h1>Create Account</h1>
-            <p class="subtitle">Set up your assistant profile</p>
             <!-- ← add this -->
             <a href="/" class="cancel-btn" id="cancelBtn" onclick="handleCancel(event)">
                 ← Back to Login
@@ -100,9 +95,17 @@
                     <input type="text" id="secretAudio" placeholder="e.g. sunshine phoenix" autocomplete="off">
                     <button type="button" id="refreshAudioBtn" title="Suggest a new word">↻</button>
                 </div>
-                <span class="field-hint">Say this phrase to log in hands-free via voice.</span>
+                <div style="margin-top:6px;padding:8px 10px;background:#fefce8;
+                border:1px solid #fde68a;border-radius:2px;font-size:11px;
+                color:#92400e;font-family:var(--mono);line-height:1.5;">
+                    💡 <strong>Tip:</strong> Choose a word that is easy to say clearly but hard to guess.
+                    Avoid common words like "hello". Good examples:
+                    <em>nebula, falcon, cobalt, swift maple</em>.
+                    Whisper works best with 2–3 syllable words.
+                </div>
                 <span class="field-error" id="audioError"></span>
             </div>
+
             <!-- Gmail Settings -->
             <div class="field-group">
                 <label for="gmailAddress">Gmail Address</label>
