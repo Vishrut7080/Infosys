@@ -37,3 +37,15 @@
         font-size: 12px;
     }
 }
+
+/* Signup page has light background — darken the button text */
+body.signup-page .lang-toggle-btn {
+    color: #111;
+    border-color: rgba(0, 0, 0, 0.15);
+    background: rgba(0, 0, 0, 0.06);
+}
+
+body.signup-page .lang-toggle-btn:hover {
+    background: rgba(0, 0, 0, 0.1);
+    border-color: rgba(0, 0, 0, 0.2);
+}

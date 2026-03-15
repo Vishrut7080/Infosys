@@ -70,23 +70,34 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // ── Voice command listener ────────────────────────────────────
-// Polls /api/feed every 2s. If "hindi mode" or "english mode"
-// detected, switches language automatically.
+// Only polls on /dashboard — login and signup pages aren't
+// logged in so /api/feed would fail and clutter the console.
 let _langFeedIndex = 0;
-setInterval(async () => {
-    try {
-        const res = await fetch(`/api/feed?since=${_langFeedIndex}`);
-        const data = await res.json();
-        if (data.entries && data.entries.length > 0) {
-            _langFeedIndex = data.next_index;
-            const last = data.entries[data.entries.length - 1];
-            if (!last) return;
-            const text = last.text.toLowerCase();
-            if (text.includes('hindi mode') || text.includes('हिंदी मोड')) {
-                LangManager.set('hi');
-            } else if (text.includes('english mode') || text.includes('switch to english')) {
-                LangManager.set('en');
+
+if (window.location.pathname === '/dashboard') {
+
+    // Start from current feed tail so we only catch NEW commands,
+    // not the entire history accumulated since server start.
+    fetch('/api/feed?since=0')
+        .then(r => r.json())
+        .then(data => { if (data.next_index) _langFeedIndex = data.next_index; })
+        .catch(() => { });
+
+    setInterval(async () => {
+        try {
+            const res = await fetch(`/api/feed?since=${_langFeedIndex}`);
+            const data = await res.json();
+            if (data.entries && data.entries.length > 0) {
+                _langFeedIndex = data.next_index;
+                const last = data.entries[data.entries.length - 1];
+                if (!last) return;
+                const text = last.text.toLowerCase();
+                if (text.includes('hindi mode') || text.includes('हिंदी मोड')) {
+                    LangManager.set('hi');
+                } else if (text.includes('english mode') || text.includes('switch to english')) {
+                    LangManager.set('en');
+                }
             }
-        }
-    } catch (e) { }
-}, 2000);
+        } catch (e) { }
+    }, 2000);
+}
