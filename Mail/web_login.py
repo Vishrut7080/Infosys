@@ -8,6 +8,12 @@ from dotenv import load_dotenv
 import threading
 from datetime import datetime
 
+try:
+    from deep_translator import GoogleTranslator as _GTranslator
+    _translator = True 
+except Exception:
+    _translator = None
+
 load_dotenv()
 
 # ========================
@@ -776,24 +782,19 @@ def log_activity_route():
 # -------------------------------------------------
 @app.route('/translate', methods=['POST'])
 def translate_text():
-    try:
-        from googletrans import Translator
-        data   = request.get_json()
-        texts  = data.get('texts', [])
-        target = data.get('target', 'en')
-        if target == 'en':
-            return jsonify({'translated': texts})
-        translator  = Translator()
-        translated  = []
-        for text in texts:
-            try:
-                result = translator.translate(text, dest=target)
-                translated.append(result.text)
-            except Exception:
-                translated.append(text)
-        return jsonify({'translated': translated})
-    except Exception as e:
-        return jsonify({'translated': texts, 'error': str(e)})
+    data   = request.get_json()
+    texts  = data.get('texts', [])
+    target = data.get('target', 'en')
+    if target == 'en' or _translator is None:
+        return jsonify({'translated': texts})
+    translated = []
+    for text in texts:
+        try:
+            result = _GTranslator(source='auto', target=target).translate(text)
+            translated.append(result if result else text)
+        except Exception:
+            translated.append(text)
+    return jsonify({'translated': translated})
 
 # -------------------------------------------------
 # START SERVER
