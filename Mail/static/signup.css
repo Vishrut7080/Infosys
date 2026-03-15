@@ -118,6 +118,24 @@ h1 {
     margin-top: 4px;
 }
 
+/* Cancel Button */
+
+.cancel-btn {
+    display: inline-flex;
+    align-items: center;
+    margin-top: 10px;
+    font-size: 12px;
+    color: var(--muted);
+    text-decoration: none;
+    font-family: var(--mono);
+    transition: color 0.15s;
+    cursor: pointer;
+}
+
+.cancel-btn:hover {
+    color: var(--text);
+}
+
 /* ── Field groups ── */
 .field-group {
     margin-bottom: 18px;

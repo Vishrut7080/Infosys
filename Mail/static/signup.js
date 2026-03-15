@@ -338,6 +338,41 @@ function showSuccessScreen() {
     }, 1000);
 }
 
+// -------------------------------------------------
+// CANCEL AND RETURN TO LOGIN
+// -------------------------------------------------
+
+function handleCancel(e) {
+    e.preventDefault();
+    navigator.sendBeacon('/signup-closed');
+    window.location.href = '/';
+}
+
+// Listen for "cancel" or "go back" in the STT transcript
+// Re-use the existing notifyTyping pattern — check heard words
+// The signup page polls nothing, so we just watch for the keyword
+// via a simple interval that checks if signup_open is still true
+// Voice cancel: main.py will naturally handle "cancel" → fallback
+// But we also listen from the page side via the /api/feed endpoint
+let cancelCheckInterval = setInterval(async () => {
+    try {
+        const res = await fetch('/api/feed?since=0');
+        const data = await res.json();
+        const entries = data.entries || [];
+        const last = entries[entries.length - 1];
+        if (last && /\b(cancel|go back|return|login)\b/i.test(last.text)) {
+            clearInterval(cancelCheckInterval);
+            handleCancel(new Event('click'));
+        }
+    } catch (e) { }
+}, 1500);
+
+// Clear interval when leaving
+window.addEventListener('beforeunload', () => {
+    clearInterval(cancelCheckInterval);
+    navigator.sendBeacon('/signup-closed');
+});
+
 // ========================
 // SAYS THE WORD TO USER
 // ========================
