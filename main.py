@@ -402,7 +402,7 @@ with open('Audio/Transcribe.txt', 'a', encoding='utf-8') as file:
             login_initiated = True
             speak_text('[System]: Welcome! Say your audio password to complete login.', lang=user_lang)
             continue
-        
+
         # Check OAuth login completed between recordings
         if login_initiated and web_login.login_status == "success":
             login_initiated = False
@@ -411,9 +411,63 @@ with open('Audio/Transcribe.txt', 'a', encoding='utf-8') as file:
 
         if awaiting_services:
             if web_login.selected_services:
-                awaiting_services = False
                 services = web_login.selected_services
-
+                current_email = web_login.app.config.get('current_email', '')
+        
+                # ── PIN verification for each selected service ──
+                verified_services = []
+                for service in services:
+                    speak_text(
+                        f'[System]: Please say your {service.capitalize()} PIN to authorise.',
+                        lang=user_lang
+                    )
+                    pin_heard, _ = listen_text(duration=8)
+                    pin_heard = pin_heard.strip().lower()
+                    speak_text(f'[User]: {pin_heard}')
+        
+                    # Convert spoken numbers to digits — "one two three" → "123"
+                    word_to_digit = {
+                        'zero':'0','one':'1','two':'2','three':'3','four':'4',
+                        'five':'5','six':'6','seven':'7','eight':'8','nine':'9',
+                        'शून्य':'0','एक':'1','दो':'2','तीन':'3','चार':'4',
+                        'पाँच':'5','छः':'6','सात':'7','आठ':'8','नौ':'9',
+                    }
+                    pin_digits = pin_heard
+                    for word, digit in word_to_digit.items():
+                        pin_digits = pin_digits.replace(word, digit)
+                    # Remove all non-digit characters
+                    pin_digits = ''.join(c for c in pin_digits if c.isdigit())
+        
+                    from Backend.database import verify_pin
+                    if verify_pin(current_email, service, pin_digits):
+                        speak_text(
+                            f'[System]: {service.capitalize()} PIN verified.' if user_lang == 'en'
+                            else f'[System]: {service.capitalize()} PIN सही है।',
+                            lang=user_lang
+                        )
+                        verified_services.append(service)
+                    else:
+                        speak_text(
+                            f'[System]: Incorrect PIN for {service.capitalize()}. '
+                            f'{service.capitalize()} will not be connected.' if user_lang == 'en'
+                            else f'[System]: {service.capitalize()} का PIN गलत है। कनेक्ट नहीं होगा।',
+                            lang=user_lang
+                        )
+        
+                if not verified_services:
+                    speak_text(
+                        '[System]: No services verified. Please try again.' if user_lang == 'en'
+                        else '[System]: कोई सेवा सत्यापित नहीं हुई। कृपया पुनः प्रयास करें।',
+                        lang=user_lang
+                    )
+                    awaiting_services = False
+                    continue
+                
+                # Update selected services to only verified ones
+                web_login.selected_services = verified_services
+                awaiting_services = False
+                services = verified_services
+        
                 if 'telegram' in services:
                     speak_text(r('tg_starting'), lang=user_lang)
                     api_id   = int(os.getenv('TELEGRAM_API_ID', 0))
@@ -426,13 +480,15 @@ with open('Audio/Transcribe.txt', 'a', encoding='utf-8') as file:
                             import asyncio as _asyncio
                             from Telegram.telegram import _loop as tg_loop
                             if tg_loop:
-                                fut = _asyncio.run_coroutine_threadsafe(_client.is_user_authorized(), tg_loop)
+                                fut = _asyncio.run_coroutine_threadsafe(
+                                    _client.is_user_authorized(), tg_loop
+                                )
                                 authorized = fut.result(timeout=5)
                             else:
                                 authorized = False
                         else:
                             authorized = False
-
+        
                         if not authorized:
                             speak_text(r('tg_auth_prompt'), lang=user_lang)
                             auth_word, _ = listen_text(duration=8)
@@ -445,15 +501,19 @@ with open('Audio/Transcribe.txt', 'a', encoding='utf-8') as file:
                                 speak_text(r('tg_auth_fail'), lang=user_lang)
                         else:
                             speak_text(r('tg_auto'), lang=user_lang)
-
+        
                 if 'gmail' in services:
                     speak_text(r('gmail_ready'), lang=user_lang)
-
-                connected_msg = f'[System]: Connected: {", ".join(services)}. Ready.' if user_lang == 'en' \
-                    else f'[System]: कनेक्ट हुआ: {", ".join(services)}। तैयार।'
-                speak_text(connected_msg, lang=user_lang)
+        
                 if 'whatsapp' in services:
                     speak_text('[System]: WhatsApp ready.', lang=user_lang)
+        
+                connected_msg = (
+                    f'[System]: Connected: {", ".join(services)}. Ready.'
+                    if user_lang == 'en'
+                    else f'[System]: कनेक्ट हुआ: {", ".join(services)}। तैयार।'
+                )
+                speak_text(connected_msg, lang=user_lang)
                 continue
             else:
                 time.sleep(0.5)           
