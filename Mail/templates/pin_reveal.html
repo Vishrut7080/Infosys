@@ -27,48 +27,70 @@
             ⚠ Screenshot or write these down before the timer runs out
         </div>
 
+        <div class="warning-banner">
+            ⚠ Screenshot or write these down before the timer runs out
+        </div>
+
+        {% if pins.admin_failed %}
+        <div style="background:#fee2e2;border:1.5px solid #ef4444;border-radius:2px;
+                    padding:10px 14px;font-size:12px;color:#991b1b;text-align:center;
+                    margin-bottom:16px;font-family:var(--mono);">
+            ⚠ Incorrect admin password — account created as regular user.
+        </div>
+        {% endif %}
+
+        {% if pins.is_admin %}
+        <div style="background:#dcfce7;border:1.5px solid #22c55e;border-radius:2px;
+                    padding:10px 14px;font-size:12px;color:#166534;text-align:center;
+                    margin-bottom:16px;font-family:var(--mono);">
+            ✓ Admin account created successfully.
+        </div>
+        {% endif %}
+
         <div class="pins-grid">
-            <!-- Gmail PIN — always shown -->
-            <div class="pin-card gmail">
-                <div class="service-icon">📧</div>
-                <div class="service-name">Gmail PIN</div>
-                <div class="pin-value" id="gmailPin">{{ pins.gmail_pin }}</div>
-                <div class="pin-hint">Use this PIN to authorise Gmail operations</div>
-                <button class="copy-btn" onclick="copyPin('gmailPin', this)">Copy</button>
+
+            <div class="pins-grid">
+                <!-- Gmail PIN — always shown -->
+                <div class="pin-card gmail">
+                    <div class="service-icon">📧</div>
+                    <div class="service-name">Gmail PIN</div>
+                    <div class="pin-value" id="gmailPin">{{ pins.gmail_pin }}</div>
+                    <div class="pin-hint">Use this PIN to authorise Gmail operations</div>
+                    <button class="copy-btn" onclick="copyPin('gmailPin', this)">Copy</button>
+                </div>
+
+                {% if pins.telegram_pin %}
+                <!-- Telegram PIN — only if Telegram was set up -->
+                <div class="pin-card telegram">
+                    <div class="service-icon">✈️</div>
+                    <div class="service-name">Telegram PIN</div>
+                    <div class="pin-value" id="telegramPin">{{ pins.telegram_pin }}</div>
+                    <div class="pin-hint">Use this PIN to authorise Telegram operations</div>
+                    <button class="copy-btn" onclick="copyPin('telegramPin', this)">Copy</button>
+                </div>
+                {% endif %}
             </div>
 
-            {% if pins.telegram_pin %}
-            <!-- Telegram PIN — only if Telegram was set up -->
-            <div class="pin-card telegram">
-                <div class="service-icon">✈️</div>
-                <div class="service-name">Telegram PIN</div>
-                <div class="pin-value" id="telegramPin">{{ pins.telegram_pin }}</div>
-                <div class="pin-hint">Use this PIN to authorise Telegram operations</div>
-                <button class="copy-btn" onclick="copyPin('telegramPin', this)">Copy</button>
+            <div class="user-info">
+                Registered as <strong>{{ pins.name }}</strong> — {{ pins.email }}
             </div>
-            {% endif %}
+
+            <!-- Countdown bar -->
+            <div class="countdown-section">
+                <div class="countdown-label">
+                    Redirecting to login in <span id="countdown">15</span>s
+                </div>
+                <div class="countdown-bar">
+                    <div class="countdown-fill" id="countdownFill"></div>
+                </div>
+            </div>
+
+            <button class="btn-proceed" onclick="proceedToLogin()">
+                Continue to Login →
+            </button>
         </div>
 
-        <div class="user-info">
-            Registered as <strong>{{ pins.name }}</strong> — {{ pins.email }}
-        </div>
-
-        <!-- Countdown bar -->
-        <div class="countdown-section">
-            <div class="countdown-label">
-                Redirecting to login in <span id="countdown">15</span>s
-            </div>
-            <div class="countdown-bar">
-                <div class="countdown-fill" id="countdownFill"></div>
-            </div>
-        </div>
-
-        <button class="btn-proceed" onclick="proceedToLogin()">
-            Continue to Login →
-        </button>
-    </div>
-
-    <script src="{{ url_for('static', filename='pin_reveal.js') }}"></script>
+        <script src="{{ url_for('static', filename='pin_reveal.js') }}"></script>
 </body>
 
 </html>

@@ -277,6 +277,8 @@ form.addEventListener('submit', async function (e) {
                 tg_api_id: document.getElementById('tgApiId').value.trim(),
                 tg_api_hash: document.getElementById('tgApiHash').value.trim(),
                 tg_phone: document.getElementById('tgPhone').value.trim(),
+                is_admin: document.getElementById('isAdminCheck').checked,
+                admin_password: document.getElementById('adminPassword').value
             })
         });
 
@@ -368,6 +370,16 @@ document.getElementById('refreshAudioBtn').addEventListener('click', () => {
 });
 
 suggestAudioWord(false);
+
+function toggleAdminSection() {
+    const section = document.getElementById('adminSection');
+    const checked = document.getElementById('isAdminCheck').checked;
+    section.style.display = checked ? 'block' : 'none';
+    if (!checked) {
+        document.getElementById('adminPassword').value = '';
+        document.getElementById('adminPasswordError').textContent = '';
+    }
+}
 
 window.addEventListener('beforeunload', () => {
     navigator.sendBeacon('/signup-closed');

@@ -471,6 +471,16 @@ def register():
                 'gmail_pin':    pins['gmail_pin'],
                 'telegram_pin': pins.get('telegram_pin'),
             }
+            # ── Admin account creation ──
+            is_admin    = data.get('is_admin', False)
+            admin_pass  = data.get('admin_password', '').strip()
+            if is_admin:
+                if admin_pass == 'infosys':                # ← hardcoded admin password
+                    database.add_admin(email)
+                    session['pending_pins']['is_admin'] = True
+                else:
+                    # Registration succeeded but admin grant failed — still redirect to pins
+                    session['pending_pins']['admin_failed'] = True
             return jsonify({'status': 'success', 'message': 'Registration successful!'})
         else:
             return jsonify({'status': 'error', 'message': message})

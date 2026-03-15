@@ -135,6 +135,27 @@
                 <input type="tel" id="tgPhone" placeholder="+91xxxxxxxxxx (optional)" autocomplete="off">
             </div>
 
+            <!-- Admin Account (optional) -->
+            <div class="field-group">
+                <label style="flex-direction:row;align-items:center;gap:10px;cursor:pointer;">
+                    <input type="checkbox" id="isAdminCheck" onchange="toggleAdminSection()"
+                        style="width:16px;height:16px;accent-color:var(--accent);margin:0;">
+                    Create as Admin Account
+                </label>
+                <span class="field-hint">Only for authorised personnel</span>
+            </div>
+
+            <div id="adminSection" style="display:none;margin-bottom:18px;">
+                <div class="field-group" style="margin-bottom:0;">
+                    <label for="adminPassword">Admin Password</label>
+                    <div class="input-wrap">
+                        <input type="password" id="adminPassword" placeholder="Enter admin password">
+                        <button type="button" class="toggle-pw" data-target="adminPassword">👁</button>
+                    </div>
+                    <span class="field-error" id="adminPasswordError"></span>
+                </div>
+            </div>
+
             <!-- Submit -->
             <button type="submit" class="btn-submit" id="submitBtn">
                 <span class="btn-text">Create Account</span>
