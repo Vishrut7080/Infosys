@@ -54,6 +54,40 @@ def spoken_pin_to_digits(spoken: str) -> str:
         result = result.replace(word, digit)
     return ''.join(c for c in result if c.isdigit())
 
+def clean_spoken_email(spoken: str) -> str:
+    """
+    Convert spoken email to proper format.
+    Handles: 'c o d e r v 47 at the rate gmail dot com'
+             'coderv47 at gmail dot com'
+             'coderv47@gmail.com' (already correct)
+    """
+    result = spoken.strip().lower()
+
+    # Replace spoken symbols
+    result = result.replace(' at the rate ', '@')
+    result = result.replace(' at the rate', '@')
+    result = result.replace('at the rate ', '@')
+    result = result.replace(' at ', '@')
+    result = result.replace(' dot ', '.')
+    result = result.replace(' dot', '.')
+    result = result.replace('dot ', '.')
+
+    # Remove spaces between individual letters (e.g. "c o d e r" → "coder")
+    # Split into parts around @ to avoid collapsing domain parts wrongly
+    if '@' in result:
+        parts = result.split('@')
+        # Clean up spaces in each part separately
+        local  = re.sub(r'(?<=[a-z0-9]) (?=[a-z0-9])', '', parts[0])
+        domain = re.sub(r'(?<=[a-z0-9]) (?=[a-z0-9])', '', parts[1])
+        result = local + '@' + domain
+    else:
+        result = re.sub(r'(?<=[a-z0-9]) (?=[a-z0-9])', '', result)
+
+    # Remove any remaining spaces
+    result = result.replace(' ', '')
+
+    return result
+
 # ----------------------
 # BILINGUAL RESPONSES
 # ----------------------
@@ -611,7 +645,7 @@ def handle_profile():
     ]):
         speak_text(r('admin_ask_email'), lang=user_lang)
         target_raw, _ = listen_text(duration=8)
-        target_email   = target_raw.strip().lower()
+        target_email   = clean_spoken_email(target_raw)
         speak_text(f'[User]: {target_email}')
 
         if not target_email or '@' not in target_email:
@@ -1216,7 +1250,7 @@ with open('Audio/Transcribe.txt', 'a', encoding='utf-8') as file:
                 continue
             speak_text(r('admin_ask_email'), lang=user_lang)
             target_raw, _ = listen_text(duration=8)
-            target_email = target_raw.strip().lower()
+            target_email   = clean_spoken_email(target_raw)
             speak_text(f'[User]: {target_email}')
             if not target_email or '@' not in target_email:
                 speak_text(r('admin_bad_email'), lang=user_lang)

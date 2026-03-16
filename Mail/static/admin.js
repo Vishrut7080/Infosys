@@ -444,7 +444,12 @@ async function checkAdminLogoutStatus() {
         const res = await fetch('/check-session');
         const data = await res.json();
         if (!data.logged_in) {
-            window.location.href = '/';
+            if (window.opener || window.history.length <= 1) {
+                window.close();
+                setTimeout(() => { window.location.href = '/'; }, 500);
+            } else {
+                window.location.href = '/';
+            }
         }
     } catch (e) { }
 }

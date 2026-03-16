@@ -366,10 +366,18 @@ async function checkLogoutStatus() {
         const res = await fetch('/check-session');
         const data = await res.json();
         if (!data.logged_in) {
-            window.location.href = '/';
+            // Try to close if opened by voice command, otherwise redirect
+            if (window.opener || window.history.length <= 1) {
+                window.close();
+                // Fallback if close is blocked by browser
+                setTimeout(() => { window.location.href = '/'; }, 500);
+            } else {
+                window.location.href = '/';
+            }
         }
     } catch (e) { }
 }
+
 setInterval(checkLogoutStatus, 2000);
 
 // ─────────────────────────────────────────────────────────────

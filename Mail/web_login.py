@@ -170,13 +170,15 @@ def set_typing():
 @app.route('/check')
 def check_login():
     global login_status
-    if login_status == 'success' and 'user' not in session:
+    if login_status == 'success':
         email = app.config.get('current_email', '')
         name = 'User'
         if email:
             user_record = database.get_user_by_email(email)
             if user_record:
                 name = user_record['name']
+        # Always overwrite session — clears any stale previous user data
+        session.clear()
         session['user'] = {'name': name, 'email': email}
         if email:
             database.log_session(email, force_insert=True)
