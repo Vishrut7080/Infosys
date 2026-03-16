@@ -245,6 +245,25 @@ HINDI_COMMAND_MAP = {
     'उपयोगकर्ता':  'users',
     'डिलीट':       'delete',
     'यूज़र':       'user',
+
+
+    'चेक':     'check',
+    'जाँचो':   'check',
+    'देखो':    'check',
+    'खोलो':    'check',
+    'पढ़ो':    'check',
+    'बेजी':    'send',
+    'भेजी':    'send',
+    'बेजो':    'send',
+    'भेज':     'send',
+    'सेंड':    'send',
+    'लिखो':    'compose',
+
+
+    'टेलीग्राम': 'telegram',   # already there
+    'तेलीग्राम': 'telegram',   # Whisper mishearing
+    'टेलीग्रम':  'telegram',   # another common mishearing
+    'टेली':      'telegram',   # short form
 }
 
 # ----------------------
@@ -858,8 +877,12 @@ with open('Audio/Transcribe.txt', 'a', encoding='utf-8') as file:
 
         # ── TELEGRAM — SEND ──────────────────────────────────
         elif (web_login.login_status == 'success'
-              and 'telegram' in clean_heard
-              and any(w in clean_heard for w in ['send', 'भेजो'])):
+              and any(w in clean_heard for w in [
+                  'telegram', 'तेलीग्राम', 'टेलीग्रम', 'टेली'
+              ])
+              and any(w in clean_heard for w in [
+                  'send', 'भेजो', 'भेज', 'बेजो', 'बेजी', 'भेजी', 'सेंड'
+              ])):
             speak_text(r('tg_who'), lang=user_lang)
             recipient, _ = listen_text()
             recipient = recipient.strip()
@@ -894,9 +917,12 @@ with open('Audio/Transcribe.txt', 'a', encoding='utf-8') as file:
 
         # ── TELEGRAM — CHECK INBOX ───────────────────────────
         elif (web_login.login_status == 'success'
-              and 'telegram' in clean_heard
+              and any(w in clean_heard for w in [
+                  'telegram', 'तेलीग्राम', 'टेलीग्रम', 'टेली'
+              ])
               and any(w in clean_heard for w in
-                      inbox_req + ['message', 'messages', 'संदेश'])):
+                      inbox_req + ['message', 'messages', 'संदेश',
+                                   'check', 'चेक', 'देखो', 'पढ़ो', 'खोलो'])):
             speak_text(r('tg_fetching'), lang=user_lang)
             messages = telegram_get_messages(5)
             if not messages:
@@ -938,9 +964,12 @@ with open('Audio/Transcribe.txt', 'a', encoding='utf-8') as file:
 
         # ── TELEGRAM — LATEST ────────────────────────────────
         elif (web_login.login_status == 'success'
-              and 'telegram' in clean_heard
-              and any(w in clean_heard for w in
-                      ['latest', 'recent', 'नवीनतम', 'नया'])):
+              and any(w in clean_heard for w in [
+                  'telegram', 'तेलीग्राम', 'टेलीग्रम', 'टेली'
+              ])
+              and any(w in clean_heard for w in [
+                  'latest', 'recent', 'नवीनतम', 'नया', 'last', 'new'
+              ])):
             speak_text(r('tg_latest'), lang=user_lang)
             msg = telegram_get_latest()
             if msg:
@@ -962,8 +991,11 @@ with open('Audio/Transcribe.txt', 'a', encoding='utf-8') as file:
 
         # ── EMAIL — SEND ─────────────────────────────────────
         elif (web_login.login_status == 'success'
-              and 'send' in clean_heard
-              and any(w in clean_heard for w in mail_req)):
+            and any(w in clean_heard for w in mail_req)
+            and any(w in clean_heard for w in [
+                'send', 'compose', 'write',
+                'भेजो', 'भेज', 'बेजो', 'बेजी', 'भेजी', 'सेंड', 'लिखो'
+            ])):
             speak_text(r('email_send_prompt'), lang=user_lang)
             response, _ = listen_text()
             response = response.lower().strip().replace('.', '')
@@ -1005,8 +1037,11 @@ with open('Audio/Transcribe.txt', 'a', encoding='utf-8') as file:
 
         # ── EMAIL — CHECK INBOX ──────────────────────────────
         elif (web_login.login_status == 'success'
-              and 'check' in clean_heard
-              and any(w in clean_heard for w in inbox_req)):
+            and any(w in clean_heard for w in inbox_req)
+            and any(w in clean_heard for w in [
+                'check', 'read', 'open', 'show',
+                'जांचो', 'जाँचो', 'चेक', 'देखो', 'खोलो', 'पढ़ो'
+            ])):
             speak_text(r('inbox_prompt'), lang=user_lang)
             response, _ = listen_text()
             response = response.lower().strip().replace('.', '')
@@ -1118,6 +1153,74 @@ with open('Audio/Transcribe.txt', 'a', encoding='utf-8') as file:
         elif (web_login.login_status == 'success'
               and any(w in clean_heard for w in ['profile', 'प्रोफ़ाइल'])):
             handle_profile()
+            continue
+
+        # ── ADMIN: LIST USERS (direct command) ───────────────
+        elif (web_login.login_status == 'success'
+              and any(w in clean_heard for w in [
+                  'list users', 'show users', 'all users',
+                  'यूज़र्स देखें', 'सभी यूज़र्स'
+              ])):
+            current_email = web_login.app.config.get('current_email', '')
+            if not is_admin(current_email):
+                speak_text(r('not_logged_in'), lang=user_lang)
+                continue
+            all_users = get_all_users()
+            if not all_users:
+                speak_text(r('admin_list_empty'), lang=user_lang)
+            else:
+                speak_text(
+                    f'[System]: {len(all_users)} registered users.'
+                    if user_lang == 'en'
+                    else f'[System]: {len(all_users)} पंजीकृत यूज़र्स।',
+                    lang=user_lang,
+                )
+                for i, u in enumerate(all_users, 1):
+                    role_label = 'admin' if u['is_admin'] else 'user'
+                    speak_text(
+                        f'{i}. {u["name"]}, {u["email"]}, {role_label}, '
+                        f'{u["sessions"]} sessions.',
+                        lang=user_lang,
+                    )
+                    time.sleep(0.3)
+            continue
+
+        # ── ADMIN: DELETE USER (direct command) ──────────────
+        elif (web_login.login_status == 'success'
+              and any(w in clean_heard for w in [
+                  'delete user', 'remove user',
+                  'यूज़र डिलीट', 'यूज़र हटाएं'
+              ])):
+            current_email = web_login.app.config.get('current_email', '')
+            if not is_admin(current_email):
+                speak_text(r('not_logged_in'), lang=user_lang)
+                continue
+            speak_text(r('admin_ask_email'), lang=user_lang)
+            target_raw, _ = listen_text(duration=8)
+            target_email = target_raw.strip().lower()
+            speak_text(f'[User]: {target_email}')
+            if not target_email or '@' not in target_email:
+                speak_text(r('admin_bad_email'), lang=user_lang)
+            elif target_email == current_email:
+                speak_text(r('admin_self_delete'), lang=user_lang)
+            else:
+                speak_text(
+                    f'[System]: Delete {target_email}? Say your confirmation word to proceed.'
+                    if user_lang == 'en'
+                    else f'[System]: {target_email} को डिलीट करें? कन्फर्मेशन वर्ड बोलें।',
+                    lang=user_lang,
+                )
+                conf, _ = listen_text(duration=6)
+                conf = conf.lower().strip()
+                speak_text(f'[User]: {conf}')
+                if any(w in conf for w in confirmation_words):
+                    ok, msg = admin_delete_user(target_email)
+                    speak_text(f'[System]: {msg}')
+                    if ok:
+                        _db_log_activity(current_email, 'admin_delete_user',
+                                         f'deleted:{target_email}')
+                else:
+                    speak_text(r('conf_not_recognised'), lang=user_lang)
             continue
 
         # ── LOGOUT ───────────────────────────────────────────
