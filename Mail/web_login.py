@@ -194,10 +194,6 @@ def check_login():
 
 @app.route('/check-session')
 def check_session():
-    if 'user' in session:
-        email = session['user'].get('email', '')
-        if email:
-            database.log_session(email, force_insert=True)  # refresh last-seen timestamp
     return jsonify({'logged_in': 'user' in session})
 
 @app.route('/login-cancelled')
@@ -574,9 +570,12 @@ def get_stats():
         commands = 0
     try:
         import sqlite3
-        from Backend.database import USER_DB_PATH
-        with sqlite3.connect(USER_DB_PATH) as conn:
-            cur = conn.execute('SELECT COUNT(*) FROM sessions WHERE email = ?', (email,))
+        from Backend.database import ADMIN_DB_PATH
+        with sqlite3.connect(ADMIN_DB_PATH) as conn:
+            cur = conn.execute(
+                "SELECT COUNT(*) FROM activity_log WHERE email = ? AND action = 'login'",
+                (email,)
+            )
             sessions_count = cur.fetchone()[0]
     except:
         sessions_count = 0

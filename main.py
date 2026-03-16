@@ -57,36 +57,63 @@ def spoken_pin_to_digits(spoken: str) -> str:
 def clean_spoken_email(spoken: str) -> str:
     """
     Convert spoken email to proper format.
-    Handles: 'c o d e r v 47 at the rate gmail dot com'
-             'coderv47 at gmail dot com'
-             'coderv47@gmail.com' (already correct)
+    Handles Whisper quirks like dots between letters, 'at the rate', etc.
     """
     result = spoken.strip().lower()
 
-    # Replace spoken symbols
-    result = result.replace(' at the rate ', '@')
-    result = result.replace(' at the rate', '@')
-    result = result.replace('at the rate ', '@')
-    result = result.replace(' at ', '@')
+    # Replace spoken @ symbols
+    for at in ['at the rate', 'at the', 'at']:
+        result = result.replace(at, '@')
+
+    # Replace spoken dot
     result = result.replace(' dot ', '.')
     result = result.replace(' dot', '.')
     result = result.replace('dot ', '.')
 
-    # Remove spaces between individual letters (e.g. "c o d e r" → "coder")
-    # Split into parts around @ to avoid collapsing domain parts wrongly
+    # Remove dots BETWEEN single letters (V.I.S.H.R.U.T → vishrut)
+    # This regex matches a dot sandwiched between word characters
+    result = re.sub(r'(?<=[a-z0-9])\.(?=[a-z0-9])', ' ', result)
+
+    # Now collapse spaces between single characters
     if '@' in result:
-        parts = result.split('@')
-        # Clean up spaces in each part separately
-        local  = re.sub(r'(?<=[a-z0-9]) (?=[a-z0-9])', '', parts[0])
-        domain = re.sub(r'(?<=[a-z0-9]) (?=[a-z0-9])', '', parts[1])
+        parts  = result.split('@', 1)
+        local  = re.sub(r'(?<=[a-z0-9]) (?=[a-z0-9])', '', parts[0].strip())
+        domain = re.sub(r'(?<=[a-z0-9]) (?=[a-z0-9])', '', parts[1].strip())
         result = local + '@' + domain
     else:
         result = re.sub(r'(?<=[a-z0-9]) (?=[a-z0-9])', '', result)
 
-    # Remove any remaining spaces
+    # Remove all remaining spaces
     result = result.replace(' ', '')
 
+    # Fix "the8gmail" → "gmail" (Whisper adds "the" before domain sometimes)
+    result = re.sub(r'@the\d*([a-z])', r'@\1', result)
+
+    # Fix trailing/leading junk
+    result = result.strip('.')
+
     return result
+
+def clean_spoken_name(spoken: str) -> str:
+    """
+    Convert letter-by-letter spelling to a word.
+    Handles: 'v i s h r u t' → 'vishrut'
+             'v-i-s-h-r-u-t' → 'vishrut'
+             'vishrut' → 'vishrut' (unchanged)
+    """
+    result = spoken.strip().lower()
+
+    # Replace hyphens/dashes between letters with spaces first
+    result = re.sub(r'(?<=[a-z])-(?=[a-z])', ' ', result)
+
+    # If it looks like spelled-out letters (single chars separated by spaces)
+    # e.g. "v i s h r u t" → check if most tokens are single characters
+    tokens = result.split()
+    if tokens and sum(1 for t in tokens if len(t) == 1) / len(tokens) > 0.5:
+        # More than half are single chars — join them
+        result = ''.join(tokens)
+
+    return result.strip()
 
 # ----------------------
 # BILINGUAL RESPONSES
@@ -560,8 +587,8 @@ def handle_profile():
     # ── CHANGE NAME ──────────────────────────────────────────
     elif any(w in response for w in ['name', 'नाम']):
         speak_text(r('name_prompt'), lang=user_lang)
-        new_name, _ = listen_text()
-        new_name = new_name.strip()
+        new_name_raw, _ = listen_text()
+        new_name = clean_spoken_name(new_name_raw)
         speak_text(f'[User]: {new_name}')
         if new_name:
             ok, msg = update_name(current_email, new_name)
@@ -930,8 +957,8 @@ with open('Audio/Transcribe.txt', 'a', encoding='utf-8') as file:
                   'send', 'भेजो', 'भेज', 'बेजो', 'बेजी', 'भेजी', 'सेंड'
               ])):
             speak_text(r('tg_who'), lang=user_lang)
-            recipient, _ = listen_text()
-            recipient = recipient.strip()
+            recipient_raw, _ = listen_text()
+            recipient = clean_spoken_name(recipient_raw)
             if not recipient:
                 speak_text(r('tg_no_recipient'), lang=user_lang)
                 continue
