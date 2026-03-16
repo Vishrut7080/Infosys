@@ -115,6 +115,8 @@ def init_db():
             ('tg_api_hash',    'TEXT'),
             ('tg_phone',       'TEXT'),
             ('role',           "TEXT NOT NULL DEFAULT 'user'"),
+            ('gmail_pin',      'TEXT'),
+            ('telegram_pin',   'TEXT'),
         ]:
             if col not in existing:
                 try:
@@ -288,9 +290,10 @@ def get_all_users() -> list[dict]:
         for r in rows:
             # Get session count
             try:
-                with sqlite3.connect(USER_DB_PATH) as conn2:
+                with sqlite3.connect(ADMIN_DB_PATH) as conn2:
                     cur = conn2.execute(
-                        'SELECT COUNT(*) FROM sessions WHERE email = ?', (r[2],)
+                        "SELECT COUNT(*) FROM activity_log WHERE email = ? AND action = 'login'",
+                        (r[2],)
                     )
                     sessions = cur.fetchone()[0]
             except Exception:
@@ -363,29 +366,49 @@ def admin_delete_user(email: str) -> tuple[bool, str]:
     """Admin force-delete a user without password confirmation."""
     try:
         email = email.strip().lower()
-        # Remove from users.db — all related tables
         with sqlite3.connect(USER_DB_PATH) as conn:
             conn.execute('DELETE FROM users    WHERE email = ?', (email,))
-            conn.execute('DELETE FROM pins     WHERE email = ?', (email,))
             conn.execute('DELETE FROM sessions WHERE email = ?', (email,))
-            conn.execute('DELETE FROM activity WHERE email = ?', (email,))
             conn.commit()
-        # Remove from admins.db — in case they were an admin
         with sqlite3.connect(ADMIN_DB_PATH) as conn:
-            conn.execute('DELETE FROM admins WHERE email = ?', (email,))
+            conn.execute('DELETE FROM admin_users   WHERE email = ?', (email,))
+            conn.execute('DELETE FROM activity_log  WHERE email = ?', (email,))
             conn.commit()
         log_activity('admin', 'admin_delete_user', f'deleted: {email}')
         return True, f'User {email} deleted.'
     except Exception as e:
         return False, str(e)
 
-def log_session(email: str):
+def log_session(email: str, force_insert: bool = False):
+    """
+    On login (force_insert=True): always insert a new session row.
+    On heartbeat (force_insert=False): just update the latest row's timestamp.
+    """
     try:
+        email = email.strip().lower()
+        now   = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         with sqlite3.connect(USER_DB_PATH) as conn:
-            conn.execute(
-                'INSERT INTO sessions (email, logged_at) VALUES (?, ?)',
-                (email.strip().lower(), datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
-            )
+            if force_insert:
+                conn.execute(
+                    'INSERT INTO sessions (email, logged_at) VALUES (?, ?)',
+                    (email, now)
+                )
+            else:
+                # Update most recent session row — don't create new ones
+                updated = conn.execute(
+                    '''UPDATE sessions SET logged_at = ?
+                       WHERE id = (
+                           SELECT id FROM sessions WHERE email = ?
+                           ORDER BY logged_at DESC LIMIT 1
+                       )''',
+                    (now, email)
+                )
+                if updated.rowcount == 0:
+                    # No existing session — insert one
+                    conn.execute(
+                        'INSERT INTO sessions (email, logged_at) VALUES (?, ?)',
+                        (email, now)
+                    )
             conn.commit()
     except Exception as e:
         print(f'[DB] log_session error: {e}')
@@ -622,16 +645,20 @@ def delete_user(email: str, password: str) -> tuple[bool, str]:
         success, _ = verify_user(email, password)
         if not success:
             return False, 'Incorrect password. Account not deleted.'
+        email = email.strip().lower()
         with sqlite3.connect(USER_DB_PATH) as conn:
-            conn.execute(
-                'DELETE FROM users WHERE email = ?',
-                (email.strip().lower(),)
-            )
+            conn.execute('DELETE FROM users    WHERE email = ?', (email,))
+            conn.execute('DELETE FROM sessions WHERE email = ?', (email,))
+            conn.commit()
+        with sqlite3.connect(ADMIN_DB_PATH) as conn:
+            conn.execute('DELETE FROM admin_users  WHERE email = ?', (email,))
+            conn.execute('DELETE FROM activity_log WHERE email = ?', (email,))
             conn.commit()
         return True, 'Account deleted successfully.'
     except Exception as e:
         return False, f'Error: {str(e)}'
-
+    
+    
 def get_user_credentials(email: str) -> dict | None:
     """
     Fetches Gmail + Telegram credentials stored during signup.

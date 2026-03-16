@@ -281,6 +281,15 @@ NAV_PHRASES = [
     'save services',   'confirm services','save and continue',
     'select both',     'enable both',    'both services',
     'select gmail and telegram', 'select telegram and gmail',
+
+    # Admin panel navigation
+    'go to users', 'show users panel', 'open users',
+    'go to activity', 'activity logs', 'open activity',
+    'go to api usage', 'api usage', 'open api',
+    'go to error logs', 'error logs', 'open errors',
+    'go to system status', 'system status', 'open status',
+    'go to overview', 'show overview', 'open overview',
+    'go to user dashboard', 'user dashboard', 'open user dashboard',
 ]
 
 def normalize_hindi(text: str) -> str:
@@ -786,6 +795,9 @@ with open('Audio/Transcribe.txt', 'a', encoding='utf-8') as file:
         clean_heard = heard.lower().strip().replace('.', '')
         clean_heard = normalize_hindi(clean_heard)
         file.write(f'{clean_heard}\n')
+        # Log voice command to activity DB
+        if web_login.login_status == 'success':
+            log_activity('voice_command', clean_heard[:100])
 
         # ── Navigation commands (pushed to dashboard) ───────
         _is_nav = False
@@ -908,7 +920,7 @@ with open('Audio/Transcribe.txt', 'a', encoding='utf-8') as file:
                 if verify_pin(current_email, 'telegram', pin_digits):
                     success, result = telegram_send_message(recipient, message)
                     speak_text(f'[System]: {result}')
-                    log_activity('telegram_sent', f'to:{recipient}')
+                    log_activity('telegram_sent', f'reply_to:{recipient}')
                 else:
                     speak_text('[System]: Incorrect PIN. Telegram message not sent.',
                                lang=user_lang)
@@ -1003,6 +1015,8 @@ with open('Audio/Transcribe.txt', 'a', encoding='utf-8') as file:
             if any(s in response for s in affirmation):
                 result = compose_email_by_voice()
                 speak_text(result)
+                if 'sent' in result.lower() or 'success' in result.lower():
+                    log_activity('email_sent', 'compose')
             elif any(s in response for s in negation):
                 speak_text(r('email_cancelled'), lang=user_lang)
             continue
@@ -1037,6 +1051,7 @@ with open('Audio/Transcribe.txt', 'a', encoding='utf-8') as file:
                     f'Date: {latest_email["date"]}. '
                     f'Summary: {latest_email["summary"]}.'
                 )
+                log_activity('email_read', f'from:{latest_email.get("sender","")}')
 
         # ── EMAIL — CHECK INBOX ──────────────────────────────
         elif (web_login.login_status == 'success'
@@ -1078,6 +1093,7 @@ with open('Audio/Transcribe.txt', 'a', encoding='utf-8') as file:
                             f"{', '.join(mail_item['details']['attachments'])}."
                         )
                     speak_text(summary_text)
+                    log_activity('email_read', f'from:{mail_item.get("sender","")}')
                     if i < len(inbox):
                         speak_text(
                             ('[System]: Say stop to stop reading, or anything else to continue.'
@@ -1284,6 +1300,20 @@ with open('Audio/Transcribe.txt', 'a', encoding='utf-8') as file:
 
         # ── GOODBYE ──────────────────────────────────────────
         elif any(w in clean_heard for w in ending):
+            # Log out first if logged in
+            if web_login.login_status == 'success':
+                speak_text(
+                    '[System]: Logging you out first.'
+                    if user_lang == 'en'
+                    else '[System]: पहले लॉगआउट हो रहे हैं।',
+                    lang=user_lang,
+                )
+                web_login.login_status = 'waiting'
+                login_initiated = False
+                try:
+                    requests.post('http://localhost:5000/voice-logout', timeout=3)
+                except Exception:
+                    pass
             speak_text(bye_hi if user_lang == 'hi' else bye_en, lang=user_lang)
             break
 

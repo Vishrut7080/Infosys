@@ -179,7 +179,7 @@ def check_login():
                 name = user_record['name']
         session['user'] = {'name': name, 'email': email}
         if email:
-            database.log_session(email)
+            database.log_session(email, force_insert=True)
     status = login_status
     if login_status == 'failed':
         login_status = 'waiting'
@@ -192,6 +192,10 @@ def check_login():
 
 @app.route('/check-session')
 def check_session():
+    if 'user' in session:
+        email = session['user'].get('email', '')
+        if email:
+            database.log_session(email, force_insert=True)  # refresh last-seen timestamp
     return jsonify({'logged_in': 'user' in session})
 
 @app.route('/login-cancelled')
@@ -235,7 +239,7 @@ def login():
             login_status = 'success'
             app.config['current_email'] = entered_email
             session['user'] = {'name': result, 'email': entered_email}
-            database.log_session(entered_email)
+            database.log_session(entered_email, force_insert=True)
             apply_user_credentials(entered_email)
             database.log_activity(entered_email, 'login', 'keyboard')
             is_admin_user = database.is_admin(entered_email)
@@ -379,7 +383,7 @@ def auth_google_callback():
             'email':   oauth_email,
             'picture': user_info.get('picture'),
         }
-        database.log_session(oauth_email)
+        database.log_session(session['user']['email'], force_insert=True)
         apply_user_credentials(oauth_email)
         database.log_activity(oauth_email, 'login', 'google_oauth')
         login_status = 'success'
@@ -574,7 +578,18 @@ def get_stats():
             sessions_count = cur.fetchone()[0]
     except:
         sessions_count = 0
-    return jsonify({'emails': 0, 'commands': commands, 'sessions': sessions_count})
+    try:
+        import sqlite3
+        from Backend.database import USER_DB_PATH
+        with sqlite3.connect(USER_DB_PATH) as conn:
+            cur = conn.execute(
+                "SELECT COUNT(*) FROM activity WHERE email = ? AND action = 'email_read'",
+                (email,)
+            )
+            emails_count = cur.fetchone()[0]
+    except:
+        emails_count = 0
+    return jsonify({'emails': emails_count, 'commands': commands, 'sessions': sessions_count})
 
 @app.route('/get-inbox')
 def get_inbox():

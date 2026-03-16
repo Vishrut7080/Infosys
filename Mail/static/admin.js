@@ -407,3 +407,45 @@ function clearAdminFeed() {
 }
 
 setInterval(pollAdminFeed, 800);
+
+// ── Voice Navigation ──────────────────────────────────────────
+async function pollAdminNavCommands() {
+    try {
+        const res = await fetch('/api/nav_command');
+        const data = await res.json();
+        if (!data.command) return;
+        const cmd = data.command.toLowerCase();
+
+        const navItems = document.querySelectorAll('nav .nav-item');
+
+        if (cmd.includes('overview') || cmd.includes('home')) {
+            showPanel('overview', navItems[0]);
+        } else if (cmd.includes('users panel') || cmd.includes('go to users') || cmd.includes('open users')) {
+            showPanel('users', navItems[1]);
+        } else if (cmd.includes('activity')) {
+            showPanel('activity', navItems[2]);
+        } else if (cmd.includes('api')) {
+            showPanel('api', navItems[3]);
+        } else if (cmd.includes('error')) {
+            showPanel('errors', navItems[4]);
+        } else if (cmd.includes('system status') || cmd.includes('status')) {
+            showPanel('status', navItems[5]);
+        } else if (cmd.includes('user dashboard')) {
+            window.location.href = '/dashboard';
+        }
+    } catch (e) { }
+}
+
+setInterval(pollAdminNavCommands, 600);
+
+// ── Detect voice logout ──────────────────────────────────────
+async function checkAdminLogoutStatus() {
+    try {
+        const res = await fetch('/check-session');
+        const data = await res.json();
+        if (!data.logged_in) {
+            window.location.href = '/';
+        }
+    } catch (e) { }
+}
+setInterval(checkAdminLogoutStatus, 2000);
