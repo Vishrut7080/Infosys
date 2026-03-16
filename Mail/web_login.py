@@ -181,19 +181,23 @@ def check_login():
     global login_status
     if login_status == 'success' and 'user' not in session:
         email = app.config.get('current_email', '')
-        # Look up real name from DB instead of hardcoding 'User'
         name = 'User'
         if email:
             user_record = database.get_user_by_email(email)
             if user_record:
                 name = user_record['name']
-        session['user'] = {'name': 'User', 'email': email}
+        session['user'] = {'name': name, 'email': email}
         if email:
             database.log_session(email)
     status = login_status
     if login_status == 'failed':
         login_status = 'waiting'
-    return jsonify({'status': status})
+    redirect_url = '/dashboard'
+    if status == 'success':
+        email = app.config.get('current_email', '')
+        if email and database.is_admin(email):
+            redirect_url = '/admin'
+    return jsonify({'status': status, 'redirect': redirect_url})
 
 @app.route('/check-session')
 def check_session():
@@ -243,7 +247,12 @@ def login():
             database.log_session(entered_email)
             apply_user_credentials(entered_email)
             database.log_activity(entered_email, 'login', 'keyboard')
-            return jsonify({'status': 'success', 'message': f'Welcome back, {result}!'})
+            is_admin_user = database.is_admin(entered_email)
+            return jsonify({
+                'status':    'success',
+                'message':   f'Welcome back, {result}!',
+                'redirect':  '/admin' if is_admin_user else '/dashboard'
+            })
 
         else:
             login_status = 'failed'

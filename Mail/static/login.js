@@ -73,8 +73,10 @@ document.getElementById('loginForm').addEventListener('submit', async function (
 
         if (result.status === 'success') {
             messageEl.style.color = '#4ade80';
-            messageEl.innerText = 'Login successful! Loading dashboard...';
-            setTimeout(() => { window.location.href = '/dashboard'; }, 800);
+            messageEl.innerText = 'Login successful! Loading...';
+            setTimeout(() => {
+                window.location.href = result.redirect || '/dashboard';
+            }, 800);
         } else {
             messageEl.style.color = '#f87171';
             messageEl.innerText = result.message || 'Login failed';
@@ -99,7 +101,7 @@ async function checkAudioLogin() {
 
         if (data.status === 'success') {
             pollingActive = false;
-            window.location.href = '/dashboard';
+            window.location.href = data.redirect || '/dashboard';
         } else if (data.status === 'failed') {
             pollingActive = false;
             window.location.href = '/login-cancelled';

@@ -774,7 +774,8 @@ with open('Audio/Transcribe.txt', 'a', encoding='utf-8') as file:
         # ── RECORD ──────────────────────────────────────────
         heard, user_lang = listen_text(force_lang=force_lang)
 
-        # Check OAuth completed DURING recording
+        # Check OAuth (browser) login completed DURING a recording
+        # Note: audio login is handled above and sets login_initiated=False itself
         if login_initiated and web_login.login_status == 'success':
             login_initiated   = False
             awaiting_services = True
@@ -869,7 +870,6 @@ with open('Audio/Transcribe.txt', 'a', encoding='utf-8') as file:
                 web_login.app.config['current_email'] = matched_email
                 web_login.apply_user_credentials(matched_email)
                 awaiting_services = True
-                speak_text(r('select_services'), lang=user_lang)
             else:
                 speak_text(r('login_failed'), lang=user_lang)
                 web_login.login_status = 'failed'
@@ -1009,8 +1009,11 @@ with open('Audio/Transcribe.txt', 'a', encoding='utf-8') as file:
 
         # ── EMAIL — LATEST ───────────────────────────────────
         elif (web_login.login_status == 'success'
-              and any(w in clean_heard for w in ['latest', 'recent', 'नवीनतम'])
-              and any(w in clean_heard for w in inbox_req)):
+              and any(w in clean_heard for w in [
+                  'latest', 'recent', 'नवीनतम', 'नया', 'last', 'new'
+              ])
+              and any(w in clean_heard for w in
+                      inbox_req + ['ईमेल', 'इमेल', 'email'])):
             speak_text(r('cat_prompt'), lang=user_lang)
             cat_response, _ = listen_text()
             cat_response = cat_response.lower().strip()

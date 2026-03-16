@@ -63,6 +63,9 @@ async function refreshUserAndRole() {
         if (data.is_admin) {
             const el = document.getElementById('cmdAdminGroup');
             if (el) el.style.display = 'flex';
+            // Show admin panel link
+            const adminLink = document.getElementById('adminLink');
+            if (adminLink) adminLink.style.display = 'block';
         }
     } catch (e) { }
 }
