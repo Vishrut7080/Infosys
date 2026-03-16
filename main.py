@@ -5,42 +5,49 @@ from Audio.text_to_speech import speak_text as _speak_text_orig
 from Audio.speech_to_text import listen_text
 from Mail.email_handler import open_gmail_compose, get_top_senders
 from Mail.email_sender import compose_email_by_voice, send_reply_direct, reply_email_by_voice
-from Backend.database import verify_audio, get_user_by_email, update_name, update_password, update_audio, delete_user
-from Mail.web_login import  push_to_feed, push_nav_command
+from Backend.database import (
+    verify_audio, get_user_by_email, update_name, update_password,
+    update_audio, delete_user, is_admin, get_all_users, admin_delete_user,
+    log_activity as _db_log_activity, verify_pin
+)
+from Mail.web_login import push_to_feed, push_nav_command
 import Mail.web_login as web_login
 import threading, webbrowser, requests
 from dotenv import load_dotenv
 import os, time, datetime, random, re
-from Telegram.telegram import start_telegram_in_thread, telegram_get_messages, telegram_send_message, telegram_get_latest, set_notification_callback
-from Whatsapp.whatsapp import whatsapp_send_message, whatsapp_get_messages
+from Telegram.telegram import (
+    start_telegram_in_thread, telegram_get_messages,
+    telegram_send_message, telegram_get_latest, set_notification_callback
+)
 
 load_dotenv()
 
 SECRET_AUD = os.getenv('SECRET_AUD', '')
 
 # ----------------------
-# VARIABLES
+# STATE VARIABLES
 # ----------------------
-force_lang = None 
-user_lang = 'en' # tracks current user language: 'en' or 'hi'
+force_lang         = None
+user_lang          = 'en'   # 'en' or 'hi'
 typing_pause_until = 0
 awaiting_services  = False
 heard              = ""
 login_initiated    = False
+_awaiting_services_since = 0.0
 
 bye_en = '[System]: Goodbye! Take care.'
 bye_hi = '[System]: अलविदा! अपना ख्याल रखें।'
 
-# # =================================================
-# HANDLER FUNCTION
-# # =================================================
+# ----------------------
+# HELPER: spoken PIN → digits
+# ----------------------
 def spoken_pin_to_digits(spoken: str) -> str:
     """Convert spoken PIN like 'one two three four' to '1234'."""
     word_to_digit = {
-        'zero':'0','one':'1','two':'2','three':'3','four':'4',
-        'five':'5','six':'6','seven':'7','eight':'8','nine':'9',
-        'शून्य':'0','एक':'1','दो':'2','तीन':'3','चार':'4',
-        'पाँच':'5','छः':'6','सात':'7','आठ':'8','नौ':'9',
+        'zero': '0', 'one': '1', 'two': '2', 'three': '3', 'four': '4',
+        'five': '5', 'six': '6', 'seven': '7', 'eight': '8', 'nine': '9',
+        'शून्य': '0', 'एक': '1', 'दो': '2', 'तीन': '3', 'चार': '4',
+        'पाँच': '5', 'छः': '6', 'सात': '7', 'आठ': '8', 'नौ': '9',
     }
     result = spoken.strip().lower()
     for word, digit in word_to_digit.items():
@@ -57,10 +64,8 @@ RESPONSES = {
                             'hi': '[System]: आप पहले से लॉगिन हैं।'},
     'login_in_progress':   {'en': '[System]: Login is already in progress.',
                             'hi': '[System]: लॉगिन पहले से जारी है।'},
-    'login_opened':        {'en': '[System]: Login page opened. Please log in via browser or say your confirmation word.',
-                            'hi': '[System]: लॉगिन पेज खुल गया। कृपया ब्राउज़र से लॉगिन करें या पासवर्ड बोलें।'},
-    'login_confirmed':     {'en': '[System]: Login confirmed. Please select your services on the dashboard.',
-                            'hi': '[System]: लॉगिन सफल। कृपया डैशबोर्ड पर सेवाएं चुनें।'},
+    'login_opened':        {'en': '[System]: Login page opened. Please log in via browser or say your audio password.',
+                            'hi': '[System]: लॉगिन पेज खुल गया। कृपया ब्राउज़र से लॉगिन करें या ऑडियो पासवर्ड बोलें।'},
     'login_failed':        {'en': '[System]: Audio password not recognised. Login cancelled.',
                             'hi': '[System]: ऑडियो पासवर्ड पहचाना नहीं गया। लॉगिन रद्द।'},
     'login_cancelled':     {'en': '[System]: Login cancelled.',
@@ -77,12 +82,11 @@ RESPONSES = {
                             'hi': '[System]: आप अभी लॉगिन नहीं हैं।'},
     'not_understood':      {'en': '[System]: Please try a different command.',
                             'hi': '[System]: कृपया कोई अलग कमांड आज़माएं।'},
+    # Telegram
     'tg_fetching':         {'en': '[System]: Fetching your Telegram messages.',
                             'hi': '[System]: आपके Telegram संदेश लाए जा रहे हैं।'},
     'tg_none':             {'en': '[System]: No Telegram messages found.',
                             'hi': '[System]: कोई Telegram संदेश नहीं मिला।'},
-    'tg_reply_prompt':     {'en': '[System]: Would you like to reply to this message?',
-                            'hi': '[System]: क्या आप इस संदेश का जवाब देना चाहते हैं?'},
     'tg_next':             {'en': '[System]: Okay, moving to the next message.',
                             'hi': '[System]: ठीक है, अगले संदेश पर जा रहे हैं।'},
     'tg_latest':           {'en': '[System]: Getting your latest Telegram message.',
@@ -99,7 +103,7 @@ RESPONSES = {
                             'hi': '[System]: प्राप्तकर्ता समझ नहीं आया।'},
     'tg_empty_msg':        {'en': '[System]: Message was empty. Cancelled.',
                             'hi': '[System]: संदेश खाली था। रद्द किया गया।'},
-    'tg_auth_prompt':      {'en': '[System]: Telegram needs authorization. Please say your secret password to open the login page.',
+    'tg_auth_prompt':      {'en': '[System]: Telegram needs authorization. Say your secret password to open the login page.',
                             'hi': '[System]: Telegram को अनुमति चाहिए। लॉगिन पेज खोलने के लिए पासवर्ड बोलें।'},
     'tg_auth_ok':          {'en': '[System]: Confirmed. Opening Telegram login page.',
                             'hi': '[System]: पुष्टि हुई। Telegram लॉगिन पेज खुल रहा है।'},
@@ -109,6 +113,7 @@ RESPONSES = {
                             'hi': '[System]: Telegram स्वचालित रूप से जुड़ गया।'},
     'tg_starting':         {'en': '[System]: Starting Telegram.',
                             'hi': '[System]: Telegram शुरू हो रहा है।'},
+    # Email
     'gmail_ready':         {'en': '[System]: Gmail ready.',
                             'hi': '[System]: Gmail तैयार है।'},
     'email_send_prompt':   {'en': '[System]: You want to send an email?',
@@ -127,8 +132,15 @@ RESPONSES = {
                             'hi': '[System]: नवीनतम ईमेल लाया जा रहा है।'},
     'reply_which':         {'en': '[System]: Which email do you want to reply to? Say a number — 1 for latest.',
                             'hi': '[System]: किस ईमेल का जवाब देना है? नंबर बोलें — 1 सबसे नया।'},
-    'profile_prompt':      {'en': '[System]: What would you like to do? Say view, change name, change password, change audio password, or delete account.',
-                            'hi': '[System]: आप क्या करना चाहते हैं? व्यू, नाम बदलें, पासवर्ड बदलें, ऑडियो पासवर्ड बदलें, या अकाउंट डिलीट करें।'},
+    # Profile
+    'profile_prompt':      {'en': '[System]: What would you like to do? Say view, change name, '
+                                  'change password, change audio password, or delete my account.',
+                            'hi': '[System]: आप क्या करना चाहते हैं? व्यू, नाम बदलें, पासवर्ड बदलें, '
+                                  'ऑडियो पासवर्ड बदलें, या मेरा अकाउंट डिलीट करें।'},
+    'admin_menu':          {'en': '[System]: Admin profile menu. Say: view, change name, change password, '
+                                  'change audio password, delete my account, list users, or delete user.',
+                            'hi': '[System]: एडमिन प्रोफ़ाइल मेनू। बोलें: व्यू, नाम बदलें, पासवर्ड बदलें, '
+                                  'ऑडियो पासवर्ड बदलें, मेरा अकाउंट डिलीट करें, यूज़र्स देखें, या यूज़र डिलीट करें।'},
     'profile_not_found':   {'en': '[System]: Could not find your profile. Please log in again.',
                             'hi': '[System]: आपका प्रोफ़ाइल नहीं मिला। कृपया फिर से लॉगिन करें।'},
     'profile_google':      {'en': '[System]: Profile not found in database. You may have logged in via Google.',
@@ -147,12 +159,24 @@ RESPONSES = {
                             'hi': '[System]: कृपया अपना नया ऑडियो पासवर्ड बोलें।'},
     'audio_cancelled':     {'en': '[System]: No audio password received. Cancelled.',
                             'hi': '[System]: कोई ऑडियो पासवर्ड नहीं मिला। रद्द किया गया।'},
-    'delete_confirm':      {'en': '[System]: Are you sure you want to delete your account? Say yes to confirm.',
-                            'hi': '[System]: क्या आप वाकई अकाउंट डिलीट करना चाहते हैं? हाँ बोलें।'},
+    'delete_confirm':      {'en': '[System]: Are you sure? Say your confirmation word to proceed.',
+                            'hi': '[System]: क्या आप वाकई? पुष्टि के लिए कन्फर्मेशन वर्ड बोलें।'},
     'delete_pass':         {'en': '[System]: Please say your password to confirm deletion.',
                             'hi': '[System]: डिलीट की पुष्टि के लिए पासवर्ड बोलें।'},
     'delete_cancelled':    {'en': '[System]: Account deletion cancelled.',
                             'hi': '[System]: अकाउंट डिलीट रद्द किया गया।'},
+    # Admin user management
+    'admin_list_empty':    {'en': '[System]: No users registered yet.',
+                            'hi': '[System]: कोई यूज़र पंजीकृत नहीं है।'},
+    'admin_ask_email':     {'en': '[System]: Say the email address of the user to delete.',
+                            'hi': '[System]: जिस यूज़र को डिलीट करना है उसका ईमेल बोलें।'},
+    'admin_bad_email':     {'en': '[System]: Could not understand the email address. Cancelled.',
+                            'hi': '[System]: ईमेल पता समझ नहीं आया। रद्द किया।'},
+    'admin_self_delete':   {'en': '[System]: Use "delete my account" to delete your own account.',
+                            'hi': '[System]: अपना खाता डिलीट करने के लिए "मेरा अकाउंट डिलीट" कहें।'},
+    'conf_not_recognised': {'en': '[System]: Confirmation not recognised. Cancelled.',
+                            'hi': '[System]: पुष्टि नहीं मिली। रद्द किया।'},
+    # AI reply suggestions
     'suggest_generating':  {'en': '[System]: Analysing and generating a suggested reply...',
                             'hi': '[System]: सुझाया गया जवाब तैयार किया जा रहा है...'},
     'suggest_send':        {'en': 'Shall I send this?',
@@ -165,58 +189,79 @@ RESPONSES = {
                             'hi': '[System]: सुझाव नहीं बन सका। कृपया अपना जवाब बोलें।'},
 }
 
+# ----------------------
+# HINDI COMMAND MAP — normalises Hindi speech to English keywords
+# ----------------------
 HINDI_COMMAND_MAP = {
-    # login variants
-    'लोगें':   'login',
-    'लॉगें':   'login',
-    'लॉग':     'login',
-    'लोगिन':   'login',
-    # logout variants
-    'लॉगआउट': 'logout',
-    'लॉग आउट':'logout',
-    # greeting variants  
-    'नमस्ते':  'hello',
-    'हेलो':    'hello',
+    # login
+    'लोगें':       'login',
+    'लॉगें':       'login',
+    'लॉग':         'login',
+    'लोगिन':       'login',
+    # logout
+    'लॉगआउट':     'logout',
+    'लॉग आउट':    'logout',
+    'साइन आउट':   'logout',
+    # greeting
+    'नमस्ते':      'hello',
+    'हेलो':        'hello',
+    'हाय':         'hello',
     # goodbye
-    'अलविदा':  'goodbye',
-    'बाय':     'bye',
-    # yes/no
-    'हाँ':     'yes',
-    'हां':     'yes',
-    'नहीं':    'no',
+    'अलविदा':      'goodbye',
+    'बाय':         'bye',
+    'बंद करो':     'exit',
+    # yes / no
+    'हाँ':         'yes',
+    'हां':         'yes',
+    'नहीं':        'no',
     # email
-    'ईमेल':    'email',
-    'मेल':     'mail',
-    # time/date
-    'समय':     'time',
-    'तारीख':   'date',
+    'ईमेल':        'email',
+    'मेल':         'mail',
+    'संदेश':       'message',
+    # inbox
+    'इनबॉक्स':    'inbox',
+    # time / date
+    'समय':         'time',
+    'तारीख':       'date',
     # joke
-    'मज़ाक':   'joke',
-    'जोक':     'joke',
+    'मज़ाक':       'joke',
+    'जोक':         'joke',
     # profile
-    'प्रोफ़ाइल': 'profile',
+    'प्रोफ़ाइल':   'profile',
     # telegram
-    'टेलीग्राम': 'telegram'
+    'टेलीग्राम':   'telegram',
+    # send / check / reply
+    'भेजो':        'send',
+    'जांचो':       'check',
+    'जवाब':        'reply',
+    # calculate
+    'हिसाब':       'calculate',
+    'कितना':       'what is',
+    # latest / recent
+    'नवीनतम':     'latest',
+    'नया':         'recent',
+    # admin
+    'एडमिन':       'admin',
+    'उपयोगकर्ता':  'users',
+    'डिलीट':       'delete',
+    'यूज़र':       'user',
 }
 
-# -------------------------------------------------
-# Navigation Commands
-# -------------------------------------------------
+# ----------------------
+# NAVIGATION COMMANDS (pushed to dashboard via push_nav_command)
+# ----------------------
 NAV_PHRASES = [
     'go to dashboard', 'open dashboard', 'show dashboard',
     'go to profile',   'open profile',   'show profile',   'my profile',
     'go to inbox',     'open inbox',     'show inbox',     'unified inbox',
     'go to messages',  'open messages',  'show messages',
-    'select gmail',    'enable gmail',    'add gmail',
-    'select telegram', 'enable telegram', 'add telegram',
-    'deselect gmail',  'disable gmail',   'remove gmail',
+    'select gmail',    'enable gmail',   'add gmail',
+    'select telegram', 'enable telegram','add telegram',
+    'deselect gmail',  'disable gmail',  'remove gmail',
     'deselect telegram','disable telegram','remove telegram',
     'save services',   'confirm services','save and continue',
-    'select both', 'enable both', 'both services',
+    'select both',     'enable both',    'both services',
     'select gmail and telegram', 'select telegram and gmail',
-    'select whatsapp',  'enable whatsapp',  'add whatsapp',
-    'deselect whatsapp','disable whatsapp', 'remove whatsapp',
-    'select all',       'enable all',       'all services',
 ]
 
 def normalize_hindi(text: str) -> str:
@@ -225,15 +270,16 @@ def normalize_hindi(text: str) -> str:
         text = text.replace(hindi, english)
     return text
 
-def r(key):
-    """Return response string in current user language."""
-    return RESPONSES.get(key, {}).get(user_lang, RESPONSES[key]['en'])
+def r(key: str, lang: str = None) -> str:
+    """Return response string in the given (or current) language."""
+    _lang = lang or user_lang
+    return RESPONSES.get(key, {}).get(_lang, RESPONSES.get(key, {}).get('en', ''))
 
-# # =================================================
-# CHANGED SPEAK TEXT
-# # =================================================
+# ----------------------
+# SPEAK — wraps TTS + live feed
+# ----------------------
 def speak_text(text: str, lang: str = 'en'):
-    """Wrapper: speaks the text AND pushes it to the live feed."""
+    """Speaks the text AND pushes it to the live dashboard feed."""
     push_to_feed(text)
     _speak_text_orig(text, lang=lang)
 
@@ -243,11 +289,10 @@ def log_activity(action: str, detail: str = ''):
         return
     email = web_login.app.config.get('current_email', '')
     if email:
-        from Backend.database import log_activity as _log
-        _log(email, action, detail)
+        _db_log_activity(email, action, detail)
 
 # ----------------------
-# Commands (bilingual)
+# KEYWORD SETS
 # ----------------------
 mail_req        = ['mail', 'email', 'message', 'मेल', 'ईमेल', 'संदेश']
 inbox_req       = ['inbox', 'mail', 'mails', 'इनबॉक्स', 'मेल']
@@ -261,13 +306,16 @@ confirmation_words = ['correct', 'confirm', 'yes', 'हाँ', 'सही']
 if SECRET_AUD:
     confirmation_words.append(SECRET_AUD.lower().strip())
 
+# ----------------------
+# TELEGRAM NOTIFICATION CALLBACK
+# ----------------------
 def on_new_telegram(sender, text):
     speak_text(f'[Telegram]: New message from {sender}: {text}')
 
 set_notification_callback(on_new_telegram)
 
 # ----------------------
-# JOKES BANK
+# JOKES
 # ----------------------
 JOKES_EN = [
     "Why do programmers prefer dark mode? Because light attracts bugs!",
@@ -291,7 +339,7 @@ JOKES_HI = [
 ]
 
 # ----------------------
-# CALCULATOR HELPER
+# CALCULATOR
 # ----------------------
 MATH_WORDS = {
     'plus': '+', 'add': '+', 'minus': '-', 'subtract': '-',
@@ -304,8 +352,8 @@ MATH_WORDS = {
 
 def parse_math(text: str) -> str | None:
     expr = text.lower()
-    for filler in ['what is', "what's", 'calculate', 'compute', 'equals', 'equal to', '?',
-                   'क्या है', 'बताओ', 'हिसाब', 'कितना']:
+    for filler in ['what is', "what's", 'calculate', 'compute', 'equals',
+                   'equal to', '?', 'क्या है', 'बताओ', 'हिसाब', 'कितना']:
         expr = expr.replace(filler, '')
     for word, symbol in MATH_WORDS.items():
         expr = expr.replace(word, symbol)
@@ -318,40 +366,48 @@ def calculate(text: str) -> str:
     if not expr:
         return r('not_understood')
     try:
-        result = eval(expr)
+        # Safe subset: only allow digits and arithmetic operators
+        allowed = re.fullmatch(r'[\d\s\+\-\*\/\(\)\.]+', expr)
+        if not allowed:
+            return r('not_understood')
+        result = eval(expr)   # expr is now guaranteed digits + operators only
         if isinstance(result, float) and result.is_integer():
             result = int(result)
-        return f'[System]: उत्तर है {result}।' if user_lang == 'hi' else f'[System]: The answer is {result}.'
+        return (f'[System]: उत्तर है {result}।' if user_lang == 'hi'
+                else f'[System]: The answer is {result}.')
     except ZeroDivisionError:
-        return '[System]: शून्य से भाग नहीं हो सकता।' if user_lang == 'hi' else '[System]: Cannot divide by zero.'
+        return ('[System]: शून्य से भाग नहीं हो सकता।' if user_lang == 'hi'
+                else '[System]: Cannot divide by zero.')
     except Exception:
         return r('not_understood')
 
-
 # ----------------------
-# REPLY HELPERS
+# AI REPLY HELPER (local Ollama)
 # ----------------------
-def generate_local_reply(message: str):
+def generate_local_reply(message: str) -> str | None:
     try:
         response = requests.post(
             "http://localhost:11434/api/generate",
             json={
                 "model": "gemma3:1b",
-                "prompt": f"""You are an AI assistant helping reply to messages.
-Write a short natural reply (1-2 sentences).
-Message:
-{message}
-Reply:""",
-                "stream": False
+                "prompt": (
+                    "You are an AI assistant helping reply to messages.\n"
+                    "Write a short natural reply (1-2 sentences).\n"
+                    f"Message:\n{message}\nReply:"
+                ),
+                "stream": False,
             },
-            timeout=30
+            timeout=30,
         )
         data = response.json()
-        return data.get("response", "").strip()
+        return data.get("response", "").strip() or None
     except Exception as e:
         print("Ollama error:", e)
         return None
 
+# ----------------------
+# HANDLE EMAIL REPLY FLOW
+# ----------------------
 def handle_reply(email_data: dict):
     reply_to = email_data['sender']
     subject  = email_data['subject']
@@ -377,6 +433,9 @@ def handle_reply(email_data: dict):
     result = reply_email_by_voice(reply_to, subject, email_data.get('msg_id', ''))
     speak_text(result)
 
+# ----------------------
+# HANDLE TELEGRAM REPLY FLOW
+# ----------------------
 def handle_telegram_reply(recipient: str, original_message: str):
     speak_text(r('suggest_generating'), lang=user_lang)
     suggestion = generate_local_reply(original_message)
@@ -405,85 +464,229 @@ def handle_telegram_reply(recipient: str, original_message: str):
     else:
         speak_text(r('tg_cancelled'), lang=user_lang)
 
+# ----------------------
+# PROFILE HANDLER — user and admin
+# ----------------------
+def handle_profile():
+    """Full profile menu for both regular users and admins."""
+    global user_lang, confirmation_words, login_initiated
 
-# ----------------------
-# COMMAND LOOP
-# ----------------------
+    current_email = web_login.app.config.get('current_email', '')
+    if not current_email:
+        speak_text(r('profile_not_found'), lang=user_lang)
+        return
+
+    user_is_admin = is_admin(current_email)
+    speak_text(r('admin_menu') if user_is_admin else r('profile_prompt'), lang=user_lang)
+
+    response, _ = listen_text()
+    response = response.lower().strip().replace('.', '')
+    speak_text(f'[User]: {response}')
+
+    # ── VIEW ─────────────────────────────────────────────────
+    if any(w in response for w in ['view', 'show', 'what', 'देखो', 'बताओ']):
+        user = get_user_by_email(current_email)
+        if user:
+            speak_text(
+                f'[System]: Your profile. Name: {user["name"]}. '
+                f'Email: {user["email"]}. Account created on: {user["created_at"]}.',
+                lang=user_lang,
+            )
+        else:
+            speak_text(r('profile_google'), lang=user_lang)
+
+    # ── CHANGE NAME ──────────────────────────────────────────
+    elif any(w in response for w in ['name', 'नाम']):
+        speak_text(r('name_prompt'), lang=user_lang)
+        new_name, _ = listen_text()
+        new_name = new_name.strip()
+        speak_text(f'[User]: {new_name}')
+        if new_name:
+            ok, msg = update_name(current_email, new_name)
+            speak_text(f'[System]: {msg}')
+        else:
+            speak_text(r('name_cancelled'), lang=user_lang)
+
+    # ── CHANGE PASSWORD ──────────────────────────────────────
+    elif (any(w in response for w in ['password', 'पासवर्ड'])
+          and not any(w in response for w in ['audio', 'ऑडियो'])):
+        speak_text(r('pass_current'), lang=user_lang)
+        old_pass, _ = listen_text()
+        speak_text(r('pass_new'), lang=user_lang)
+        new_pass, _ = listen_text()
+        if old_pass and new_pass:
+            ok, msg = update_password(current_email, old_pass.strip(), new_pass.strip())
+            speak_text(f'[System]: {msg}')
+        else:
+            speak_text(r('pass_cancelled'), lang=user_lang)
+
+    # ── CHANGE AUDIO PASSWORD ────────────────────────────────
+    elif any(w in response for w in ['audio', 'ऑडियो']):
+        speak_text(r('audio_prompt'), lang=user_lang)
+        new_audio, _ = listen_text()
+        new_audio = new_audio.strip()
+        speak_text(f'[User]: {new_audio}')
+        if new_audio:
+            ok, msg = update_audio(current_email, new_audio)
+            speak_text(f'[System]: {msg}')
+            if ok and new_audio.lower() not in confirmation_words:
+                confirmation_words.append(new_audio.lower())
+        else:
+            speak_text(r('audio_cancelled'), lang=user_lang)
+
+    # ── DELETE MY OWN ACCOUNT ────────────────────────────────
+    elif any(w in response for w in [
+        'delete my', 'delete account', 'मेरा अकाउंट', 'डिलीट', 'delete'
+    ]):
+        speak_text(r('delete_confirm'), lang=user_lang)
+        conf, _ = listen_text()
+        conf = conf.lower().strip()
+        speak_text(f'[User]: {conf}')
+        if any(w in conf for w in confirmation_words):
+            speak_text(r('delete_pass'), lang=user_lang)
+            password, _ = listen_text()
+            ok, msg = delete_user(current_email, password.strip())
+            speak_text(f'[System]: {msg}')
+            if ok:
+                web_login.login_status = 'waiting'
+                login_initiated = False
+        else:
+            speak_text(r('delete_cancelled'), lang=user_lang)
+
+    # ── ADMIN: LIST USERS ────────────────────────────────────
+    elif user_is_admin and any(w in response for w in [
+        'list users', 'show users', 'all users', 'list user',
+        'यूज़र्स देखें', 'उपयोगकर्ता', 'सभी यूज़र्स', 'users'
+    ]):
+        all_users = get_all_users()
+        if not all_users:
+            speak_text(r('admin_list_empty'), lang=user_lang)
+        else:
+            count_msg = (
+                f'[System]: {len(all_users)} registered users.'
+                if user_lang == 'en'
+                else f'[System]: {len(all_users)} पंजीकृत यूज़र्स।'
+            )
+            speak_text(count_msg, lang=user_lang)
+            for i, u in enumerate(all_users, 1):
+                role_label = 'admin' if u['is_admin'] else 'user'
+                speak_text(
+                    f'{i}. {u["name"]}, {u["email"]}, {role_label}, '
+                    f'{u["sessions"]} sessions.',
+                    lang=user_lang,
+                )
+                time.sleep(0.3)
+
+    # ── ADMIN: DELETE ANOTHER USER ───────────────────────────
+    elif user_is_admin and any(w in response for w in [
+        'delete user', 'remove user', 'यूज़र डिलीट', 'यूज़र हटाएं'
+    ]):
+        speak_text(r('admin_ask_email'), lang=user_lang)
+        target_raw, _ = listen_text(duration=8)
+        target_email   = target_raw.strip().lower()
+        speak_text(f'[User]: {target_email}')
+
+        if not target_email or '@' not in target_email:
+            speak_text(r('admin_bad_email'), lang=user_lang)
+        elif target_email == current_email:
+            speak_text(r('admin_self_delete'), lang=user_lang)
+        else:
+            confirm_prompt = (
+                f'[System]: Delete {target_email}? Say your confirmation word to proceed.'
+                if user_lang == 'en'
+                else f'[System]: {target_email} को डिलीट करें? पुष्टि के लिए कन्फर्मेशन वर्ड बोलें।'
+            )
+            speak_text(confirm_prompt, lang=user_lang)
+            conf, _ = listen_text(duration=6)
+            conf = conf.lower().strip()
+            speak_text(f'[User]: {conf}')
+
+            if any(w in conf for w in confirmation_words):
+                ok, msg = admin_delete_user(target_email)
+                speak_text(f'[System]: {msg}')
+                if ok:
+                    _db_log_activity(current_email, 'admin_delete_user',
+                                     f'deleted:{target_email}')
+            else:
+                speak_text(r('conf_not_recognised'), lang=user_lang)
+
+    else:
+        speak_text(r('not_understood'), lang=user_lang)
+
+
+# ========================
+# MAIN COMMAND LOOP
+# ========================
 with open('Audio/Transcribe.txt', 'a', encoding='utf-8') as file:
     while True:
 
         # ── AUTO-LOGIN from signup ──────────────────────────
-        if web_login.login_from_signup and not login_initiated and web_login.login_status != 'success':
+        if (web_login.login_from_signup
+                and not login_initiated
+                and web_login.login_status != 'success'):
             web_login.login_from_signup = False
             login_initiated = True
-            speak_text('[System]: Welcome! Say your audio password to complete login.', lang=user_lang)
+            speak_text('[System]: Welcome! Say your audio password to complete login.',
+                       lang=user_lang)
             continue
 
-        # Check OAuth login completed between recordings
-        if login_initiated and web_login.login_status == "success":
+        # ── OAuth login completed between iterations ────────
+        if login_initiated and web_login.login_status == 'success':
             login_initiated = False
-            awaiting_services = True            
+            awaiting_services = True
             continue
 
+        # ── SERVICE SELECTION + PIN VERIFICATION ───────────
         if awaiting_services:
             if web_login.selected_services:
-                services = web_login.selected_services
+                services      = web_login.selected_services
                 current_email = web_login.app.config.get('current_email', '')
 
-                # ── PIN verification for each selected service ──
                 verified_services = []
                 for service in services:
                     speak_text(
-                        f'[System]: Please say your {service.capitalize()} PIN to authorise.',
-                        lang=user_lang
+                        (f'[System]: Please say your {service.capitalize()} PIN to authorise.'
+                         if user_lang == 'en'
+                         else f'[System]: {service.capitalize()} PIN बोलें।'),
+                        lang=user_lang,
                     )
                     pin_heard, _ = listen_text(duration=8)
                     pin_heard = pin_heard.strip().lower()
                     speak_text(f'[User]: {pin_heard}')
+                    pin_digits = spoken_pin_to_digits(pin_heard)
 
-                    # Convert spoken numbers to digits — "one two three" → "123"
-                    word_to_digit = {
-                        'zero':'0','one':'1','two':'2','three':'3','four':'4',
-                        'five':'5','six':'6','seven':'7','eight':'8','nine':'9',
-                        'शून्य':'0','एक':'1','दो':'2','तीन':'3','चार':'4',
-                        'पाँच':'5','छः':'6','सात':'7','आठ':'8','नौ':'9',
-                    }
-                    pin_digits = pin_heard
-                    for word, digit in word_to_digit.items():
-                        pin_digits = pin_digits.replace(word, digit)
-                    # Remove all non-digit characters
-                    pin_digits = ''.join(c for c in pin_digits if c.isdigit())
-
-                    from Backend.database import verify_pin
                     if verify_pin(current_email, service, pin_digits):
                         speak_text(
-                            f'[System]: {service.capitalize()} PIN verified.' if user_lang == 'en'
-                            else f'[System]: {service.capitalize()} PIN सही है।',
-                            lang=user_lang
+                            (f'[System]: {service.capitalize()} PIN verified.'
+                             if user_lang == 'en'
+                             else f'[System]: {service.capitalize()} PIN सही है।'),
+                            lang=user_lang,
                         )
                         verified_services.append(service)
                     else:
                         speak_text(
-                            f'[System]: Incorrect PIN for {service.capitalize()}. '
-                            f'{service.capitalize()} will not be connected.' if user_lang == 'en'
-                            else f'[System]: {service.capitalize()} का PIN गलत है। कनेक्ट नहीं होगा।',
-                            lang=user_lang
+                            (f'[System]: Incorrect PIN for {service.capitalize()}. '
+                             f'{service.capitalize()} will not be connected.'
+                             if user_lang == 'en'
+                             else f'[System]: {service.capitalize()} का PIN गलत है। कनेक्ट नहीं होगा।'),
+                            lang=user_lang,
                         )
 
                 if not verified_services:
                     speak_text(
-                        '[System]: No services verified. Please try again.' if user_lang == 'en'
-                        else '[System]: कोई सेवा सत्यापित नहीं हुई। कृपया पुनः प्रयास करें।',
-                        lang=user_lang
+                        ('[System]: No services verified. Please try again.'
+                         if user_lang == 'en'
+                         else '[System]: कोई सेवा सत्यापित नहीं हुई। कृपया पुनः प्रयास करें।'),
+                        lang=user_lang,
                     )
                     awaiting_services = False
                     continue
-                
-                # Update selected services to only verified ones
+
                 web_login.selected_services = verified_services
                 awaiting_services = False
                 services = verified_services
 
+                # ── Start Telegram if selected ──
                 if 'telegram' in services:
                     speak_text(r('tg_starting'), lang=user_lang)
                     api_id   = int(os.getenv('TELEGRAM_API_ID', 0))
@@ -491,19 +694,17 @@ with open('Audio/Transcribe.txt', 'a', encoding='utf-8') as file:
                     if api_id and api_hash:
                         start_telegram_in_thread()
                         time.sleep(2)
-                        from Telegram.telegram import _client
-                        if _client and _client.is_connected():
-                            import asyncio as _asyncio
-                            from Telegram.telegram import _loop as tg_loop
-                            if tg_loop:
+                        from Telegram.telegram import _client, _loop as tg_loop
+                        import asyncio as _asyncio
+                        authorized = False
+                        if _client and _client.is_connected() and tg_loop:
+                            try:
                                 fut = _asyncio.run_coroutine_threadsafe(
                                     _client.is_user_authorized(), tg_loop
                                 )
                                 authorized = fut.result(timeout=5)
-                            else:
+                            except Exception:
                                 authorized = False
-                        else:
-                            authorized = False
 
                         if not authorized:
                             speak_text(r('tg_auth_prompt'), lang=user_lang)
@@ -521,9 +722,6 @@ with open('Audio/Transcribe.txt', 'a', encoding='utf-8') as file:
                 if 'gmail' in services:
                     speak_text(r('gmail_ready'), lang=user_lang)
 
-                if 'whatsapp' in services:
-                    speak_text('[System]: WhatsApp ready.', lang=user_lang)
-
                 connected_msg = (
                     f'[System]: Connected: {", ".join(services)}. Ready.'
                     if user_lang == 'en'
@@ -532,14 +730,36 @@ with open('Audio/Transcribe.txt', 'a', encoding='utf-8') as file:
                 speak_text(connected_msg, lang=user_lang)
                 continue
             else:
-                time.sleep(0.5)           
+                # Start the clock on first spin
+                if _awaiting_services_since == 0.0:
+                    _awaiting_services_since = time.time()
+                # Timeout after 120 seconds — speak a reminder every 30s
+                elapsed = time.time() - _awaiting_services_since
+                if elapsed > 120:
+                    speak_text(
+                        '[System]: No services selected. Continuing without services.'
+                        if user_lang == 'en'
+                        else '[System]: कोई सेवा नहीं चुनी। बिना सेवाओं के जारी है।',
+                        lang=user_lang,
+                    )
+                    awaiting_services = False
+                    _awaiting_services_since = 0.0
+                elif elapsed > 30 and int(elapsed) % 30 == 0:
+                    speak_text(
+                        '[System]: Please select your services on the dashboard.'
+                        if user_lang == 'en'
+                        else '[System]: कृपया डैशबोर्ड पर सेवाएं चुनें।',
+                        lang=user_lang,
+                    )
+                time.sleep(0.5)
+                continue
 
-        # Typing pause
+        # ── Typing pause ────────────────────────────────────
         if web_login.user_typing:
-            typing_pause_until = time.time() + 5
+            typing_pause_until   = time.time() + 5
             web_login.user_typing = False
-        
-        # ── Pause while signup page is open ──
+
+        # ── Pause while signup page is open ─────────────────
         if web_login.signup_open:
             time.sleep(0.5)
             continue
@@ -548,36 +768,35 @@ with open('Audio/Transcribe.txt', 'a', encoding='utf-8') as file:
             time.sleep(0.5)
             continue
 
-        # ── RECORD + DETECT LANGUAGE ──────────────────
+        # ── RECORD ──────────────────────────────────────────
         heard, user_lang = listen_text(force_lang=force_lang)
 
         # Check OAuth completed DURING recording
-        if login_initiated and web_login.login_status == "success":
-            login_initiated = False
+        if login_initiated and web_login.login_status == 'success':
+            login_initiated   = False
             awaiting_services = True
             speak_text(r('select_services'), lang=user_lang)
             continue
 
-        if awaiting_services:
-            if web_login.selected_services:
-                awaiting_services = False
-                services = web_login.selected_services
-                if 'gmail' in services:
-                    speak_text(r('gmail_ready'), lang=user_lang)
-                if 'whatsapp' in services:
-                    speak_text('[System]: WhatsApp ready.', lang=user_lang)
-                connected_msg = f'[System]: Connected: {", ".join(services)}. Ready.' if user_lang == 'en' \
-                    else f'[System]: कनेक्ट हुआ: {", ".join(services)}। तैयार।'
-                speak_text(connected_msg, lang=user_lang)
-                continue
-            else:
-                time.sleep(0.5)                
+        if awaiting_services and web_login.selected_services:
+            awaiting_services = False
+            services = web_login.selected_services
+            if 'gmail' in services:
+                speak_text(r('gmail_ready'), lang=user_lang)
+            speak_text(
+                f'[System]: Connected: {", ".join(services)}. Ready.'
+                if user_lang == 'en'
+                else f'[System]: कनेक्ट हुआ: {", ".join(services)}। तैयार।',
+                lang=user_lang,
+            )
+            continue
 
         speak_text(f'[User]: {heard}')
         clean_heard = heard.lower().strip().replace('.', '')
         clean_heard = normalize_hindi(clean_heard)
         file.write(f'{clean_heard}\n')
 
+        # ── Navigation commands (pushed to dashboard) ───────
         _is_nav = False
         for phrase in NAV_PHRASES:
             if phrase in clean_heard:
@@ -585,24 +804,39 @@ with open('Audio/Transcribe.txt', 'a', encoding='utf-8') as file:
                 _is_nav = True
                 break
 
-        # ── GREETING ──────────────────────────────────
-        if any(word == clean_heard or clean_heard.startswith(word + ' ') or clean_heard.endswith(' ' + word) for word in greeting):
+        # ==================================================
+        # COMMAND DISPATCH
+        # ==================================================
+
+        # ── GREETING ────────────────────────────────────────
+        if any(
+            word == clean_heard
+            or clean_heard.startswith(word + ' ')
+            or clean_heard.endswith(' ' + word)
+            for word in greeting
+        ):
             speak_text(r('greeting'), lang=user_lang)
 
-        elif any(x in clean_heard for x in ['hindi mode', 'हिंदी मोड', 'इंदी मोड', 'अन्दी मुड', 'hindi mod', 'hindi mo']):
+        # ── LANGUAGE SWITCH ──────────────────────────────────
+        elif any(x in clean_heard for x in [
+            'hindi mode', 'हिंदी मोड', 'इंदी मोड', 'अन्दी मुड',
+            'hindi mod', 'hindi mo'
+        ]):
             force_lang = 'hi'
-            user_lang = 'hi'
+            user_lang  = 'hi'
             speak_text('[System]: हिंदी मोड चालू।', lang='hi')
             continue
-        
+
         elif 'english mode' in clean_heard or 'switch to english' in clean_heard:
             force_lang = 'en'
             speak_text('[System]: Switched to English mode.', lang='en')
             continue
 
-        # ── LOGIN ─────────────────────────────────────
-        elif 'login' in clean_heard or 'log in' in clean_heard or 'लॉगिन' in clean_heard:
-            if web_login.login_status == "success":
+        # ── LOGIN ────────────────────────────────────────────
+        elif ('login' in clean_heard
+              or 'log in' in clean_heard
+              or 'लॉगिन' in clean_heard):
+            if web_login.login_status == 'success':
                 speak_text(r('already_logged_in'), lang=user_lang)
                 continue
             if login_initiated:
@@ -610,41 +844,51 @@ with open('Audio/Transcribe.txt', 'a', encoding='utf-8') as file:
                 continue
             web_login.login_status = 'waiting'
             login_initiated = True
-            server_thread = threading.Thread(target=web_login.start_server)
-            server_thread.daemon = True
+            server_thread = threading.Thread(target=web_login.start_server, daemon=True)
             server_thread.start()
-            webbrowser.open("http://localhost:5000")
+            webbrowser.open('http://localhost:5000')
             speak_text(r('login_opened'), lang=user_lang)
             continue
-           
-        # ── SIGNUP ────────────────────────────────────
-        elif 'signup' in clean_heard or 'sign up' in clean_heard or 'register' in clean_heard or 'साइनअप' in clean_heard:
-            login_initiated = False           # ← reset login state
+
+        # ── SIGNUP ───────────────────────────────────────────
+        elif any(w in clean_heard for w in [
+            'signup', 'sign up', 'register', 'साइनअप'
+        ]):
+            login_initiated        = False
             web_login.login_status = 'waiting'
             speak_text(r('signup_opening'), lang=user_lang)
-            threading.Thread(target=webbrowser.open, args=("http://localhost:5000/signup",), daemon=True).start()
+            threading.Thread(
+                target=webbrowser.open,
+                args=('http://localhost:5000/signup',),
+                daemon=True,
+            ).start()
             continue
 
-        # ── LOGIN CONFIRMATION (audio password) ───────
-        elif login_initiated and web_login.login_status != "success":
+        # ── AUDIO LOGIN CONFIRMATION ─────────────────────────
+        elif login_initiated and web_login.login_status != 'success':
             login_initiated = False
             matched, name, matched_email = verify_audio(clean_heard.strip())
             if matched:
-                welcome = f'[System]: Welcome, {name}. Login confirmed.' if user_lang == 'en' \
+                welcome = (
+                    f'[System]: Welcome, {name}. Login confirmed.'
+                    if user_lang == 'en'
                     else f'[System]: स्वागत है, {name}। लॉगिन सफल।'
+                )
                 speak_text(welcome, lang=user_lang)
-                web_login.login_status = "success"
+                web_login.login_status = 'success'
                 web_login.app.config['current_email'] = matched_email
                 web_login.apply_user_credentials(matched_email)
                 awaiting_services = True
                 speak_text(r('select_services'), lang=user_lang)
             else:
                 speak_text(r('login_failed'), lang=user_lang)
-                web_login.login_status = "failed"
+                web_login.login_status = 'failed'
             continue
 
-        # ── TELEGRAM — SEND ───────────────────────────
-        elif web_login.login_status == "success" and 'telegram' in clean_heard and ('send' in clean_heard or 'भेजो' in clean_heard):
+        # ── TELEGRAM — SEND ──────────────────────────────────
+        elif (web_login.login_status == 'success'
+              and 'telegram' in clean_heard
+              and any(w in clean_heard for w in ['send', 'भेजो'])):
             speak_text(r('tg_who'), lang=user_lang)
             recipient, _ = listen_text()
             recipient = recipient.strip()
@@ -661,31 +905,27 @@ with open('Audio/Transcribe.txt', 'a', encoding='utf-8') as file:
             speak_text(f'[User]: {message}')
             speak_text(r('tg_confirm_send'), lang=user_lang)
             confirm, _ = listen_text()
-            if any(word in confirm.lower() for word in affirmation):
-                speak_text('[System]: Please say your Telegram PIN to authorise.', lang=user_lang)
+            if any(w in confirm.lower() for w in affirmation):
+                speak_text('[System]: Please say your Telegram PIN to authorise.',
+                           lang=user_lang)
                 pin_heard, _ = listen_text(duration=8)
-                pin_heard = pin_heard.strip().lower()
-                word_to_digit = {
-                    'zero':'0','one':'1','two':'2','three':'3','four':'4',
-                    'five':'5','six':'6','seven':'7','eight':'8','nine':'9',
-                }
-                pin_digits = pin_heard
-                for word, digit in word_to_digit.items():
-                    pin_digits = pin_digits.replace(word, digit)
-                pin_digits = ''.join(c for c in pin_digits if c.isdigit())
+                pin_digits = spoken_pin_to_digits(pin_heard.strip().lower())
                 current_email = web_login.app.config.get('current_email', '')
-                from Backend.database import verify_pin
                 if verify_pin(current_email, 'telegram', pin_digits):
                     success, result = telegram_send_message(recipient, message)
                     speak_text(f'[System]: {result}')
                     log_activity('telegram_sent', f'to:{recipient}')
                 else:
-                    speak_text('[System]: Incorrect PIN. Telegram message not sent.', lang=user_lang)
+                    speak_text('[System]: Incorrect PIN. Telegram message not sent.',
+                               lang=user_lang)
             else:
                 speak_text(r('tg_cancelled'), lang=user_lang)
 
-        # ── TELEGRAM — CHECK INBOX ────────────────────
-        elif web_login.login_status == "success" and 'telegram' in clean_heard and any(w in clean_heard for w in inbox_req + ['message', 'messages', 'संदेश']):
+        # ── TELEGRAM — CHECK INBOX ───────────────────────────
+        elif (web_login.login_status == 'success'
+              and 'telegram' in clean_heard
+              and any(w in clean_heard for w in
+                      inbox_req + ['message', 'messages', 'संदेश'])):
             speak_text(r('tg_fetching'), lang=user_lang)
             messages = telegram_get_messages(5)
             if not messages:
@@ -695,136 +935,64 @@ with open('Audio/Transcribe.txt', 'a', encoding='utf-8') as file:
                     sender = msg['name']
                     text   = msg['message']
                     unread = f"{msg['unread']} unread." if msg['unread'] else ''
-                    speak_text(f"Telegram {i}. From: {sender}. {unread} Message: {text}. Date: {msg['date']}.")
                     speak_text(
-                        '[System]: Say yes to reply, stop to stop reading, or no for next.' if user_lang == 'en'
-                        else '[System]: जवाब देने के लिए हाँ, पढ़ना बंद करने के लिए stop, या अगले के लिए नहीं बोलें।',
-                        lang=user_lang
+                        f"Telegram {i}. From: {sender}. {unread} "
+                        f"Message: {text}. Date: {msg['date']}."
+                    )
+                    speak_text(
+                        ('[System]: Say yes to reply, stop to stop reading, or no for next.'
+                         if user_lang == 'en'
+                         else '[System]: जवाब देने के लिए हाँ, बंद करने के लिए stop, '
+                              'या अगले के लिए नहीं।'),
+                        lang=user_lang,
                     )
                     reply_decision, _ = listen_text()
                     reply_decision = reply_decision.lower().strip()
                     speak_text(f'[User]: {reply_decision}')
 
-                    if any(w in reply_decision for w in ['stop', 'enough', 'done', 'रुको', 'बस']):
-                        speak_text('[System]: Stopped reading messages.' if user_lang == 'en'
-                                   else '[System]: पढ़ना बंद किया।', lang=user_lang)
+                    if any(w in reply_decision for w in
+                           ['stop', 'enough', 'done', 'रुको', 'बस']):
+                        speak_text(
+                            '[System]: Stopped reading messages.'
+                            if user_lang == 'en'
+                            else '[System]: पढ़ना बंद किया।',
+                            lang=user_lang,
+                        )
                         break
-                    elif any(word in reply_decision for word in affirmation):
+                    elif any(w in reply_decision for w in affirmation):
                         handle_telegram_reply(sender, text)
                     else:
                         speak_text(r('tg_next'), lang=user_lang)
             continue
 
-        # ── TELEGRAM — LATEST ─────────────────────────
-        elif web_login.login_status == "success" and 'telegram' in clean_heard and any(w in clean_heard for w in ['latest', 'recent', 'नवीनतम', 'नया']):
+        # ── TELEGRAM — LATEST ────────────────────────────────
+        elif (web_login.login_status == 'success'
+              and 'telegram' in clean_heard
+              and any(w in clean_heard for w in
+                      ['latest', 'recent', 'नवीनतम', 'नया'])):
             speak_text(r('tg_latest'), lang=user_lang)
             msg = telegram_get_latest()
             if msg:
-                speak_text(f"[System]: Latest Telegram message. From: {msg['name']}. Message: {msg['message']}. Date: {msg['date']}.")
+                speak_text(
+                    f"[System]: Latest Telegram message. From: {msg['name']}. "
+                    f"Message: {msg['message']}. Date: {msg['date']}."
+                )
             else:
                 speak_text(r('tg_none'), lang=user_lang)
             continue
-            
-        # ── WHATSAPP — SEND ───────────────────────────────
-        elif web_login.login_status == "success" and 'whatsapp' in clean_heard and ('send' in clean_heard or 'भेजो' in clean_heard):
-            speak_text('[System]: Who do you want to WhatsApp?', lang=user_lang)
-            recipient, _ = listen_text()
-            recipient = recipient.strip()
-            speak_text(f'[User]: {recipient}')
-            if not recipient:
-                speak_text('[System]: No recipient heard. Cancelled.', lang=user_lang)
-                continue
-            speak_text('[System]: What is your message?', lang=user_lang)
-            message, _ = listen_text(duration=10)
-            message = message.strip()
-            speak_text(f'[User]: {message}')
-            if not message:
-                speak_text('[System]: Message was empty. Cancelled.', lang=user_lang)
-                continue
-            speak_text(f'[System]: Sending WhatsApp to {recipient}. Please confirm.', lang=user_lang)
-            confirm, _ = listen_text()
-            if any(w in confirm.lower() for w in affirmation):
-                speak_text('[System]: Please say your WhatsApp PIN to authorise.', lang=user_lang)
-                pin_heard, _ = listen_text(duration=8)
-                pin_heard = pin_heard.strip().lower()
-                word_to_digit = {
-                    'zero':'0','one':'1','two':'2','three':'3','four':'4',
-                    'five':'5','six':'6','seven':'7','eight':'8','nine':'9',
-                }
-                pin_digits = pin_heard
-                for word, digit in word_to_digit.items():
-                    pin_digits = pin_digits.replace(word, digit)
-                pin_digits = ''.join(c for c in pin_digits if c.isdigit())
-                current_email = web_login.app.config.get('current_email', '')
-                from Backend.database import verify_pin
-                if verify_pin(current_email, 'whatsapp', pin_digits):
-                    success, result = whatsapp_send_message(recipient, message)
-                    speak_text(f'[System]: {result}')
-                    log_activity('whatsapp_sent', f'to:{recipient}')
-                else:
-                    speak_text('[System]: Incorrect PIN. WhatsApp message not sent.', lang=user_lang)
-            else:
-                speak_text('[System]: WhatsApp message cancelled.', lang=user_lang)
 
-        # ── WHATSAPP — CHECK ──────────────────────────────
-        elif web_login.login_status == "success" and 'whatsapp' in clean_heard and any(w in clean_heard for w in inbox_req + ['message', 'messages']):
-            speak_text('[System]: Fetching your WhatsApp messages.', lang=user_lang)
-            messages = whatsapp_get_messages(5)
-            if not messages:
-                speak_text('[System]: No WhatsApp messages found.', lang=user_lang)
-            else:
-                for i, msg in enumerate(messages, 1):
-                    speak_text(f"WhatsApp {i}. From: {msg['name']}. Message: {msg['message']}. Date: {msg['date']}.")
-                    speak_text('[System]: Say yes to reply, stop to stop reading, or no for next.', lang=user_lang)
-                    reply_decision, _ = listen_text()
-                    reply_decision = reply_decision.lower().strip()
-                    speak_text(f'[User]: {reply_decision}')
-                    if any(w in reply_decision for w in ['stop', 'enough', 'done', 'रुको', 'बस']):
-                        speak_text('[System]: Stopped reading messages.', lang=user_lang)
-                        break
-                    elif any(word in reply_decision for word in affirmation):
-                        # ★ AI suggested reply — same pattern as Telegram
-                        speak_text(r('suggest_generating'), lang=user_lang)
-                        suggestion = generate_local_reply(msg['message'])
-                        if suggestion:
-                            speak_text(f'[System]: {suggestion}. Shall I send this?', lang=user_lang)
-                            confirm, _ = listen_text()
-                            confirm = confirm.lower().strip()
-                            speak_text(f'[User]: {confirm}')
-                            if any(w in confirm for w in affirmation):
-                                success, result = whatsapp_send_message(msg['name'], suggestion)
-                                speak_text(f'[System]: {result}')
-                                continue
-                            speak_text(r('suggest_custom'), lang=user_lang)
-                        else:
-                            speak_text(r('suggest_failed'), lang=user_lang)
-                        # Manual reply fallback
-                        speak_text('[System]: What is your reply?', lang=user_lang)
-                        reply_msg, _ = listen_text(duration=10)
-                        reply_msg = reply_msg.strip()
-                        speak_text(f'[User]: {reply_msg}')
-                        if reply_msg:
-                            speak_text(f'[System]: Sending reply to {msg["name"]}. Confirm?', lang=user_lang)
-                            confirm, _ = listen_text()
-                            if any(w in confirm.lower() for w in affirmation):
-                                success, result = whatsapp_send_message(msg['name'], reply_msg)
-                                speak_text(f'[System]: {result}')
-                            else:
-                                speak_text('[System]: Reply cancelled.', lang=user_lang)
-                    else:
-                        speak_text('[System]: Okay, moving to the next message.', lang=user_lang)
-            continue
-
-        # ── NOT LOGGED IN GUARD ───────────────────────
-        elif web_login.login_status != "success" and (
-            ('send' in clean_heard and any(word in clean_heard for word in mail_req)) or
-            ('check' in clean_heard and any(word in clean_heard for word in inbox_req))
-        ):
+        # ── NOT LOGGED IN GUARD (email/inbox commands) ───────
+        elif (web_login.login_status != 'success' and (
+            ('send' in clean_heard and any(w in clean_heard for w in mail_req))
+            or ('check' in clean_heard and any(w in clean_heard for w in inbox_req))
+        )):
             speak_text(r('not_logged_in'), lang=user_lang)
             continue
 
-        # ── EMAIL — SEND ──────────────────────────────
-        elif web_login.login_status == "success" and 'send' in clean_heard and any(word in clean_heard for word in mail_req):
+        # ── EMAIL — SEND ─────────────────────────────────────
+        elif (web_login.login_status == 'success'
+              and 'send' in clean_heard
+              and any(w in clean_heard for w in mail_req)):
             speak_text(r('email_send_prompt'), lang=user_lang)
             response, _ = listen_text()
             response = response.lower().strip().replace('.', '')
@@ -836,12 +1004,10 @@ with open('Audio/Transcribe.txt', 'a', encoding='utf-8') as file:
                 speak_text(r('email_cancelled'), lang=user_lang)
             continue
 
-        # ── EMAIL — LATEST ────────────────────────────
-        elif (
-            web_login.login_status == 'success'
-            and any(word in clean_heard for word in ['latest', 'recent', 'नवीनतम'])
-            and any(word in clean_heard for word in inbox_req)
-        ):
+        # ── EMAIL — LATEST ───────────────────────────────────
+        elif (web_login.login_status == 'success'
+              and any(w in clean_heard for w in ['latest', 'recent', 'नवीनतम'])
+              and any(w in clean_heard for w in inbox_req)):
             speak_text(r('cat_prompt'), lang=user_lang)
             cat_response, _ = listen_text()
             cat_response = cat_response.lower().strip()
@@ -861,12 +1027,15 @@ with open('Audio/Transcribe.txt', 'a', encoding='utf-8') as file:
             else:
                 speak_text(
                     f'Your latest email. From: {latest_email["sender"]}. '
-                    f'Subject: {latest_email["subject"]}. Date: {latest_email["date"]}. '
+                    f'Subject: {latest_email["subject"]}. '
+                    f'Date: {latest_email["date"]}. '
                     f'Summary: {latest_email["summary"]}.'
                 )
 
-        # ── EMAIL — CHECK INBOX ───────────────────────
-        elif web_login.login_status == "success" and 'check' in clean_heard and any(word in clean_heard for word in inbox_req):
+        # ── EMAIL — CHECK INBOX ──────────────────────────────
+        elif (web_login.login_status == 'success'
+              and 'check' in clean_heard
+              and any(w in clean_heard for w in inbox_req)):
             speak_text(r('inbox_prompt'), lang=user_lang)
             response, _ = listen_text()
             response = response.lower().strip().replace('.', '')
@@ -883,7 +1052,6 @@ with open('Audio/Transcribe.txt', 'a', encoding='utf-8') as file:
                     category = 'UPDATES'
                 else:
                     category = 'ALL'
-                print(f'[DEBUG] Category selected: {category}')
                 inbox = get_top_senders(category=category)
                 for i, mail_item in enumerate(inbox, 1):
                     if 'error' in mail_item:
@@ -891,54 +1059,61 @@ with open('Audio/Transcribe.txt', 'a', encoding='utf-8') as file:
                         break
                     summary_text = (
                         f"Email {i}. From: {mail_item['sender']}. "
-                        f"Subject: {mail_item['subject']}. Date: {mail_item['date']}. "
+                        f"Subject: {mail_item['subject']}. "
+                        f"Date: {mail_item['date']}. "
                         f"Summary: {mail_item['summary']}."
                     )
                     if mail_item['details'].get('attachments'):
-                        summary_text += f" Has attachments: {', '.join(mail_item['details']['attachments'])}."
+                        summary_text += (
+                            f" Has attachments: "
+                            f"{', '.join(mail_item['details']['attachments'])}."
+                        )
                     speak_text(summary_text)
-
-                    # ── Ask to stop after each email (except last) ──
                     if i < len(inbox):
                         speak_text(
-                            '[System]: Say stop to stop reading, or anything else to continue.' if user_lang == 'en'
-                            else '[System]: पढ़ना बंद करने के लिए stop बोलें, या जारी रखने के लिए कुछ और।',
-                            lang=user_lang
+                            ('[System]: Say stop to stop reading, or anything else to continue.'
+                             if user_lang == 'en'
+                             else '[System]: पढ़ना बंद करने के लिए stop बोलें।'),
+                            lang=user_lang,
                         )
                         stop_heard, _ = listen_text(duration=4)
                         stop_heard = stop_heard.lower().strip()
                         speak_text(f'[User]: {stop_heard}')
-                        if any(w in stop_heard for w in ['stop', 'enough', 'done', 'रुको', 'बस']):
-                            speak_text('[System]: Stopped reading.' if user_lang == 'en'
-                                       else '[System]: पढ़ना बंद किया।', lang=user_lang)
+                        if any(w in stop_heard for w in
+                               ['stop', 'enough', 'done', 'रुको', 'बस']):
+                            speak_text(
+                                '[System]: Stopped reading.'
+                                if user_lang == 'en'
+                                else '[System]: पढ़ना बंद किया।',
+                                lang=user_lang,
+                            )
                             break
             elif any(s in response for s in negation):
                 speak_text(r('inbox_ok'), lang=user_lang)
             continue
 
-        # ── REPLY TO LATEST EMAIL ─────────────────────
-        elif (
-            web_login.login_status == 'success'
-            and 'reply' in clean_heard
-            and 'latest' in clean_heard
-            and any(w in clean_heard for w in mail_req)
-        ):
+        # ── REPLY TO LATEST EMAIL ────────────────────────────
+        elif (web_login.login_status == 'success'
+              and 'reply' in clean_heard
+              and 'latest' in clean_heard
+              and any(w in clean_heard for w in mail_req)):
             speak_text(r('reply_fetching'), lang=user_lang)
             emails     = get_top_senders(count=1)
             email_data = emails[0] if emails else {}
             if 'error' in email_data:
                 speak_text(f'[System]: {email_data["error"]}')
             else:
-                speak_text(f'[System]: Email from {email_data["sender"]}. Subject: {email_data["subject"]}.')
+                speak_text(
+                    f'[System]: Email from {email_data["sender"]}. '
+                    f'Subject: {email_data["subject"]}.'
+                )
                 handle_reply(email_data)
             continue
 
-        # ── REPLY TO SPECIFIC EMAIL ───────────────────
-        elif (
-            web_login.login_status == 'success'
-            and 'reply' in clean_heard
-            and any(w in clean_heard for w in mail_req)
-        ):
+        # ── REPLY TO SPECIFIC EMAIL ──────────────────────────
+        elif (web_login.login_status == 'success'
+              and 'reply' in clean_heard
+              and any(w in clean_heard for w in mail_req)):
             speak_text(r('reply_which'), lang=user_lang)
             num_heard, _ = listen_text()
             num_heard = num_heard.lower().strip()
@@ -950,100 +1125,43 @@ with open('Audio/Transcribe.txt', 'a', encoding='utf-8') as file:
                 'एक': 1, 'दो': 2, 'तीन': 3, 'चार': 4, 'पाँच': 5,
             }
             index = next((num_map[w] for w in num_map if w in num_heard), 1)
-            fetching = f'[System]: Fetching email number {index}.' if user_lang == 'en' \
-                else f'[System]: ईमेल नंबर {index} लाया जा रहा है।'
-            speak_text(fetching, lang=user_lang)
+            speak_text(
+                (f'[System]: Fetching email number {index}.'
+                 if user_lang == 'en'
+                 else f'[System]: ईमेल नंबर {index} लाया जा रहा है।'),
+                lang=user_lang,
+            )
             emails     = get_top_senders(count=index)
             email_data = emails[index - 1] if len(emails) >= index else {}
             if 'error' in email_data:
                 speak_text(f'[System]: {email_data["error"]}')
             else:
-                speak_text(f'[System]: Email from {email_data["sender"]}. Subject: {email_data["subject"]}.')
+                speak_text(
+                    f'[System]: Email from {email_data["sender"]}. '
+                    f'Subject: {email_data["subject"]}.'
+                )
                 handle_reply(email_data)
             continue
 
-        # ── PROFILE ───────────────────────────────────
-        elif web_login.login_status == "success" and ('profile' in clean_heard or 'प्रोफ़ाइल' in clean_heard):
-            current_email = web_login.app.config.get('current_email', '')
-            if not current_email:
-                speak_text(r('profile_not_found'), lang=user_lang)
-                continue
-            speak_text(r('profile_prompt'), lang=user_lang)
-            response, _ = listen_text()
-            response = response.lower().strip().replace('.', '')
-            speak_text(f'[User]: {response}')
-
-            if 'view' in response or 'show' in response or 'what' in response or 'देखो' in response:
-                user = get_user_by_email(current_email)
-                if user:
-                    speak_text(
-                        f'[System]: Your profile. Name: {user["name"]}. '
-                        f'Email: {user["email"]}. Account created on: {user["created_at"]}.'
-                    )
-                else:
-                    speak_text(r('profile_google'), lang=user_lang)
-
-            elif 'name' in response or 'नाम' in response:
-                speak_text(r('name_prompt'), lang=user_lang)
-                new_name, _ = listen_text()
-                new_name = new_name.strip()
-                speak_text(f'[User]: {new_name}')
-                if new_name:
-                    success, msg = update_name(current_email, new_name)
-                    speak_text(f'[System]: {msg}')
-                else:
-                    speak_text(r('name_cancelled'), lang=user_lang)
-
-            elif ('password' in response or 'पासवर्ड' in response) and ('audio' not in response and 'ऑडियो' not in response):
-                speak_text(r('pass_current'), lang=user_lang)
-                old_pass, _ = listen_text()
-                speak_text(r('pass_new'), lang=user_lang)
-                new_pass, _ = listen_text()
-                if old_pass and new_pass:
-                    success, msg = update_password(current_email, old_pass.strip(), new_pass.strip())
-                    speak_text(f'[System]: {msg}')
-                else:
-                    speak_text(r('pass_cancelled'), lang=user_lang)
-
-            elif 'audio' in response or 'ऑडियो' in response:
-                speak_text(r('audio_prompt'), lang=user_lang)
-                new_audio, _ = listen_text()
-                new_audio = new_audio.strip()
-                speak_text(f'[User]: {new_audio}')
-                if new_audio:
-                    success, msg = update_audio(current_email, new_audio)
-                    speak_text(f'[System]: {msg}')
-                    if success and new_audio.lower() not in confirmation_words:
-                        confirmation_words.append(new_audio.lower())
-                else:
-                    speak_text(r('audio_cancelled'), lang=user_lang)
-
-            elif 'delete' in response or 'डिलीट' in response:
-                speak_text(r('delete_confirm'), lang=user_lang)
-                confirm, _ = listen_text()
-                confirm = confirm.lower().strip()
-                speak_text(f'[User]: {confirm}')
-                if any(w in confirm for w in affirmation):
-                    speak_text(r('delete_pass'), lang=user_lang)
-                    password, _ = listen_text()
-                    success, msg = delete_user(current_email, password.strip())
-                    speak_text(f'[System]: {msg}')
-                    if success:
-                        web_login.login_status = 'waiting'
-                        login_initiated = False
-                else:
-                    speak_text(r('delete_cancelled'), lang=user_lang)
+        # ── PROFILE ──────────────────────────────────────────
+        elif (web_login.login_status == 'success'
+              and any(w in clean_heard for w in ['profile', 'प्रोफ़ाइल'])):
+            handle_profile()
             continue
 
-        # ── LOGOUT ────────────────────────────────────
-        elif any(word in clean_heard for word in logout_commands):
-            if web_login.login_status == "success":
-                speak_text('[System]: Logging you out.' if user_lang == 'en' else '[System]: लॉगआउट हो रहे हैं।', lang=user_lang)
-                web_login.login_status = "waiting"
-                login_initiated = False
-                # ── Clear Flask session so dashboard redirects ──
+        # ── LOGOUT ───────────────────────────────────────────
+        elif any(w in clean_heard for w in logout_commands):
+            if web_login.login_status == 'success':
+                speak_text(
+                    '[System]: Logging you out.'
+                    if user_lang == 'en'
+                    else '[System]: लॉगआउट हो रहे हैं।',
+                    lang=user_lang,
+                )
+                web_login.login_status = 'waiting'
+                login_initiated        = False
                 try:
-                    requests.post('http://localhost:5000/voice-logout')
+                    requests.post('http://localhost:5000/voice-logout', timeout=3)
                 except Exception:
                     pass
                 speak_text(r('logout_success'), lang=user_lang)
@@ -1051,32 +1169,48 @@ with open('Audio/Transcribe.txt', 'a', encoding='utf-8') as file:
                 speak_text(r('not_logged_in_lo'), lang=user_lang)
             continue
 
-        # ── TIME ──────────────────────────────────────
-        elif ('time' in clean_heard and 'date' not in clean_heard) or 'समय' in clean_heard:
-            t = datetime.datetime.now().strftime("%I:%M %p")
-            speak_text(f'[System]: The time is {t}.' if user_lang == 'en' else f'[System]: अभी समय है {t}।', lang=user_lang)
+        # ── TIME ─────────────────────────────────────────────
+        elif (('time' in clean_heard and 'date' not in clean_heard)
+              or 'समय' in clean_heard):
+            t = datetime.datetime.now().strftime('%I:%M %p')
+            speak_text(
+                f'[System]: The time is {t}.'
+                if user_lang == 'en'
+                else f'[System]: अभी समय है {t}।',
+                lang=user_lang,
+            )
 
-        # ── DATE ──────────────────────────────────────
-        elif 'date' in clean_heard or ('what' in clean_heard and 'day' in clean_heard) or 'तारीख' in clean_heard:
-            d = datetime.datetime.now().strftime("%A, %B %d, %Y")
-            speak_text(f'[System]: Today is {d}.' if user_lang == 'en' else f'[System]: आज {d} है।', lang=user_lang)
+        # ── DATE ─────────────────────────────────────────────
+        elif ('date' in clean_heard
+              or ('what' in clean_heard and 'day' in clean_heard)
+              or 'तारीख' in clean_heard):
+            d = datetime.datetime.now().strftime('%A, %B %d, %Y')
+            speak_text(
+                f'[System]: Today is {d}.'
+                if user_lang == 'en'
+                else f'[System]: आज {d} है।',
+                lang=user_lang,
+            )
 
-        # ── JOKE ──────────────────────────────────────
-        elif 'joke' in clean_heard or 'funny' in clean_heard or 'मज़ाक' in clean_heard or 'जोक' in clean_heard:
+        # ── JOKE ─────────────────────────────────────────────
+        elif any(w in clean_heard for w in
+                 ['joke', 'funny', 'मज़ाक', 'जोक']):
             joke = random.choice(JOKES_HI if user_lang == 'hi' else JOKES_EN)
             speak_text(f'[System]: {joke}', lang=user_lang)
 
-        # ── CALCULATOR ────────────────────────────────
-        elif any(w in clean_heard for w in ['calculate', 'what is', "what's", 'plus', 'minus', 'times',
-                                             'divided by', 'जमा', 'घटा', 'गुणा', 'भाग', 'क्या है', 'कितना']):
+        # ── CALCULATOR ───────────────────────────────────────
+        elif any(w in clean_heard for w in [
+            'calculate', 'what is', "what's", 'plus', 'minus', 'times',
+            'divided by', 'जमा', 'घटा', 'गुणा', 'भाग', 'क्या है', 'कितना'
+        ]):
             speak_text(calculate(clean_heard), lang=user_lang)
 
-        # ── GOODBYE ───────────────────────────────────
-        elif any(word in clean_heard for word in ending):
+        # ── GOODBYE ──────────────────────────────────────────
+        elif any(w in clean_heard for w in ending):
             speak_text(bye_hi if user_lang == 'hi' else bye_en, lang=user_lang)
             break
 
-        # ── FALLBACK ──────────────────────────────────
+        # ── FALLBACK ─────────────────────────────────────────
         elif not _is_nav:
             speak_text(r('not_understood'), lang=user_lang)
 

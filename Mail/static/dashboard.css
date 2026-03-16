@@ -1096,3 +1096,84 @@ body {
     min-height: 18px;
     text-align: center;
 }
+
+/* ── Commands Reference Panel ─────────────────────────── */
+.cmd-reference {
+    background: rgba(0, 0, 0, .18);
+    border: 1px solid rgba(255, 255, 255, .06);
+    border-radius: 12px;
+    padding: 14px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    max-height: 360px;
+    overflow-y: auto;
+}
+
+.cmd-reference::-webkit-scrollbar {
+    width: 3px;
+}
+
+.cmd-reference::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, .08);
+    border-radius: 2px;
+}
+
+.cmd-section-title {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--muted);
+    padding-bottom: 6px;
+    border-bottom: 1px solid rgba(255, 255, 255, .05);
+}
+
+.cmd-group {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.cmd-group-label {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 2px;
+    opacity: .8;
+}
+
+.cmd-admin-only .cmd-group-label {
+    color: var(--accent2);
+}
+
+.cmd-row {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    font-size: 11.5px;
+    line-height: 1.6;
+}
+
+.cmd-en {
+    font-family: 'Courier New', monospace;
+    color: #e0a060;
+    background: rgba(255, 255, 255, .05);
+    padding: 1px 6px;
+    border-radius: 4px;
+    white-space: nowrap;
+    font-size: 11px;
+}
+
+.cmd-sep {
+    color: #444;
+    font-size: 10px;
+    flex-shrink: 0;
+}
+
+.cmd-hi {
+    color: var(--muted);
+    font-size: 11px;
+}

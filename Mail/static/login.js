@@ -2,11 +2,10 @@
 // LOGIN PAGE LOGIC
 // ----------------------
 // Three login paths:
-//   1. Gmail/Google domain   → /auth/google  (auto-detected)
-//   2. Outlook/Microsoft domain → /auth/microsoft (auto-detected)
-//   3. Other email           → POST /login with password
-//   4. Audio                 → main.py sets login_status → poll detects → /dashboard
-// ----------------------
+//   1. Gmail/Google domain      → /auth/google       (auto-detected)
+//   2. Outlook/Microsoft domain → /auth/microsoft    (auto-detected)
+//   3. Other email              → POST /login with password
+//   4. Audio                    → main.py sets login_status → poll detects → /dashboard
 
 const GOOGLE_DOMAINS = ['gmail.com', 'googlemail.com'];
 const MICROSOFT_DOMAINS = ['outlook.com', 'hotmail.com', 'live.com', 'msn.com'];
@@ -14,29 +13,24 @@ const MICROSOFT_DOMAINS = ['outlook.com', 'hotmail.com', 'live.com', 'msn.com'];
 let keyboardLoginAttempted = false;
 let pollingActive = true;
 
-// ── Auto-start audio login if arriving from signup ──
+// ── Auto-start audio login if arriving from signup ──────────────
 const urlParams = new URLSearchParams(window.location.search);
 if (urlParams.get('from') === 'signup') {
-    // Show a message telling the user to say their audio password
     const msg = document.getElementById('message');
     if (msg) {
         msg.style.color = '#4ade80';
         msg.textContent = '🎙 Say your audio password to log in...';
     }
-    // Don't block keyboard polling — audio polling is already running
-    // Just make sure keyboardLoginAttempted stays false
     keyboardLoginAttempted = false;
     pollingActive = true;
 }
 
-// ----------------------
-// Notify Flask on keypress — triggers 20s audio pause in main.py
-// ----------------------
+// ── Notify Flask on keypress — triggers audio pause ─────────────
 function notifyTyping(isTyping) {
     fetch('/typing', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ typing: isTyping })
+        body: JSON.stringify({ typing: isTyping }),
     }).catch(() => { });
 }
 
@@ -47,10 +41,7 @@ document.querySelectorAll('input').forEach(input => {
     });
 });
 
-
-// ----------------------
-// 1. FORM SUBMIT — detect domain and route accordingly
-// ----------------------
+// ── 1. FORM SUBMIT — detect domain and route accordingly ─────────
 document.getElementById('loginForm').addEventListener('submit', async function (e) {
     e.preventDefault();
     const messageEl = document.getElementById('message');
@@ -58,7 +49,6 @@ document.getElementById('loginForm').addEventListener('submit', async function (
     const password = document.getElementById('password').value;
     const domain = email.split('@')[1]?.toLowerCase();
 
-    // Google account → skip password, go straight to OAuth
     if (GOOGLE_DOMAINS.includes(domain)) {
         messageEl.style.color = '#8888aa';
         messageEl.innerText = 'Detected Google account. Redirecting...';
@@ -66,7 +56,6 @@ document.getElementById('loginForm').addEventListener('submit', async function (
         return;
     }
 
-    // Microsoft account → skip password, go to Microsoft OAuth
     if (MICROSOFT_DOMAINS.includes(domain)) {
         messageEl.style.color = '#8888aa';
         messageEl.innerText = 'Detected Microsoft account. Redirecting...';
@@ -74,14 +63,12 @@ document.getElementById('loginForm').addEventListener('submit', async function (
         return;
     }
 
-    // Standard email/password login
     try {
         const response = await fetch('/login', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email, password })
+            body: JSON.stringify({ email, password }),
         });
-
         const result = await response.json();
 
         if (result.status === 'success') {
@@ -93,7 +80,6 @@ document.getElementById('loginForm').addEventListener('submit', async function (
             messageEl.innerText = result.message || 'Login failed';
             keyboardLoginAttempted = false;
         }
-
     } catch (error) {
         messageEl.style.color = '#f87171';
         messageEl.innerText = 'Error connecting to server';
@@ -101,10 +87,7 @@ document.getElementById('loginForm').addEventListener('submit', async function (
     }
 });
 
-
-// ----------------------
-// 2. AUDIO LOGIN — poll /check every second
-// ----------------------
+// ── 2. AUDIO LOGIN — poll /check every second ────────────────────
 async function checkAudioLogin() {
     if (keyboardLoginAttempted) return;
     if (!pollingActive) return;
@@ -117,35 +100,27 @@ async function checkAudioLogin() {
         if (data.status === 'success') {
             pollingActive = false;
             window.location.href = '/dashboard';
-
         } else if (data.status === 'failed') {
             pollingActive = false;
-            showOverlay('Login cancelled', 4000);
-            setTimeout(() => {
-                pollingActive = true;
-                keyboardLoginAttempted = false;
-            }, 4000);
+            window.location.href = '/login-cancelled';
         }
-
     } catch (error) {
         console.log('Polling: server not ready yet...');
     }
 }
 setInterval(checkAudioLogin, 1000);
 
-// ─────────────────────────────────────────────────────────────
-//  login_init.js
-//  Page-level initialisation for login.html.
-//  Runs after login.js has loaded.
-// ─────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────
+//  login_init.js  (merged inline)
+// ─────────────────────────────────────────────────────────────────
 
-// ── Password show/hide ────────────────────────────────────────
+// ── Password show/hide ───────────────────────────────────────────
 document.getElementById('eyeBtn').addEventListener('click', () => {
     const input = document.getElementById('password');
     input.type = input.type === 'password' ? 'text' : 'password';
 });
 
-// ── Email domain hint ─────────────────────────────────────────
+// ── Email domain hint ────────────────────────────────────────────
 const emailInput = document.getElementById('email');
 const hint = document.getElementById('emailHint');
 const passInput = document.getElementById('password');
@@ -175,11 +150,9 @@ function updateEmailHint() {
 }
 
 emailInput.addEventListener('input', updateEmailHint);
-
-// Re-evaluate hint text when language switches
 document.addEventListener('langChanged', updateEmailHint);
 
-// ── Loader ────────────────────────────────────────────────────
+// ── Loader ───────────────────────────────────────────────────────
 const VoiceAILoader = {
     el: document.getElementById('va-loader'),
     label: document.getElementById('va-label'),
@@ -189,7 +162,7 @@ const VoiceAILoader = {
     },
     hide(delay = 0) {
         setTimeout(() => this.el.classList.add('va-hidden'), delay);
-    }
+    },
 };
 window.addEventListener('load', () => VoiceAILoader.hide(600));
 
@@ -199,7 +172,7 @@ document.getElementById('loginForm').addEventListener('submit', () => {
     );
 });
 
-// ── Auto-trigger audio login if arriving from signup ──────────
+// ── Auto-trigger audio login if arriving from signup ─────────────
 if (new URLSearchParams(window.location.search).get('from') === 'signup') {
     fetch('/start-audio-login', { method: 'POST' }).catch(() => { });
     const msg = document.getElementById('message');
@@ -211,29 +184,19 @@ if (new URLSearchParams(window.location.search).get('from') === 'signup') {
     }
 }
 
-// ----------------------
-// 3. OVERLAY — shown on audio login failure
-// ----------------------
+// ── 3. OVERLAY — kept for non-audio failure messages ─────────────
 function showOverlay(message, duration = 3000) {
     const overlay = document.createElement('div');
     overlay.style.cssText = `
-        position: fixed; inset: 0;
-        background: rgba(0,0,0,0.65);
-        display: flex; align-items: center;
-        justify-content: center; z-index: 9999;
-    `;
+        position:fixed;inset:0;background:rgba(0,0,0,0.65);
+        display:flex;align-items:center;justify-content:center;z-index:9999;`;
     const box = document.createElement('div');
     box.style.cssText = `
-        background: #17171d; border: 1px solid rgba(255,255,255,0.1);
-        padding: 24px 40px; border-radius: 10px;
-        font-size: 16px; font-family: sans-serif; color: #ededf0;
-    `;
+        background:#17171d;border:1px solid rgba(255,255,255,0.1);
+        padding:24px 40px;border-radius:10px;
+        font-size:16px;font-family:sans-serif;color:#ededf0;`;
     box.innerText = message;
     overlay.appendChild(box);
     document.body.appendChild(overlay);
-
-    setTimeout(() => {
-        overlay.remove();
-        window.location.href = '/';
-    }, duration);
+    setTimeout(() => { overlay.remove(); window.location.href = '/'; }, duration);
 }

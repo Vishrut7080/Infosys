@@ -157,7 +157,9 @@ def login_page():
     global login_status, login_from_signup
     if login_status == 'failed':
         login_status = 'waiting'
-    if 'user' not in session:
+    # ONLY reset to waiting if not already in a success state set by audio login
+    # Don't clobber a success that main.py just set before session was populated
+    if 'user' not in session and login_status != 'success':
         login_status = 'waiting'
     from_signup = request.args.get('from') == 'signup'
     return render_template('login.html', from_signup=from_signup)
@@ -177,15 +179,15 @@ def set_typing():
 @app.route('/check')
 def check_login():
     global login_status
-    print('Flask sees:', login_status)
-    # For audio login — session isn't set by a form/OAuth
-    # so we set a minimal session here so /dashboard doesn't reject it
     if login_status == 'success' and 'user' not in session:
         email = app.config.get('current_email', '')
-        session['user'] = {
-            'name' : 'User',
-            'email': app.config.get('current_email', ''),
-        }
+        # Look up real name from DB instead of hardcoding 'User'
+        name = 'User'
+        if email:
+            user_record = database.get_user_by_email(email)
+            if user_record:
+                name = user_record['name']
+        session['user'] = {'name': 'User', 'email': email}
         if email:
             database.log_session(email)
     status = login_status
@@ -196,6 +198,21 @@ def check_login():
 @app.route('/check-session')
 def check_session():
     return jsonify({'logged_in': 'user' in session})
+
+@app.route('/login-cancelled')
+def login_cancelled():
+    """Renders a self-closing page when audio login fails."""
+    return '''<!DOCTYPE html>
+<html>
+<head><title>Cancelled</title></head>
+<body>
+<script>
+  // Show briefly then close
+  document.write('<p style="font-family:sans-serif;color:#888;text-align:center;margin-top:40vh">Login cancelled. Closing...</p>');
+  setTimeout(() => window.close(), 1800);
+</script>
+</body>
+</html>'''
 
 @app.route('/voice-logout', methods=['POST'])
 def voice_logout():
@@ -272,6 +289,18 @@ def get_services():
         'voice_confirmed': login_status == 'success',
         'services':        selected_services if selected_services else [],
     })
+
+@app.route('/get-user-info')
+def get_user_info():
+    if 'user' not in session:
+        return jsonify({'name': '', 'email': ''})
+    email = session['user'].get('email', '')
+    # Always fetch fresh from DB so audio login gets real name
+    record = database.get_user_by_email(email)
+    name   = record['name'] if record else session['user'].get('name', 'User')
+    # Also update the session so future page loads are correct
+    session['user']['name'] = name
+    return jsonify({'name': name, 'email': email, 'is_admin': database.is_admin(email)})
 
 # -------------------------------------------------
 # NAVIGATION IN DASHBOARD
@@ -623,23 +652,6 @@ def get_inbox():
         except Exception as ex:
             print(f'[Inbox] Telegram error: {ex}')
 
-    # ── WhatsApp ───────────────────────────────────
-    if 'whatsapp' in services:
-        try:
-            from Whatsapp.whatsapp import whatsapp_get_messages
-            wa_msgs = whatsapp_get_messages(5)
-            for m in wa_msgs:
-                messages.append({
-                    'source':  'whatsapp',
-                    'from':    m['name'],
-                    'to':      'Me',
-                    'text':    m['message'],
-                    'dir':     'Incoming',
-                    'time':    m['date'],
-                })
-        except Exception as ex:
-            print(f'[Inbox] WhatsApp error: {ex}')
-
     # Sort newest first — best effort (strings, so sort descending)
     messages.sort(key=lambda x: x.get('time', ''), reverse=True)
     return jsonify({'messages': messages})
@@ -656,6 +668,13 @@ def admin_page():
         return redirect(url_for('dashboard'))
     return render_template('admin.html', user=session['user'])
 
+@app.route('/is-admin')
+def is_admin_check():
+    """Lightweight endpoint — tells the dashboard if current user is admin."""
+    if 'user' not in session:
+        return jsonify({'is_admin': False})
+    email = session['user'].get('email', '')
+    return jsonify({'is_admin': database.is_admin(email)})
 
 @app.route('/admin/users')
 @admin_required
