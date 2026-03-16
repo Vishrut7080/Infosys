@@ -672,86 +672,70 @@ with open('Audio/Transcribe.txt', 'a', encoding='utf-8') as file:
                             lang=user_lang,
                         )
 
-                if not verified_services:
-                    speak_text(
-                        ('[System]: No services verified. Please try again.'
-                         if user_lang == 'en'
-                         else '[System]: कोई सेवा सत्यापित नहीं हुई। कृपया पुनः प्रयास करें।'),
-                        lang=user_lang,
-                    )
-                    awaiting_services = False
-                    continue
-
                 web_login.selected_services = verified_services
                 awaiting_services = False
-                services = verified_services
+                _awaiting_services_since = 0.0
 
-                # ── Start Telegram if selected ──
-                if 'telegram' in services:
-                    speak_text(r('tg_starting'), lang=user_lang)
-                    api_id   = int(os.getenv('TELEGRAM_API_ID', 0))
-                    api_hash = os.getenv('TELEGRAM_API_HASH', '')
-                    if api_id and api_hash:
-                        start_telegram_in_thread()
-                        time.sleep(2)
-                        from Telegram.telegram import _client, _loop as tg_loop
-                        import asyncio as _asyncio
-                        authorized = False
-                        if _client and _client.is_connected() and tg_loop:
-                            try:
-                                fut = _asyncio.run_coroutine_threadsafe(
-                                    _client.is_user_authorized(), tg_loop
-                                )
-                                authorized = fut.result(timeout=5)
-                            except Exception:
-                                authorized = False
-
-                        if not authorized:
-                            speak_text(r('tg_auth_prompt'), lang=user_lang)
-                            auth_word, _ = listen_text(duration=8)
-                            auth_word = auth_word.lower().strip()
-                            speak_text(f'[User]: {auth_word}')
-                            if auth_word == SECRET_AUD.lower().strip():
-                                speak_text(r('tg_auth_ok'), lang=user_lang)
-                                webbrowser.open('http://localhost:5000/telegram-auth')
+                if verified_services:
+                    if 'telegram' in verified_services:
+                        speak_text(r('tg_starting'), lang=user_lang)
+                        api_id   = int(os.getenv('TELEGRAM_API_ID', 0))
+                        api_hash = os.getenv('TELEGRAM_API_HASH', '')
+                        if api_id and api_hash:
+                            start_telegram_in_thread()
+                            time.sleep(2)
+                            from Telegram.telegram import _client, _loop as tg_loop
+                            import asyncio as _asyncio
+                            authorized = False
+                            if _client and _client.is_connected() and tg_loop:
+                                try:
+                                    fut = _asyncio.run_coroutine_threadsafe(
+                                        _client.is_user_authorized(), tg_loop
+                                    )
+                                    authorized = fut.result(timeout=5)
+                                except Exception:
+                                    authorized = False
+                            if not authorized:
+                                speak_text(r('tg_auth_prompt'), lang=user_lang)
+                                auth_word, _ = listen_text(duration=8)
+                                auth_word = auth_word.lower().strip()
+                                speak_text(f'[User]: {auth_word}')
+                                if auth_word == SECRET_AUD.lower().strip():
+                                    speak_text(r('tg_auth_ok'), lang=user_lang)
+                                    webbrowser.open('http://localhost:5000/telegram-auth')
+                                else:
+                                    speak_text(r('tg_auth_fail'), lang=user_lang)
                             else:
-                                speak_text(r('tg_auth_fail'), lang=user_lang)
-                        else:
-                            speak_text(r('tg_auto'), lang=user_lang)
+                                speak_text(r('tg_auto'), lang=user_lang)
 
-                if 'gmail' in services:
-                    speak_text(r('gmail_ready'), lang=user_lang)
+                    if 'gmail' in verified_services:
+                        speak_text(r('gmail_ready'), lang=user_lang)
 
-                connected_msg = (
-                    f'[System]: Connected: {", ".join(services)}. Ready.'
-                    if user_lang == 'en'
-                    else f'[System]: कनेक्ट हुआ: {", ".join(services)}। तैयार।'
-                )
-                speak_text(connected_msg, lang=user_lang)
+                    speak_text(
+                        f'[System]: Connected: {", ".join(verified_services)}. Ready.'
+                        if user_lang == 'en'
+                        else f'[System]: कनेक्ट हुआ: {", ".join(verified_services)}। तैयार।',
+                        lang=user_lang,
+                    )
+                else:
+                    speak_text(
+                        '[System]: No services connected. You can still use voice commands.'
+                        if user_lang == 'en'
+                        else '[System]: कोई सेवा कनेक्ट नहीं हुई। आप वॉइस कमांड इस्तेमाल कर सकते हैं।',
+                        lang=user_lang,
+                    )
                 continue
+
             else:
-                # Start the clock on first spin
-                if _awaiting_services_since == 0.0:
-                    _awaiting_services_since = time.time()
-                # Timeout after 120 seconds — speak a reminder every 30s
-                elapsed = time.time() - _awaiting_services_since
-                if elapsed > 120:
-                    speak_text(
-                        '[System]: No services selected. Continuing without services.'
-                        if user_lang == 'en'
-                        else '[System]: कोई सेवा नहीं चुनी। बिना सेवाओं के जारी है।',
-                        lang=user_lang,
-                    )
-                    awaiting_services = False
-                    _awaiting_services_since = 0.0
-                elif elapsed > 30 and int(elapsed) % 30 == 0:
-                    speak_text(
-                        '[System]: Please select your services on the dashboard.'
-                        if user_lang == 'en'
-                        else '[System]: कृपया डैशबोर्ड पर सेवाएं चुनें।',
-                        lang=user_lang,
-                    )
-                time.sleep(0.5)
+                # No services selected yet — don't block, proceed immediately
+                awaiting_services = False
+                _awaiting_services_since = 0.0
+                speak_text(
+                    '[System]: Ready. Select services on the dashboard anytime.'
+                    if user_lang == 'en'
+                    else '[System]: तैयार। डैशबोर्ड पर कभी भी सेवाएं चुनें।',
+                    lang=user_lang,
+                )
                 continue
 
         # ── Typing pause ────────────────────────────────────
@@ -777,20 +761,7 @@ with open('Audio/Transcribe.txt', 'a', encoding='utf-8') as file:
             awaiting_services = True
             speak_text(r('select_services'), lang=user_lang)
             continue
-
-        if awaiting_services and web_login.selected_services:
-            awaiting_services = False
-            services = web_login.selected_services
-            if 'gmail' in services:
-                speak_text(r('gmail_ready'), lang=user_lang)
-            speak_text(
-                f'[System]: Connected: {", ".join(services)}. Ready.'
-                if user_lang == 'en'
-                else f'[System]: कनेक्ट हुआ: {", ".join(services)}। तैयार।',
-                lang=user_lang,
-            )
-            continue
-
+        
         speak_text(f'[User]: {heard}')
         clean_heard = heard.lower().strip().replace('.', '')
         clean_heard = normalize_hindi(clean_heard)

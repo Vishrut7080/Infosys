@@ -344,6 +344,8 @@ function showSuccessScreen() {
 
 function handleCancel(e) {
     e.preventDefault();
+    // Don't cancel if registration already succeeded
+    if (!document.getElementById('successScreen')?.hidden) return;
     navigator.sendBeacon('/signup-closed');
     window.location.href = '/';
 }
@@ -360,9 +362,16 @@ let cancelCheckInterval = setInterval(async () => {
         const data = await res.json();
         const entries = data.entries || [];
         const last = entries[entries.length - 1];
-        if (last && /\b(cancel|go back|return|login)\b/i.test(last.text)) {
-            clearInterval(cancelCheckInterval);
-            handleCancel(new Event('click'));
+        if (!last) return;
+
+        // Only act on [User] speech, never on [System] messages
+        const isUserSpeech = /^\[user\]/i.test(last.text);
+        if (isUserSpeech) {
+            const spoken = last.text.replace(/^\[user\]:\s*/i, '').toLowerCase();
+            if (/\b(cancel|go back|return)\b/.test(spoken)) {
+                clearInterval(cancelCheckInterval);
+                handleCancel(new Event('click'));
+            }
         }
     } catch (e) { }
 }, 1500);

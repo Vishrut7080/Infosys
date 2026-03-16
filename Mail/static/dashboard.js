@@ -69,24 +69,6 @@ async function refreshUserAndRole() {
 refreshUserAndRole();
 setTimeout(refreshUserAndRole, 2000);
 
-async function refreshUserDisplay() {
-    try {
-        const res = await fetch('/get-user-info');
-        const data = await res.json();
-        if (data.name && data.name !== 'User') {
-            const nameEl = document.getElementById('sidebarName');
-            const avatarEl = document.getElementById('avatarInitial');
-            const pNameEl = document.getElementById('profileName');
-            const pEmailEl = document.getElementById('profileEmail');
-            if (nameEl) nameEl.textContent = data.name;
-            if (avatarEl) avatarEl.textContent = data.name.charAt(0).toUpperCase();
-            if (pNameEl) pNameEl.textContent = data.name;
-            if (pEmailEl) pEmailEl.textContent = data.email;
-        }
-    } catch (e) { }
-}
-refreshUserDisplay();
-
 // ─── WAVEFORM — always animated ───────────────────────────────
 window.addEventListener('DOMContentLoaded', () => {
     const wf = document.getElementById('waveform');
@@ -380,7 +362,9 @@ async function checkLogoutStatus() {
     try {
         const res = await fetch('/check-session');
         const data = await res.json();
-        if (!data.logged_in) window.location.href = '/';
+        if (!data.logged_in) {
+            window.location.href = '/';
+        }
     } catch (e) { }
 }
 setInterval(checkLogoutStatus, 2000);
