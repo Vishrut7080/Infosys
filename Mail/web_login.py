@@ -82,16 +82,6 @@ google = oauth.register(
     }
 )
 
-microsoft = oauth.register(
-    name='microsoft',
-    client_id=os.getenv('MICROSOFT_CLIENT_ID'),
-    client_secret=os.getenv('MICROSOFT_CLIENT_SECRET'),
-    server_metadata_url='https://login.microsoftonline.com/common/v2.0/.well-known/openid-configuration',
-    client_kwargs={
-        'scope': 'openid email profile'
-    }
-)
-
 # Where all successful logins redirect to
 GMAIL_URL = "https://mail.google.com/mail/u/0/#inbox"
 
@@ -162,7 +152,8 @@ def login_page():
     if 'user' not in session and login_status != 'success':
         login_status = 'waiting'
     from_signup = request.args.get('from') == 'signup'
-    return render_template('login.html', from_signup=from_signup)
+    error       = request.args.get('error', '')
+    return render_template('login.html', from_signup=from_signup, error=error)
 
 # Flag to pause audio listening when user is active in browser
 user_typing = False
@@ -374,71 +365,38 @@ def auth_google_callback():
                 'https://openidconnect.googleapis.com/v1/userinfo'
             ).json()
 
+        oauth_email = user_info.get('email')
+        oauth_name  = user_info.get('name')
+
+        # Check if this email is registered in the database
+        user_record = database.get_user_by_email(oauth_email)
+        if not user_record:
+            login_status = 'failed'
+            return redirect(url_for('login_page') + '?error=not_registered')
+
         session['user'] = {
-            'name':    user_info.get('name'),
-            'email':   user_info.get('email'),
+            'name':    user_record['name'],
+            'email':   oauth_email,
             'picture': user_info.get('picture'),
         }
-        database.log_session(session['user']['email'])
-        apply_user_credentials(session['user']['email'])
-        database.log_activity(session['user']['email'], 'login', 'google_oauth')
+        database.log_session(oauth_email)
+        apply_user_credentials(oauth_email)
+        database.log_activity(oauth_email, 'login', 'google_oauth')
         login_status = 'success'
-        app.config['current_email'] = session['user']['email']
-        print(f"[OAuth] Login successful: {session['user']['email']}")
+        app.config['current_email'] = oauth_email
+        print(f"[OAuth] Login successful: {oauth_email}")
         threading.Thread(
             target=speak_text,
-            args=(f"[System]: Welcome {session['user']['name']}.",),
+            args=(f"[System]: Welcome {user_record['name']}.",),
             daemon=True
         ).start()
-        return redirect(url_for('dashboard'))
+        redirect_url = '/admin' if database.is_admin(oauth_email) else '/dashboard'
+        return redirect(redirect_url)
 
     except Exception as e:
         # Print the FULL error with type
         print(f"[OAuth] Login failed — Type: {type(e).__name__}")
         print(f"[OAuth] Login failed — Full error: {repr(e)}")  # ← add this line
-        login_status = 'failed'
-        return redirect(url_for('login_page') + '?error=oauth_failed')
-
-# ========================
-# MICROSOFT OAUTH
-# ========================
-
-@app.route('/auth/microsoft')
-def auth_microsoft():
-    redirect_uri = url_for('auth_microsoft_callback', _external=True)
-    return microsoft.authorize_redirect(redirect_uri)
-
-@app.route('/auth/microsoft/callback')
-def auth_microsoft_callback():
-    global login_status
-    try:
-        token     = microsoft.authorize_access_token()
-        user_info = token.get('userinfo')
-        if not user_info:
-            user_info = microsoft.get(
-                'https://graph.microsoft.com/v1.0/me'
-            ).json()
-
-        session['user'] = {
-            'name':    user_info.get('displayName') or user_info.get('name'),
-            'email':   user_info.get('mail') or user_info.get('email') or user_info.get('userPrincipalName'),
-            'picture': None,
-        }
-        database.log_session(session['user']['email'])
-        apply_user_credentials(session['user']['email'])
-        database.log_activity(session['user']['email'], 'login', 'microsoft_oauth')
-        login_status = 'success'
-        app.config['current_email'] = session['user']['email']
-        print(f"[OAuth] Microsoft login: {session['user']['email']}")
-        threading.Thread(
-            target=speak_text,
-            args=(f"[System]: Welcome {session['user']['name']}.",),
-            daemon=True
-        ).start()
-        return redirect(url_for('dashboard'))
-
-    except Exception as e:
-        print(f"[OAuth] Microsoft failed: {repr(e)}")
         login_status = 'failed'
         return redirect(url_for('login_page') + '?error=oauth_failed')
 

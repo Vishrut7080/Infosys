@@ -522,3 +522,47 @@ input:focus {
     background: rgba(255, 255, 255, 0.15);
     border-color: rgba(255, 255, 255, 0.3);
 }
+
+/* ── DIVIDER ── */
+.divider-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 18px 0;
+}
+
+.divider-line {
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+}
+
+.divider-text {
+    font-size: 12px;
+    color: var(--text-3);
+}
+
+/* ── GOOGLE BUTTON ── */
+.btn-google {
+    width: 100%;
+    padding: 11px 18px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text-1);
+    font-family: 'Cabinet Grotesk', sans-serif;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    transition: all 0.18s;
+    margin-bottom: 4px;
+}
+
+.btn-google:hover {
+    border-color: var(--border-hi);
+    background: rgba(255, 255, 255, 0.05);
+}

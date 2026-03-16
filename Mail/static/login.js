@@ -1,19 +1,9 @@
-// ----------------------
-// LOGIN PAGE LOGIC
-// ----------------------
-// Three login paths:
-//   1. Gmail/Google domain      → /auth/google       (auto-detected)
-//   2. Outlook/Microsoft domain → /auth/microsoft    (auto-detected)
-//   3. Other email              → POST /login with password
-//   4. Audio                    → main.py sets login_status → poll detects → /dashboard
-
 const GOOGLE_DOMAINS = ['gmail.com', 'googlemail.com'];
 const MICROSOFT_DOMAINS = ['outlook.com', 'hotmail.com', 'live.com', 'msn.com'];
 
 let keyboardLoginAttempted = false;
 let pollingActive = true;
 
-// ── Auto-start audio login if arriving from signup ──────────────
 const urlParams = new URLSearchParams(window.location.search);
 if (urlParams.get('from') === 'signup') {
     const msg = document.getElementById('message');
@@ -25,7 +15,6 @@ if (urlParams.get('from') === 'signup') {
     pollingActive = true;
 }
 
-// ── Notify Flask on keypress — triggers audio pause ─────────────
 function notifyTyping(isTyping) {
     fetch('/typing', {
         method: 'POST',
@@ -41,27 +30,12 @@ document.querySelectorAll('input').forEach(input => {
     });
 });
 
-// ── 1. FORM SUBMIT — detect domain and route accordingly ─────────
+// ── FORM SUBMIT — always use database login ──────────────────────
 document.getElementById('loginForm').addEventListener('submit', async function (e) {
     e.preventDefault();
     const messageEl = document.getElementById('message');
     const email = document.getElementById('email').value.trim();
     const password = document.getElementById('password').value;
-    const domain = email.split('@')[1]?.toLowerCase();
-
-    if (GOOGLE_DOMAINS.includes(domain)) {
-        messageEl.style.color = '#8888aa';
-        messageEl.innerText = 'Detected Google account. Redirecting...';
-        setTimeout(() => { window.location.href = '/auth/google'; }, 700);
-        return;
-    }
-
-    if (MICROSOFT_DOMAINS.includes(domain)) {
-        messageEl.style.color = '#8888aa';
-        messageEl.innerText = 'Detected Microsoft account. Redirecting...';
-        setTimeout(() => { window.location.href = '/auth/microsoft'; }, 700);
-        return;
-    }
 
     try {
         const response = await fetch('/login', {
@@ -89,7 +63,7 @@ document.getElementById('loginForm').addEventListener('submit', async function (
     }
 });
 
-// ── 2. AUDIO LOGIN — poll /check every second ────────────────────
+// ── AUDIO LOGIN — poll /check every second ────────────────────────
 async function checkAudioLogin() {
     if (keyboardLoginAttempted) return;
     if (!pollingActive) return;
@@ -112,47 +86,11 @@ async function checkAudioLogin() {
 }
 setInterval(checkAudioLogin, 1000);
 
-// ─────────────────────────────────────────────────────────────────
-//  login_init.js  (merged inline)
-// ─────────────────────────────────────────────────────────────────
-
 // ── Password show/hide ───────────────────────────────────────────
 document.getElementById('eyeBtn').addEventListener('click', () => {
     const input = document.getElementById('password');
     input.type = input.type === 'password' ? 'text' : 'password';
 });
-
-// ── Email domain hint ────────────────────────────────────────────
-const emailInput = document.getElementById('email');
-const hint = document.getElementById('emailHint');
-const passInput = document.getElementById('password');
-const googleDomains = ['gmail.com', 'googlemail.com'];
-const microsoftDomains = ['outlook.com', 'hotmail.com', 'live.com', 'msn.com'];
-
-function updateEmailHint() {
-    const domain = emailInput.value.split('@')[1]?.toLowerCase();
-    if (!domain) { hint.textContent = ''; passInput.required = true; return; }
-
-    if (googleDomains.includes(domain)) {
-        hint.textContent = window.LangManager?.isHindi()
-            ? '→ Google से जारी रहेगा'
-            : '→ Will continue with Google';
-        hint.style.color = '#4285F4';
-        passInput.required = false;
-    } else if (microsoftDomains.includes(domain)) {
-        hint.textContent = window.LangManager?.isHindi()
-            ? '→ Microsoft से जारी रहेगा'
-            : '→ Will continue with Microsoft';
-        hint.style.color = '#00a4ef';
-        passInput.required = false;
-    } else {
-        hint.textContent = '';
-        passInput.required = true;
-    }
-}
-
-emailInput.addEventListener('input', updateEmailHint);
-document.addEventListener('langChanged', updateEmailHint);
 
 // ── Loader ───────────────────────────────────────────────────────
 const VoiceAILoader = {
@@ -186,7 +124,6 @@ if (new URLSearchParams(window.location.search).get('from') === 'signup') {
     }
 }
 
-// ── 3. OVERLAY — kept for non-audio failure messages ─────────────
 function showOverlay(message, duration = 3000) {
     const overlay = document.createElement('div');
     overlay.style.cssText = `
