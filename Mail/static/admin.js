@@ -11,7 +11,7 @@ document.getElementById('adminInitial').textContent = ADMIN_NAME.charAt(0).toUpp
 // ── Panel switching ──
 function showPanel(id, el) {
     document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
-    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+    document.querySelectorAll('nav .nav-item').forEach(n => n.classList.remove('active'));
     document.getElementById('panel-' + id).classList.add('active');
     if (el) el.classList.add('active');
 
@@ -349,3 +349,61 @@ setInterval(loadOverviewActivity, 10000);
 
 // ── Init ──
 refreshAll();
+
+// ── Live Feed ──
+let adminFeedIndex = 0;
+
+async function pollAdminFeed() {
+    try {
+        const res = await fetch(`/api/feed?since=${adminFeedIndex}`);
+        const data = await res.json();
+        if (!data.entries || !data.entries.length) return;
+
+        const feed = document.getElementById('adminConvFeed');
+        if (!feed) return;
+
+        const empty = feed.querySelector('[style*="padding:30px"]');
+        if (empty) empty.remove();
+
+        for (const entry of data.entries) {
+            const isUser = /^\[user\]/i.test(entry.text);
+            const isTg = /^\[telegram\]/i.test(entry.text);
+            const role = isUser ? 'user' : isTg ? 'telegram' : 'system';
+
+            const colors = {
+                user: 'var(--accent)',
+                telegram: 'var(--info)',
+                system: 'var(--muted)',
+            };
+            const labels = { user: 'User', telegram: 'Telegram', system: 'Assistant' };
+
+            const text = entry.text
+                .replace(/^\[System\]:\s*/i, '')
+                .replace(/^\[User\]:\s*/i, '')
+                .replace(/^\[Telegram\]:\s*/i, '');
+
+            const row = document.createElement('div');
+            row.style.cssText = `display:flex;gap:8px;align-items:flex-start;font-size:12px;`;
+            row.innerHTML = `
+                <span style="color:${colors[role]};font-weight:600;min-width:64px;flex-shrink:0;">
+                    ${labels[role]}
+                </span>
+                <span style="color:var(--text);flex:1;line-height:1.5;">${text}</span>
+                <span style="color:var(--muted);font-size:10px;flex-shrink:0;">${entry.time || ''}</span>
+            `;
+            feed.appendChild(row);
+        }
+
+        adminFeedIndex = data.next_index;
+        feed.scrollTop = feed.scrollHeight;
+    } catch (e) { }
+}
+
+function clearAdminFeed() {
+    const feed = document.getElementById('adminConvFeed');
+    if (feed) feed.innerHTML = '<div style="text-align:center;color:var(--muted);font-size:12px;padding:30px;">Conversation will appear here...</div>';
+    adminFeedIndex = 0;
+    fetch('/api/feed/clear', { method: 'POST' }).catch(() => { });
+}
+
+setInterval(pollAdminFeed, 800);

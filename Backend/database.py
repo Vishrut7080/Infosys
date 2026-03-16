@@ -362,8 +362,17 @@ def get_activity_log(email: str = None, action: str = None,
 def admin_delete_user(email: str) -> tuple[bool, str]:
     """Admin force-delete a user without password confirmation."""
     try:
+        email = email.strip().lower()
+        # Remove from users.db — all related tables
         with sqlite3.connect(USER_DB_PATH) as conn:
-            conn.execute('DELETE FROM users WHERE email = ?', (email.strip().lower(),))
+            conn.execute('DELETE FROM users    WHERE email = ?', (email,))
+            conn.execute('DELETE FROM pins     WHERE email = ?', (email,))
+            conn.execute('DELETE FROM sessions WHERE email = ?', (email,))
+            conn.execute('DELETE FROM activity WHERE email = ?', (email,))
+            conn.commit()
+        # Remove from admins.db — in case they were an admin
+        with sqlite3.connect(ADMIN_DB_PATH) as conn:
+            conn.execute('DELETE FROM admins WHERE email = ?', (email,))
             conn.commit()
         log_activity('admin', 'admin_delete_user', f'deleted: {email}')
         return True, f'User {email} deleted.'

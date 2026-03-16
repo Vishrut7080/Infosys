@@ -173,6 +173,23 @@
                     </div>
                 </div>
             </div>
+
+
+            <div class="card" style="margin-top:16px;">
+                <div class="card-title" style="display:flex;justify-content:space-between;align-items:center;">
+                    <span>Live Conversation Feed</span>
+                    <button class="btn btn-outline" style="font-size:11px;padding:4px 10px;"
+                        onclick="clearAdminFeed()">Clear</button>
+                </div>
+                <div id="adminConvFeed" style="
+        height:260px;overflow-y:auto;display:flex;flex-direction:column;gap:8px;
+        padding:12px;background:rgba(0,0,0,0.2);border-radius:8px;
+    ">
+                    <div style="text-align:center;color:var(--muted);font-size:12px;padding:30px;">
+                        Conversation will appear here...
+                    </div>
+                </div>
+            </div>
         </div>
 
         <!-- ══ USERS ══ -->
