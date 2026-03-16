@@ -87,58 +87,62 @@ def send_email(to: str, subject: str, body: str) -> tuple[bool, str]:
         return False, f'[System]: Unexpected error: {str(e)}'
 
 def spoken_to_email(spoken: str) -> str:
-    text = spoken.lower().strip()
-    
-     # ── Remove dots between single letters (e.g. "v.i.s.h." → "vish") ──
     import re
-    # Pattern: single letter followed by dot, repeated
-    text = re.sub(r'\b([a-z])\.', r'\1', text)   # remove trailing dots on single letters
-    text = re.sub(r'(?<=[a-z])\.(?=[a-z])', '', text)  # remove dots between letters
+    result = spoken.strip().lower()
 
-    # Replace spoken words with symbols
-    replacements = {
-        ' at '         : '@',
-        ' at'          : '@',      # "johnsmith at gmail"
-        'at '          : '@',      # "at gmail" at start
-        ' dot '        : '.',
-        ' dot'         : '.',
-        'dot '         : '.',
-        ' underscore ' : '_',
-        ' underscore'  : '_',
-        ' hyphen '     : '-',
-        ' dash '       : '-',
-        ' gmail'       : '@gmail', # "john gmail dot com"
-        ' yahoo'       : '@yahoo',
-        ' outlook'     : '@outlook',
-        ' hotmail'     : '@hotmail',
-        ' at the rate ':  '@',
-        ' at the rate':   '@',
-        'at the rate ':   '@'
-    }
+    # Replace spoken @ symbols — longest first, break after first match
+    for at in ['at the rate', 'at the rate of', 'at the', 'at']:
+        if at in result:
+            result = result.replace(at, '@')
+            break
 
-    for spoken_form, symbol in replacements.items():
-        text = text.replace(spoken_form, symbol)
+    # Replace spoken dot
+    result = result.replace(' dot ', '.')
+    result = result.replace(' dot', '.')
+    result = result.replace('dot ', '.')
 
-    # Handle Whisper's hyphen artifact — "VISH-RUT-AT-Gmail.com" style
-    # If no @ found yet, check if a hyphen precedes a known domain
-    if '@' not in text:
-        import re
-        # Match pattern like "something-gmail.com" or "something-yahoo.com"
-        text = re.sub(
-            r'-?(gmail|yahoo|outlook|hotmail|icloud|protonmail|live)(\.|dot)',
+    # Remove trailing dot before @
+    result = re.sub(r'\.\s*@', '@', result)
+
+    # Remove dots between single characters
+    result = re.sub(r'(?<=[a-z0-9])\.(?=[a-z0-9])', ' ', result)
+
+    # Remove standalone trailing dots
+    result = re.sub(r'\.\s+', ' ', result)
+
+    if '@' in result:
+        parts  = result.split('@', 1)
+        local  = parts[0].strip().rstrip('.')
+        domain = parts[1].strip().lstrip('.')
+
+        local  = re.sub(r'(?<=[a-z0-9]) (?=[a-z0-9])', '', local)
+        local  = local.replace(' ', '')
+
+        domain = re.sub(r'(?<=[a-z0-9]) (?=[a-z0-9])', '', domain)
+        domain = domain.replace(' ', '')
+
+        result = local + '@' + domain
+    else:
+        result = re.sub(r'(?<=[a-z0-9]) (?=[a-z0-9])', '', result)
+        result = result.replace(' ', '')
+
+    # Fix Whisper domain artifacts
+    result = re.sub(
+        r'@[a-z]*?(gmail|yahoo|outlook|hotmail|icloud|protonmail|live)\.',
+        r'@\1.',
+        result
+    )
+
+    # Last resort — if still no @, insert before known domain
+    if '@' not in result:
+        result = re.sub(
+            r'(gmail|yahoo|outlook|hotmail|icloud|protonmail|live)\.',
             r'@\1.',
-            text
+            result
         )
 
-    # Remove any remaining spaces (Whisper sometimes adds spaces mid-address)
-    # but preserve the @ and . we just inserted
-    parts = text.split('@')
-    if len(parts) == 2:
-        local  = parts[0].replace(' ', '')
-        domain = parts[1].replace(' ', '')
-        text   = f"{local}@{domain}"
-
-    return text.strip()
+    result = result.strip('.')
+    return result
 
 # ----------------------
 # Basic Email Validator
@@ -173,22 +177,19 @@ def compose_email_by_voice() -> str:
 
     # ── Step 1: Recipient ──
     speak_text('[System]: Please say the recipient email address.')
-    recipient, _ = listen_text(duration=6)
+    recipient, _ = listen_text(duration=10)
     recipient = recipient.strip()
     speak_text(f'[User]: {recipient}')
-
-    # Voice recognition often adds spaces in emails (e.g. "john @ gmail . com")
-    # Remove spaces around @ and . to reconstruct the address
     recipient_clean = spoken_to_email(recipient)
 
     if not is_valid_email(recipient_clean):
         speak_text(f'[System]: That doesn\'t look like a valid email address: {recipient}. Please try again.')
         # One retry
         speak_text('[System]: Please say the recipient email address again.')
-        recipient, _ = listen_text(duration=6)
+        recipient, _ = listen_text(duration=10)
         recipient = recipient.strip()
         speak_text(f'[User]: {recipient}')
-        recipient_clean = recipient.replace(' ', '').lower()
+        recipient_clean = spoken_to_email(recipient)
 
         if not is_valid_email(recipient_clean):
             return '[System]: Could not get a valid email address. Email cancelled.'

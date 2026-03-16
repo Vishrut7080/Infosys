@@ -26,6 +26,7 @@ _feed_counter = 0
 _nav_command  = {'command': None}
 signup_open = False
 login_from_signup = False
+services_just_selected = False
 
 # -------------------------------------------------
 # Load Credentials from env
@@ -38,6 +39,8 @@ app = Flask(__name__,
     template_folder='templates',
     static_folder='static'
 )
+
+app.config['verified_services'] = []
 
 # Required for Flask sessions (used by OAuth to store state between redirects)
 # Set a strong random value in your .env as FLASK_SECRET_KEY
@@ -278,6 +281,7 @@ def select_services():
     global selected_services
     data = request.get_json()
     selected_services = data.get('services', [])
+    services_just_selected = True
     print(f"[Dashboard] Services selected: {selected_services}")
     # Acknowledgement
     if selected_services:

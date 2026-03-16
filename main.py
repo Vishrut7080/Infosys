@@ -55,43 +55,60 @@ def spoken_pin_to_digits(spoken: str) -> str:
     return ''.join(c for c in result if c.isdigit())
 
 def clean_spoken_email(spoken: str) -> str:
-    """
-    Convert spoken email to proper format.
-    Handles Whisper quirks like dots between letters, 'at the rate', etc.
-    """
+    """Convert spoken email to proper format."""
     result = spoken.strip().lower()
 
-    # Replace spoken @ symbols
-    for at in ['at the rate', 'at the', 'at']:
-        result = result.replace(at, '@')
+    # Replace spoken @ symbols — longest first, break after first match
+    for at in ['at the rate', 'at the rate of', 'at the', 'at']:
+        if at in result:
+            result = result.replace(at, '@')
+            break
 
     # Replace spoken dot
     result = result.replace(' dot ', '.')
     result = result.replace(' dot', '.')
     result = result.replace('dot ', '.')
 
-    # Remove dots BETWEEN single letters (V.I.S.H.R.U.T → vishrut)
-    # This regex matches a dot sandwiched between word characters
+    # Remove trailing dot before @ (e.g. "v.i.s.h.r.u.t. at" → "v.i.s.h.r.u.t at")
+    result = re.sub(r'\.\s*@', '@', result)
+
+    # Remove dots between single characters (v.i.s.h.r.u.t → v i s h r u t)
     result = re.sub(r'(?<=[a-z0-9])\.(?=[a-z0-9])', ' ', result)
 
-    # Now collapse spaces between single characters
+    # Remove standalone trailing dots
+    result = re.sub(r'\.\s+', ' ', result)
+
     if '@' in result:
         parts  = result.split('@', 1)
-        local  = re.sub(r'(?<=[a-z0-9]) (?=[a-z0-9])', '', parts[0].strip())
-        domain = re.sub(r'(?<=[a-z0-9]) (?=[a-z0-9])', '', parts[1].strip())
+        local  = parts[0].strip().rstrip('.')
+        domain = parts[1].strip().lstrip('.')
+
+        local  = re.sub(r'(?<=[a-z0-9]) (?=[a-z0-9])', '', local)
+        local  = local.replace(' ', '')
+
+        domain = re.sub(r'(?<=[a-z0-9]) (?=[a-z0-9])', '', domain)
+        domain = domain.replace(' ', '')
+
         result = local + '@' + domain
     else:
         result = re.sub(r'(?<=[a-z0-9]) (?=[a-z0-9])', '', result)
+        result = result.replace(' ', '')
 
-    # Remove all remaining spaces
-    result = result.replace(' ', '')
+    result = re.sub(
+        r'@[a-z]*?(gmail|yahoo|outlook|hotmail|icloud|protonmail|live)\.',
+        r'@\1.',
+        result
+    )
 
-    # Fix "the8gmail" → "gmail" (Whisper adds "the" before domain sometimes)
-    result = re.sub(r'@the\d*([a-z])', r'@\1', result)
+    # Last resort — if still no @, insert before known domain
+    if '@' not in result:
+        result = re.sub(
+            r'(gmail|yahoo|outlook|hotmail|icloud|protonmail|live)\.',
+            r'@\1.',
+            result
+        )
 
-    # Fix trailing/leading junk
     result = result.strip('.')
-
     return result
 
 def clean_spoken_name(spoken: str) -> str:
@@ -772,7 +789,7 @@ with open('Audio/Transcribe.txt', 'a', encoding='utf-8') as file:
                         api_hash = os.getenv('TELEGRAM_API_HASH', '')
                         if api_id and api_hash:
                             start_telegram_in_thread()
-                            time.sleep(2)
+                            time.sleep(5)
                             from Telegram.telegram import _client, _loop as tg_loop
                             import asyncio as _asyncio
                             authorized = False
@@ -825,6 +842,94 @@ with open('Audio/Transcribe.txt', 'a', encoding='utf-8') as file:
                     else '[System]: तैयार। डैशबोर्ड पर कभी भी सेवाएं चुनें।',
                     lang=user_lang,
                 )
+                continue
+        
+        # ── Services selected from dashboard AFTER login ────
+        if (web_login.login_status == 'success'
+                and web_login.selected_services
+                and not awaiting_services):
+            services      = list(web_login.selected_services)
+            current_email = web_login.app.config.get('current_email', '')
+            # Only process if Telegram not already running
+            from Telegram.telegram import _client as _tg_client
+            tg_already_running = _tg_client is not None and _tg_client.is_connected()
+            gmail_already_ready = 'gmail' in (web_login.app.config.get('verified_services', []))
+
+            needs_processing = (
+                ('telegram' in services and not tg_already_running) or
+                ('gmail' in services and not gmail_already_ready)
+            )
+
+            if needs_processing:
+                web_login.selected_services = []  # clear to prevent re-processing
+                verified = []
+                for service in services:
+                    speak_text(
+                        f'[System]: Please say your {service.capitalize()} PIN to authorise.'
+                        if user_lang == 'en'
+                        else f'[System]: {service.capitalize()} PIN बोलें।',
+                        lang=user_lang,
+                    )
+                    pin_heard, _ = listen_text(duration=8)
+                    pin_heard = pin_heard.strip().lower()
+                    speak_text(f'[User]: {pin_heard}')
+                    pin_digits = spoken_pin_to_digits(pin_heard)
+                    if verify_pin(current_email, service, pin_digits):
+                        speak_text(
+                            f'[System]: {service.capitalize()} PIN verified.'
+                            if user_lang == 'en'
+                            else f'[System]: {service.capitalize()} PIN सही है।',
+                            lang=user_lang,
+                        )
+                        verified.append(service)
+                    else:
+                        speak_text(
+                            f'[System]: Incorrect PIN for {service.capitalize()}. Not connected.'
+                            if user_lang == 'en'
+                            else f'[System]: {service.capitalize()} PIN गलत। कनेक्ट नहीं होगा।',
+                            lang=user_lang,
+                        )
+                web_login.selected_services = verified
+                web_login.app.config['verified_services'] = verified
+                if 'telegram' in verified:
+                    speak_text(r('tg_starting'), lang=user_lang)
+                    api_id   = int(os.getenv('TELEGRAM_API_ID', 0))
+                    api_hash = os.getenv('TELEGRAM_API_HASH', '')
+                    if api_id and api_hash:
+                        start_telegram_in_thread()
+                        time.sleep(5)
+                        from Telegram.telegram import _client, _loop as tg_loop
+                        import asyncio as _asyncio
+                        authorized = False
+                        if _client and _client.is_connected() and tg_loop:
+                            try:
+                                fut = _asyncio.run_coroutine_threadsafe(
+                                    _client.is_user_authorized(), tg_loop
+                                )
+                                authorized = fut.result(timeout=5)
+                            except Exception:
+                                authorized = False
+                        if not authorized:
+                            speak_text(r('tg_auth_prompt'), lang=user_lang)
+                            auth_word, _ = listen_text(duration=8)
+                            auth_word = auth_word.lower().strip()
+                            speak_text(f'[User]: {auth_word}')
+                            if auth_word == SECRET_AUD.lower().strip():
+                                speak_text(r('tg_auth_ok'), lang=user_lang)
+                                webbrowser.open('http://localhost:5000/telegram-auth')
+                            else:
+                                speak_text(r('tg_auth_fail'), lang=user_lang)
+                        else:
+                            speak_text(r('tg_auto'), lang=user_lang)
+                if 'gmail' in verified:
+                    speak_text(r('gmail_ready'), lang=user_lang)
+                if verified:
+                    speak_text(
+                        f'[System]: Connected: {", ".join(verified)}. Ready.'
+                        if user_lang == 'en'
+                        else f'[System]: कनेक्ट हुआ: {", ".join(verified)}। तैयार।',
+                        lang=user_lang,
+                    )
                 continue
 
         # ── Typing pause ────────────────────────────────────
@@ -1113,6 +1218,25 @@ with open('Audio/Transcribe.txt', 'a', encoding='utf-8') as file:
                     f'Summary: {latest_email["summary"]}.'
                 )
                 log_activity('email_read', f'from:{latest_email.get("sender","")}')
+                # ── Offer reply ──────────────────────────────
+                speak_text(
+                    '[System]: Would you like to reply to this email?'
+                    if user_lang == 'en'
+                    else '[System]: क्या आप इस ईमेल का जवाब देना चाहते हैं?',
+                    lang=user_lang,
+                )
+                reply_decision, _ = listen_text()
+                reply_decision = reply_decision.lower().strip()
+                speak_text(f'[User]: {reply_decision}')
+                if any(w in reply_decision for w in affirmation):
+                    handle_reply(latest_email)
+                else:
+                    speak_text(
+                        '[System]: Ok, no reply sent.'
+                        if user_lang == 'en'
+                        else '[System]: ठीक है, कोई जवाब नहीं भेजा।',
+                        lang=user_lang,
+                    )
 
         # ── EMAIL — CHECK INBOX ──────────────────────────────
         elif (web_login.login_status == 'success'

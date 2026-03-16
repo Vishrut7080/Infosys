@@ -155,8 +155,13 @@ def _run_async(coro):
 def telegram_get_messages(count: int = 5) -> list[dict]:
     """Fetches latest N Telegram conversations."""
     if _loop is None or _client is None:
+        print(f'[Telegram] Not connected: _loop={_loop}, _client={_client}')
         return []
-    return _run_async(_get_messages(count))
+    try:
+        return _run_async(_get_messages(count))
+    except Exception as e:
+        print(f'[Telegram] get_messages error: {e}')
+        return []
 
 
 def telegram_send_message(recipient: str, message: str) -> tuple[bool, str]:
@@ -192,7 +197,12 @@ def start_telegram_in_thread(phone_callback=None, code_callback=None):
     First run will prompt for phone number OTP in terminal.
     After that, session file handles auth automatically.
     """
-    global _loop
+    global _loop, _client
+    
+    # Don't start if already running
+    if _client is not None and _client.is_connected():
+        print('[Telegram] Already connected, skipping restart.')
+        return None
 
     def run():
         global _loop
