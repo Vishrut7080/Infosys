@@ -321,7 +321,6 @@ function setLoading(isLoading) {
 function showSuccessScreen() {
     // Reveal the success screen (CSS animation handles fade-in)
     successScreen.hidden = false;
-    navigator.sendBeacon('/signup-closed');
 
     let seconds = 3;
     countdownEl.textContent = seconds;
@@ -332,7 +331,7 @@ function showSuccessScreen() {
 
         if (seconds <= 0) {
             clearInterval(interval);
-            // Redirect to login page after countdown
+            navigator.sendBeacon('/signup-closed');   // signal JUST before redirect
             window.location.href = '/pin-reveal';
         }
     }, 1000);

@@ -278,7 +278,7 @@ def dashboard():
 
 @app.route('/select-services', methods=['POST'])
 def select_services():
-    global selected_services
+    global selected_services, services_just_selected
     data = request.get_json()
     selected_services = data.get('services', [])
     services_just_selected = True
@@ -438,7 +438,12 @@ def signup_page():
 @app.route('/signup-closed', methods=['POST'])
 def signup_closed():
     global signup_open
-    signup_open = False
+    def _clear():
+        import time
+        time.sleep(3)   # wait for redirect + login page to fully load
+        global signup_open
+        signup_open = False
+    threading.Thread(target=_clear, daemon=True).start()
     return '', 204
 
 @app.route('/register', methods=['POST'])
