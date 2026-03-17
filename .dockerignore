@@ -1,0 +1,25 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+uv.lock
+
+# Confedential/Backend files
+Backend/users.db
+Backend/admins.db
+Transcribe.txt
+list_of_voices.py
+telegram_session.session
+telegram_session.session-journal
+test_tts.py
+
+# Variables
+.env
+
+step.txt
