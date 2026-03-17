@@ -692,6 +692,14 @@ def _connect_services(verified_services: list, announce: bool = True):
 
 
 # ========================
+# START FLASK SERVER
+# ========================
+print("[Main] Starting Flask Server in a background thread...")
+server_thread = threading.Thread(target=web_login.start_server, daemon=True)
+server_thread.start()
+time.sleep(1) # Give it a second to start
+
+# ========================
 # MAIN COMMAND LOOP
 # ========================
 with open('Audio/Transcribe.txt', 'a', encoding='utf-8') as file:
@@ -871,9 +879,6 @@ with open('Audio/Transcribe.txt', 'a', encoding='utf-8') as file:
                 continue
             web_login.login_status = 'waiting'
             login_initiated = True
-            server_thread = threading.Thread(target=web_login.start_server, daemon=True)
-            server_thread.start()
-            webbrowser.open('http://localhost:5000')
             speak_text(r('login_opened'), lang=user_lang)
             continue
 

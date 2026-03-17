@@ -878,6 +878,6 @@ def telegram_contacts():
 
 def start_server():
     print("Flask server starting...")
-    app.run(port=5000, use_reloader=False)
+    app.run(host='0.0.0.0', port=5000, use_reloader=False)
 
 __all__=['selected_services']
