@@ -1,0 +1,14 @@
+version: '3.8'
+
+services:
+  voice-assistant:
+    build: .
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./Database:/app/Backend/Database  # Assuming SQLite db is stored here or similar
+      - ./Audio:/app/Audio # If there are any transcripts or temp files
+    env_file:
+      - .env
+    environment:
+      - FLASK_ENV=production
