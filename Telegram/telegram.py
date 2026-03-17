@@ -187,7 +187,6 @@ def set_notification_callback(callback):
     global _notification_callback
     _notification_callback = callback
 
-
 # ----------------------
 # Start client in background thread
 # ----------------------

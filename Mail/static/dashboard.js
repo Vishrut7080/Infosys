@@ -380,6 +380,39 @@ async function checkLogoutStatus() {
 
 setInterval(checkLogoutStatus, 2000);
 
+async function loadTelegramContacts() {
+    const list = document.getElementById('tgContactsList');
+    if (!list) return;
+    list.innerHTML = '<div style="color:var(--muted);font-size:13px;">Loading...</div>';
+    try {
+        const res = await fetch('/telegram/contacts');
+        const data = await res.json();
+        const contacts = data.contacts || [];
+        if (!contacts.length) {
+            list.innerHTML = '<div style="color:var(--muted);font-size:13px;">No contacts found. Make sure Telegram is connected.</div>';
+            return;
+        }
+        list.innerHTML = contacts.map(c => `
+            <div style="display:flex;justify-content:space-between;align-items:center;
+                        padding:8px 12px;background:rgba(255,255,255,0.04);
+                        border-radius:8px;font-size:13px;">
+                <div>
+                    <div style="font-weight:600;color:var(--text);">${c.name}</div>
+                    <div style="color:var(--muted);font-size:11px;margin-top:2px;">
+                        ${c.last_message || 'No messages'}
+                    </div>
+                </div>
+                <div style="text-align:right;flex-shrink:0;">
+                    ${c.unread ? `<span style="background:var(--accent);color:#000;border-radius:10px;padding:2px 7px;font-size:10px;font-weight:700;">${c.unread}</span>` : ''}
+                    <div style="color:var(--muted);font-size:10px;margin-top:4px;">${c.date}</div>
+                </div>
+            </div>
+        `).join('');
+    } catch (e) {
+        list.innerHTML = '<div style="color:var(--muted);font-size:13px;">Failed to load contacts.</div>';
+    }
+}
+
 // ─────────────────────────────────────────────────────────────
 //  INIT (was dashboard_init.js — merged here)
 // ─────────────────────────────────────────────────────────────

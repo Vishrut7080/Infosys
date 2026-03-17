@@ -34,6 +34,7 @@ awaiting_services  = False
 heard              = ""
 login_initiated    = False
 _awaiting_services_since = 0.0
+_services_processed = False
 
 bye_en = '[System]: Goodbye! Take care.'
 bye_hi = '[System]: अलविदा! अपना ख्याल रखें।'
@@ -748,35 +749,7 @@ with open('Audio/Transcribe.txt', 'a', encoding='utf-8') as file:
                 services      = web_login.selected_services
                 current_email = web_login.app.config.get('current_email', '')
 
-                verified_services = []
-                for service in services:
-                    speak_text(
-                        (f'[System]: Please say your {service.capitalize()} PIN to authorise.'
-                         if user_lang == 'en'
-                         else f'[System]: {service.capitalize()} PIN बोलें।'),
-                        lang=user_lang,
-                    )
-                    pin_heard, _ = listen_text(duration=8)
-                    pin_heard = pin_heard.strip().lower()
-                    speak_text(f'[User]: {pin_heard}')
-                    pin_digits = spoken_pin_to_digits(pin_heard)
-
-                    if verify_pin(current_email, service, pin_digits):
-                        speak_text(
-                            (f'[System]: {service.capitalize()} PIN verified.'
-                             if user_lang == 'en'
-                             else f'[System]: {service.capitalize()} PIN सही है।'),
-                            lang=user_lang,
-                        )
-                        verified_services.append(service)
-                    else:
-                        speak_text(
-                            (f'[System]: Incorrect PIN for {service.capitalize()}. '
-                             f'{service.capitalize()} will not be connected.'
-                             if user_lang == 'en'
-                             else f'[System]: {service.capitalize()} का PIN गलत है। कनेक्ट नहीं होगा।'),
-                            lang=user_lang,
-                        )
+                verified_services = list(services)
 
                 web_login.selected_services = verified_services
                 awaiting_services = False

@@ -164,7 +164,7 @@ def generate_pins(tg_included: bool = False) -> dict:
     Telegram PIN only if user provided Telegram details.
     Returns plain PINs — show once, then store hashed.
     """
-    def make_pin(length=6):
+    def make_pin(length=4):
         return ''.join(secrets.choice(string.digits) for _ in range(length))
 
     pins = {'gmail_pin': make_pin()}

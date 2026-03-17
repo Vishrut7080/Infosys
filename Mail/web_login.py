@@ -802,6 +802,33 @@ def translate_text():
             translated.append(text)
     return jsonify({'translated': translated})
 
+@app.route('/telegram/contacts')
+def telegram_contacts():
+    if 'user' not in session:
+        return jsonify({'contacts': []})
+    try:
+        from Telegram.telegram import _run_async, _client, _loop
+        if _loop is None or _client is None:
+            return jsonify({'contacts': []})
+        
+        async def _get_contacts():
+            contacts = []
+            async for dialog in _client.iter_dialogs(limit=20):
+                from Telegram.telegram import _get_name
+                contacts.append({
+                    'name': _get_name(dialog.entity),
+                    'unread': dialog.unread_count,
+                    'last_message': dialog.message.message[:50] if dialog.message and dialog.message.message else '',
+                    'date': dialog.message.date.strftime("%d %b %H:%M") if dialog.message and dialog.message.date else '',
+                })
+            return contacts
+        
+        contacts = _run_async(_get_contacts())
+        return jsonify({'contacts': contacts})
+    except Exception as e:
+        print(f'[Contacts] Error: {e}')
+        return jsonify({'contacts': []})
+
 # -------------------------------------------------
 # START SERVER
 # -------------------------------------------------
