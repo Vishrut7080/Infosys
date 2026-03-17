@@ -587,23 +587,23 @@ def get_stats():
         import sqlite3
         from Backend.database import ADMIN_DB_PATH
         with sqlite3.connect(ADMIN_DB_PATH) as conn:
-            cur = conn.execute(
+            sessions_count = conn.execute(
                 "SELECT COUNT(*) FROM activity_log WHERE email = ? AND action = 'login'",
                 (email,)
-            )
-            sessions_count = cur.fetchone()[0]
-    except:
+            ).fetchone()[0]
+    except Exception as e:
+        print(f'[Stats] sessions error: {e}')
         sessions_count = 0
     try:
         import sqlite3
-        from Backend.database import USER_DB_PATH
-        with sqlite3.connect(USER_DB_PATH) as conn:
-            cur = conn.execute(
-                "SELECT COUNT(*) FROM activity WHERE email = ? AND action = 'email_read'",
+        from Backend.database import ADMIN_DB_PATH
+        with sqlite3.connect(ADMIN_DB_PATH) as conn:
+            emails_count = conn.execute(
+                "SELECT COUNT(*) FROM activity_log WHERE email = ? AND action = 'email_read'",
                 (email,)
-            )
-            emails_count = cur.fetchone()[0]
-    except:
+            ).fetchone()[0]
+    except Exception as e:
+        print(f'[Stats] emails error: {e}')
         emails_count = 0
     return jsonify({'emails': emails_count, 'commands': commands, 'sessions': sessions_count})
 

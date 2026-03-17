@@ -906,6 +906,7 @@ with open('Audio/Transcribe.txt', 'a', encoding='utf-8') as file:
                 web_login.login_status = 'success'
                 web_login.app.config['current_email'] = matched_email
                 web_login.apply_user_credentials(matched_email)
+                _db_log_activity(matched_email, 'login', 'audio')
                 _services_processed = False
                 awaiting_services   = True
             else:
