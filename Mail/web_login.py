@@ -173,26 +173,18 @@ def set_typing():
 @app.route('/check')
 def check_login():
     global login_status
-    if login_status == 'success':
-        email = app.config.get('current_email', '')
-        name = 'User'
-        if email:
-            user_record = database.get_user_by_email(email)
-            if user_record:
-                name = user_record['name']
-        # Always overwrite session — clears any stale previous user data
-        session.clear()
-        session['user'] = {'name': name, 'email': email}
-        if email:
-            database.log_session(email, force_insert=True)
+    # Just report current status without clobbering it.
+    # main.py or other routes now handle session population.
     status = login_status
-    if login_status == 'failed':
-        login_status = 'waiting'
+    
     redirect_url = '/dashboard'
     if status == 'success':
         email = app.config.get('current_email', '')
         if email and database.is_admin(email):
             redirect_url = '/admin'
+            
+    # Optional: If we want the status to reset only AFTER it's been seen as success
+    # But usually the frontend will redirect and the new page won't poll this.
     return jsonify({'status': status, 'redirect': redirect_url})
 
 @app.route('/check-session')
@@ -871,6 +863,48 @@ def telegram_contacts():
     except Exception as e:
         print(f'[Contacts] Error: {e}')
         return jsonify({'contacts': []})
+
+# -------------------------------------------------
+# PROFILE MANAGEMENT ROUTES
+# -------------------------------------------------
+@app.route('/update-profile-name', methods=['POST'])
+def update_profile_name():
+    if 'user' not in session: return jsonify({'status': 'error', 'message': 'Not logged in'})
+    data = request.get_json()
+    new_name = data.get('name', '').strip()
+    email = session['user']['email']
+    ok, msg = database.update_name(email, new_name)
+    if ok: session['user']['name'] = new_name
+    return jsonify({'status': 'success' if ok else 'error', 'message': msg})
+
+@app.route('/update-profile-password', methods=['POST'])
+def update_profile_password():
+    if 'user' not in session: return jsonify({'status': 'error', 'message': 'Not logged in'})
+    data = request.get_json()
+    old_pass = data.get('old_password', '')
+    new_pass = data.get('new_password', '')
+    email = session['user']['email']
+    ok, msg = database.update_password(email, old_pass, new_pass)
+    return jsonify({'status': 'success' if ok else 'error', 'message': msg})
+
+@app.route('/update-profile-audio', methods=['POST'])
+def update_profile_audio():
+    if 'user' not in session: return jsonify({'status': 'error', 'message': 'Not logged in'})
+    data = request.get_json()
+    new_audio = data.get('audio_password', '').strip()
+    email = session['user']['email']
+    ok, msg = database.update_audio(email, new_audio)
+    return jsonify({'status': 'success' if ok else 'error', 'message': msg})
+
+@app.route('/delete-profile-account', methods=['POST'])
+def delete_profile_account():
+    if 'user' not in session: return jsonify({'status': 'error', 'message': 'Not logged in'})
+    data = request.get_json()
+    password = data.get('password', '')
+    email = session['user']['email']
+    ok, msg = database.delete_user(email, password)
+    if ok: session.clear()
+    return jsonify({'status': 'success' if ok else 'error', 'message': msg})
 
 # -------------------------------------------------
 # START SERVER

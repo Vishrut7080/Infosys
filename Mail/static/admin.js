@@ -454,3 +454,48 @@ async function checkAdminLogoutStatus() {
     } catch (e) { }
 }
 setInterval(checkAdminLogoutStatus, 2000);
+
+// ─── ADMIN PROFILE ACTIONS ──────────────────────────
+async function updateAdminName() {
+    const name = document.getElementById('adminNewName').value.trim();
+    if (!name) return alert('Please enter a name');
+    try {
+        const res = await fetch('/update-profile-name', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name })
+        });
+        const data = await res.json();
+        alert(data.message);
+        if (data.status === 'success') location.reload();
+    } catch (e) { alert('Failed to update name'); }
+}
+
+async function updateAdminPassword() {
+    const old_password = document.getElementById('adminOldPass').value;
+    const new_password = document.getElementById('adminNewPass').value;
+    if (!old_password || !new_password) return alert('Fill both fields');
+    try {
+        const res = await fetch('/update-profile-password', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ old_password, new_password })
+        });
+        const data = await res.json();
+        alert(data.message);
+    } catch (e) { alert('Failed to update password'); }
+}
+
+async function updateAdminAudio() {
+    const audio_password = document.getElementById('adminNewAudio').value.trim();
+    if (!audio_password) return alert('Enter audio password');
+    try {
+        const res = await fetch('/update-profile-audio', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ audio_password })
+        });
+        const data = await res.json();
+        alert(data.message);
+    } catch (e) { alert('Failed to update audio password'); }
+}

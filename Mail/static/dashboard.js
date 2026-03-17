@@ -364,6 +364,69 @@ function notifyTyping(isTyping) {
     }).catch(() => { });
 }
 
+// ─────────────────────────────────────────────────────────────
+//  PROFILE ACTIONS
+// ─────────────────────────────────────────────────────────────
+async function updateNameUI() {
+    const name = document.getElementById('newNameInput').value.trim();
+    if (!name) return alert('Please enter a name');
+    try {
+        const res = await fetch('/update-profile-name', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name })
+        });
+        const data = await res.json();
+        alert(data.message);
+        if (data.status === 'success') refreshUserAndRole();
+    } catch (e) { alert('Failed to update name'); }
+}
+
+async function updatePasswordUI() {
+    const old_password = document.getElementById('oldPassInput').value;
+    const new_password = document.getElementById('newPassInput').value;
+    if (!old_password || !new_password) return alert('Please fill both fields');
+    try {
+        const res = await fetch('/update-profile-password', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ old_password, new_password })
+        });
+        const data = await res.json();
+        alert(data.message);
+    } catch (e) { alert('Failed to update password'); }
+}
+
+async function updateAudioUI() {
+    const audio_password = document.getElementById('newAudioInput').value.trim();
+    if (!audio_password) return alert('Please enter an audio password');
+    try {
+        const res = await fetch('/update-profile-audio', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ audio_password })
+        });
+        const data = await res.json();
+        alert(data.message);
+    } catch (e) { alert('Failed to update audio password'); }
+}
+
+async function deleteAccountUI() {
+    const password = document.getElementById('deletePassInput').value;
+    if (!password) return alert('Please enter your password to confirm');
+    if (!confirm('Are you absolutely sure? This cannot be undone.')) return;
+    try {
+        const res = await fetch('/delete-profile-account', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ password })
+        });
+        const data = await res.json();
+        alert(data.message);
+        if (data.status === 'success') window.location.href = '/';
+    } catch (e) { alert('Failed to delete account'); }
+}
+
 // ─── Detect voice logout ──────────────────────────────────────
 async function checkLogoutStatus() {
     try {

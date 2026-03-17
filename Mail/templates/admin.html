@@ -52,6 +52,9 @@
             <button class="nav-item" onclick="showPanel('status', this)">
                 <span class="nav-icon">🖥</span> System Status
             </button>
+            <button class="nav-item" onclick="showPanel('profile', this)">
+                <span class="nav-icon">👤</span> My Profile
+            </button>
         </nav>
 
         <div class="sidebar-footer">
@@ -478,6 +481,53 @@
                         </tr>
                     </tbody>
                 </table>
+            </div>
+        </div>
+
+        <!-- ══ PROFILE ══ -->
+        <div class="panel" id="panel-profile">
+            <div class="page-header">
+                <div>
+                    <div class="page-title">Admin Profile</div>
+                    <div class="page-sub">Manage your administrative account details</div>
+                </div>
+            </div>
+
+            <div class="two-col">
+                <div class="card">
+                    <div class="card-title">Account Details</div>
+                    <div class="sys-row">
+                        <span class="sys-label">Full Name</span>
+                        <span class="sys-val">{{ user.name }}</span>
+                    </div>
+                    <div class="sys-row">
+                        <span class="sys-label">Email Address</span>
+                        <span class="sys-val">{{ user.email }}</span>
+                    </div>
+                    <div class="sys-row">
+                        <span class="sys-label">Role</span>
+                        <span class="sys-val sys-ok">🔐 Administrator</span>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-title">Quick Actions</div>
+                    <div style="display:flex; flex-direction:column; gap:12px;">
+                        <input type="text" id="adminNewName" placeholder="Update Name" class="filter-input">
+                        <button class="btn btn-outline" onclick="updateAdminName()">Update Name</button>
+                        
+                        <hr style="border:0; border-top:1px solid var(--border); margin:8px 0;">
+                        
+                        <input type="password" id="adminOldPass" placeholder="Current Password" class="filter-input">
+                        <input type="password" id="adminNewPass" placeholder="New Password" class="filter-input">
+                        <button class="btn btn-outline" onclick="updateAdminPassword()">Update Password</button>
+
+                        <hr style="border:0; border-top:1px solid var(--border); margin:8px 0;">
+                        
+                        <input type="text" id="adminNewAudio" placeholder="New Audio Password" class="filter-input">
+                        <button class="btn btn-outline" onclick="updateAdminAudio()">Update Audio Password</button>
+                    </div>
+                </div>
             </div>
         </div>
 

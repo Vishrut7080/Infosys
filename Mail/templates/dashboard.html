@@ -388,50 +388,40 @@
                 </div>
 
                 <div class="profile-card">
-                    <div class="profile-card-title" data-en="Voice Settings" data-hi="वॉइस सेटिंग्स">
-                        Voice Settings
+                    <div class="profile-card-title" data-en="Account Actions" data-hi="खाता क्रियाएं">
+                        Account Actions
                     </div>
-                    <div class="profile-field">
-                        <div class="field-label" data-en="Audio Password" data-hi="ऑडियो पासवर्ड">
-                            Audio Password
-                        </div>
-                        <div class="field-value">••••••••</div>
+                    
+                    <!-- Change Name -->
+                    <div class="profile-action-group">
+                        <input type="text" id="newNameInput" placeholder="New Name" class="action-input">
+                        <button class="btn btn-outline" onclick="updateNameUI()" data-en="Update Name" data-hi="नाम बदलें">Update Name</button>
                     </div>
-                    <div class="profile-field">
-                        <div class="field-label" data-en="Connected Services" data-hi="कनेक्टेड सेवाएं">
-                            Connected Services
-                        </div>
-                        <div class="field-value" id="profileServices">—</div>
+
+                    <!-- Change Password -->
+                    <div class="profile-action-group" style="margin-top:16px;">
+                        <input type="password" id="oldPassInput" placeholder="Current Password" class="action-input">
+                        <input type="password" id="newPassInput" placeholder="New Password" class="action-input">
+                        <button class="btn btn-outline" onclick="updatePasswordUI()" data-en="Change Password" data-hi="पासवर्ड बदलें">Change Password</button>
                     </div>
-                    <div class="profile-field">
-                        <div class="field-label" data-en="Select Services" data-hi="सेवाएं चुनें"
-                            style="margin-bottom:10px;">Select Services</div>
-                        <div class="audio-select-hint">
-                            🎙 <span data-en='Say "select gmail" or "select telegram" to toggle by voice'
-                                data-hi='"select gmail" या "select telegram" बोलें'>
-                                Say "select gmail" or "select telegram" to toggle by voice
-                            </span>
-                        </div>
-                        <div class="service-list">
-                            <label class="service-label">
-                                <input type="checkbox" class="service-checkbox" id="chk-gmail" value="gmail">
-                                <span data-en="📧 Gmail — voice-controlled email"
-                                    data-hi="📧 Gmail — वॉइस-नियंत्रित ईमेल">
-                                    📧 Gmail — voice-controlled email
-                                </span>
-                            </label>
-                            <label class="service-label">
-                                <input type="checkbox" class="service-checkbox" id="chk-telegram" value="telegram">
-                                <span data-en="✈️ Telegram — messaging integration"
-                                    data-hi="✈️ Telegram — मैसेजिंग एकीकरण">
-                                    ✈️ Telegram — messaging integration
-                                </span>
-                            </label>
-                        </div>
-                        <button class="btn btn-primary save-services-btn" onclick="saveServices()">
-                            💾 <span data-en="Save Services" data-hi="सेवाएं सहेजें">Save Services</span>
-                        </button>
-                        <div id="serviceMsg" class="service-msg"></div>
+
+                    <!-- Change Audio Password -->
+                    <div class="profile-action-group" style="margin-top:16px;">
+                        <input type="text" id="newAudioInput" placeholder="New Audio Password" class="action-input">
+                        <button class="btn btn-outline" onclick="updateAudioUI()" data-en="Update Audio Password" data-hi="ऑडियो पासवर्ड बदलें">Update Audio Password</button>
+                    </div>
+                </div>
+
+                <div class="profile-card card-danger">
+                    <div class="profile-card-title" data-en="Danger Zone" data-hi="खतरे का क्षेत्र" style="color:#f87171;">
+                        Danger Zone
+                    </div>
+                    <p style="font-size:12px; color:var(--muted); margin-bottom:12px;" data-en="Once you delete your account, there is no going back. Please be certain." data-hi="एक बार अपना अकाउंट डिलीट करने के बाद, वापस नहीं आया जा सकता। कृपया सुनिश्चित करें।">
+                        Once you delete your account, there is no going back. Please be certain.
+                    </p>
+                    <div class="profile-action-group">
+                        <input type="password" id="deletePassInput" placeholder="Confirm Password" class="action-input">
+                        <button class="btn btn-danger" onclick="deleteAccountUI()" data-en="Delete My Account" data-hi="मेरा अकाउंट डिलीट करें">Delete My Account</button>
                     </div>
                 </div>
             </div>

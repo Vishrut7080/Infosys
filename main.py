@@ -915,10 +915,16 @@ with open('Audio/Transcribe.txt', 'a', encoding='utf-8') as file:
                 speak_text(welcome, lang=user_lang)
                 web_login.login_status = 'success'
                 web_login.app.config['current_email'] = matched_email
+
+                # NEW: Populate session immediately for the web-login orchestrator
+                with web_login.app.test_request_context():
+                    web_login.session.clear()
+                    web_login.session['user'] = {'name': name, 'email': matched_email}
+                    web_login.session.permanent = True
+
                 web_login.apply_user_credentials(matched_email)
                 _db_log_activity(matched_email, 'login', 'audio')
-                _services_processed = False
-                awaiting_services   = True
+                web_login.database.log_session(matched_email, force_insert=True)            
             else:
                 speak_text(r('login_failed'), lang=user_lang)
                 web_login.login_status = 'failed'
