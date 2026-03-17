@@ -564,6 +564,33 @@ def telegram_verify_otp():
 def telegram_status():
     return jsonify({'ready': telegram_ready})
 # -------------------------------------------------
+# AUDIO QUEUE ROUTES
+# -------------------------------------------------
+@app.route('/api/stt', methods=['POST'])
+def api_stt():
+    """Receives text recognized by the frontend and passes it to main.py loop."""
+    data = request.get_json()
+    text = data.get('text', '')
+    lang = data.get('lang', 'en')
+    from Audio.io_queues import stt_queue
+    stt_queue.put({"text": text, "lang": lang})
+    return jsonify({'status': 'ok'})
+
+@app.route('/api/tts')
+def api_tts():
+    """Returns text that needs to be spoken by the frontend."""
+    from Audio.io_queues import tts_queue
+    import queue
+    messages = []
+    try:
+        # Get all pending messages without blocking
+        while True:
+            messages.append(tts_queue.get_nowait())
+    except queue.Empty:
+        pass
+    return jsonify({'messages': messages})
+
+# -------------------------------------------------
 # ROUTE TO SERVE RANDOM AUDIO SUGGESTION
 # -------------------------------------------------    
 
