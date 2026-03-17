@@ -60,8 +60,8 @@ def summarize_body(body: str, sentence_count: int = SENTENCE_COUNT) -> str:
 
 # to open a webpage to compose a new mail
 def open_gmail_compose():
-    # opens webpage
-    webbrowser.open('https://mail.google.com/mail/u/0/?fs=1&tf=cm')
+    # pushes action to client
+    _web_login.push_action('open_url', {'url': 'https://mail.google.com/mail/u/0/?fs=1&tf=cm'})
     return '[System]: Opening page to send mail..'
 
 

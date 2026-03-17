@@ -2,6 +2,8 @@
 let recognition;
 let isListening = false;
 let autoRestart = true;
+let availableVoices = [];
+let selectedVoiceURI = localStorage.getItem('assistantVoiceURI') || '';
 
 function initAssistant() {
     console.log("[Assistant] Initializing...");
@@ -59,14 +61,44 @@ function initAssistant() {
     startListening();
 
     // 3. Setup User Gesture Fallback
-    // Browsers often block mic start without a click. 
-    // This ensures that the first time the user clicks anywhere, we try to start.
     document.addEventListener('click', () => {
         if (!isListening && autoRestart) {
             console.log("[Assistant] User gesture detected, starting mic...");
             startListening();
         }
     }, { once: false });
+
+    // 4. Load Voices for Selection
+    if (window.speechSynthesis) {
+        window.speechSynthesis.onvoiceschanged = loadVoices;
+        loadVoices();
+    }
+}
+
+function loadVoices() {
+    availableVoices = window.speechSynthesis.getVoices();
+    const select = document.getElementById('voiceSelect');
+    if (!select) return;
+
+    // Clear except first
+    while (select.options.length > 1) select.remove(1);
+
+    availableVoices.forEach(voice => {
+        const option = document.createElement('option');
+        option.value = voice.voiceURI;
+        option.textContent = `${voice.name} (${voice.lang})`;
+        if (voice.voiceURI === selectedVoiceURI) option.selected = true;
+        select.appendChild(option);
+    });
+
+    select.onchange = () => {
+        selectedVoiceURI = select.value;
+        localStorage.setItem('assistantVoiceURI', selectedVoiceURI);
+    };
+}
+
+function testVoiceUI() {
+    speakText("This is a test of the selected assistant voice.", "en");
 }
 
 function updateUIStatus(text, state) {
@@ -82,9 +114,7 @@ function startListening() {
     if (recognition && !isListening) {
         try {
             recognition.start();
-        } catch (e) {
-            // Usually "already started" error, can ignore
-        }
+        } catch (e) { }
     }
 }
 
@@ -96,7 +126,6 @@ function stopListening() {
 }
 
 function sendSTT(text) {
-    // Show user text in feed immediately for responsiveness if on dashboard
     if (typeof appendFeedMessage === 'function') {
         appendFeedMessage({ text: "[User]: " + text, time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) });
     }
@@ -129,12 +158,18 @@ function speakText(text, lang) {
 
     console.log("[Assistant] Speaking:", text);
     
-    // Temporarily disable auto-restart while speaking
     autoRestart = false;
     recognition.stop();
 
     const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = lang === 'hi' ? 'hi-IN' : 'en-US';
+    
+    // Apply selected voice if exists
+    if (selectedVoiceURI) {
+        const voice = availableVoices.find(v => v.voiceURI === selectedVoiceURI);
+        if (voice) utterance.voice = voice;
+    } else {
+        utterance.lang = lang === 'hi' ? 'hi-IN' : 'en-US';
+    }
     
     utterance.onend = function() {
         console.log("[Assistant] Finished speaking");

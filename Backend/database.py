@@ -379,6 +379,19 @@ def admin_delete_user(email: str) -> tuple[bool, str]:
     except Exception as e:
         return False, str(e)
 
+def get_activity_count(email: str, action: str) -> int:
+    """Returns the total number of times a specific action was performed by a user."""
+    try:
+        with sqlite3.connect(ADMIN_DB_PATH) as conn:
+            cur = conn.execute(
+                "SELECT COUNT(*) FROM activity_log WHERE email = ? AND action = ?",
+                (email.strip().lower(), action)
+            )
+            return cur.fetchone()[0]
+    except Exception as e:
+        print(f'[DB] get_activity_count error: {e}')
+        return 0
+
 def log_session(email: str, force_insert: bool = False):
     """
     On login (force_insert=True): always insert a new session row.

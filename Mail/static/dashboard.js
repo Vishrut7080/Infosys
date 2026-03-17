@@ -220,56 +220,69 @@ function showServiceMsg(msg) {
 }
 
 // ─────────────────────────────────────────────────────────────
-//  AUDIO NAVIGATION
+//  CLIENT ACTIONS (NAV, OPEN URL, ETC)
 // ─────────────────────────────────────────────────────────────
-async function pollNavCommands() {
+async function pollClientActions() {
     try {
-        const res = await fetch('/api/nav_command');
+        const res = await fetch('/api/actions');
         const data = await res.json();
-        if (!data.command) return;
-        const cmd = data.command.toLowerCase();
+        if (!data.actions || data.actions.length === 0) return;
 
-        const navItems = document.querySelectorAll('.nav-item');
-        if (cmd.includes('dashboard') || cmd.includes('home')) {
-            showPage('dashboard', navItems[0]);
-        } else if (cmd.includes('profile')) {
-            showPage('profile', navItems[1]);
-        } else if (cmd.includes('inbox') || cmd.includes('messages') || cmd.includes('unified')) {
-            showPage('inbox', navItems[2]);
-        }
-
-        if (cmd.includes('select gmail') || cmd.includes('enable gmail') || cmd.includes('add gmail')) {
-            const el = document.getElementById('chk-gmail');
-            if (el) { el.checked = true; saveServices(); showServiceMsg(LangManager?.isHindi() ? 'Gmail जोड़ा ✓' : 'Gmail connected ✓'); }
-        }
-        if (cmd.includes('select telegram') || cmd.includes('enable telegram') || cmd.includes('add telegram')) {
-            const el = document.getElementById('chk-telegram');
-            if (el) { el.checked = true; saveServices(); showServiceMsg(LangManager?.isHindi() ? 'Telegram जोड़ा ✓' : 'Telegram connected ✓'); }
-        }
-        if (cmd.includes('deselect gmail') || cmd.includes('disable gmail') || cmd.includes('remove gmail')) {
-            const el = document.getElementById('chk-gmail');
-            if (el) { el.checked = false; showServiceMsg(LangManager?.isHindi() ? 'Gmail हटाया' : 'Gmail removed'); }
-        }
-        if (cmd.includes('deselect telegram') || cmd.includes('disable telegram') || cmd.includes('remove telegram')) {
-            const el = document.getElementById('chk-telegram');
-            if (el) { el.checked = false; showServiceMsg(LangManager?.isHindi() ? 'Telegram हटाया' : 'Telegram removed'); }
-        }
-        if (cmd.includes('select both') || cmd.includes('enable both')
-            || (cmd.includes('gmail') && cmd.includes('telegram'))) {
-            const g = document.getElementById('chk-gmail');
-            const t = document.getElementById('chk-telegram');
-            if (g) g.checked = true;
-            if (t) t.checked = true;
-            saveServices();
-            showServiceMsg(LangManager?.isHindi() ? 'Gmail + Telegram जुड़े ✓' : 'Gmail + Telegram connected ✓');
-        }
-        if (cmd.includes('save services') || cmd.includes('confirm services') || cmd.includes('save and continue')) {
-            saveServices();
-        }
-    } catch (e) { }
+        data.actions.forEach(action => {
+            if (action.type === 'nav') {
+                handleNavCommand(action.data.command);
+            } else if (action.type === 'open_url') {
+                console.log("[Action] Opening URL:", action.data.url);
+                window.open(action.data.url, '_blank');
+            }
+        });
+    } catch (e) { console.error("Action poll error:", e); }
 }
 
-setInterval(pollNavCommands, 600);
+function handleNavCommand(command) {
+    if (!command) return;
+    const cmd = command.toLowerCase();
+    const navItems = document.querySelectorAll('.nav-item');
+
+    if (cmd.includes('dashboard') || cmd.includes('home')) {
+        showPage('dashboard', navItems[0]);
+    } else if (cmd.includes('profile')) {
+        showPage('profile', navItems[1]);
+    } else if (cmd.includes('inbox') || cmd.includes('messages') || cmd.includes('unified')) {
+        showPage('inbox', navItems[2]);
+    }
+
+    if (cmd.includes('select gmail') || cmd.includes('enable gmail') || cmd.includes('add gmail')) {
+        const el = document.getElementById('chk-gmail');
+        if (el) { el.checked = true; saveServices(); showServiceMsg(LangManager?.isHindi() ? 'Gmail जोड़ा ✓' : 'Gmail connected ✓'); }
+    }
+    if (cmd.includes('select telegram') || cmd.includes('enable telegram') || cmd.includes('add telegram')) {
+        const el = document.getElementById('chk-telegram');
+        if (el) { el.checked = true; saveServices(); showServiceMsg(LangManager?.isHindi() ? 'Telegram जोड़ा ✓' : 'Telegram connected ✓'); }
+    }
+    if (cmd.includes('deselect gmail') || cmd.includes('disable gmail') || cmd.includes('remove gmail')) {
+        const el = document.getElementById('chk-gmail');
+        if (el) { el.checked = false; showServiceMsg(LangManager?.isHindi() ? 'Gmail हटाया' : 'Gmail removed'); }
+    }
+    if (cmd.includes('deselect telegram') || cmd.includes('disable telegram') || cmd.includes('remove telegram')) {
+        const el = document.getElementById('chk-telegram');
+        if (el) { el.checked = false; showServiceMsg(LangManager?.isHindi() ? 'Telegram हटाया' : 'Telegram removed'); }
+    }
+    if (cmd.includes('select both') || cmd.includes('enable both')
+        || (cmd.includes('gmail') && cmd.includes('telegram'))) {
+        const g = document.getElementById('chk-gmail');
+        const t = document.getElementById('chk-telegram');
+        if (g) g.checked = true;
+        if (t) t.checked = true;
+        saveServices();
+        showServiceMsg(LangManager?.isHindi() ? 'Gmail + Telegram जुड़े ✓' : 'Gmail + Telegram connected ✓');
+    }
+    if (cmd.includes('save services') || cmd.includes('confirm services') || cmd.includes('save and continue')) {
+        saveServices();
+    }
+}
+
+setInterval(pollClientActions, 800);
 
 // ─────────────────────────────────────────────────────────────
 //  UNIFIED INBOX
