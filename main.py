@@ -14,7 +14,7 @@ from Mail.web_login import push_to_feed, push_nav_command
 import Mail.web_login as web_login
 import threading, webbrowser, requests
 from dotenv import load_dotenv
-import os, time, datetime, random, re
+import os, time, datetime, random, re, json
 from Telegram.telegram import (
     start_telegram_in_thread, telegram_get_messages,
     telegram_send_message, telegram_get_latest, set_notification_callback
@@ -23,6 +23,7 @@ from Telegram.telegram import (
 load_dotenv()
 
 SECRET_AUD = os.getenv('SECRET_AUD', '')
+OPEN_ROUTER_API_key=os.getenv('OPEN_ROUTER_API_key')
 
 # ----------------------
 # STATE VARIABLES
@@ -427,22 +428,26 @@ def calculate(text: str) -> str:
 def generate_local_reply(message: str) -> str | None:
     try:
         response = requests.post(
-            "http://localhost:11434/api/generate",
-            json={
-                "model": "gemma3:1b",
-                "prompt": (
-                    "You are an AI assistant helping reply to messages.\n"
-                    "Write a short natural reply (1-2 sentences).\n"
-                    f"Message:\n{message}\nReply:"
-                ),
-                "stream": False,
+            url="https://openrouter.ai/api/v1/chat/completions",
+            headers={
+              "Authorization": f"Bearer {OPEN_ROUTER_API_key}"
             },
-            timeout=30,
-        )
+            data=json.dumps({
+                "model": "openrouter/hunter-alpha",             
+                "messages": [
+                    {
+                      "role": "user",
+                      "content": "You are an AI assistant helping reply to messages.\n"
+                        "Write a short natural reply (1-2 sentences).\n"
+                        f"Message:\n{message}\nReply:"
+                    },
+                ]                
+            })
+            )
         data = response.json()
         return data.get("response", "").strip() or None
     except Exception as e:
-        print("Ollama error:", e)
+        print("Response Error:", e)
         return None
 
 # ----------------------
