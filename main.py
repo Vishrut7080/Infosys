@@ -259,6 +259,8 @@ RESPONSES = {
                             'hi': '[System]: ठीक है, आपका खुद का जवाब लेते हैं।'},
     'suggest_failed':      {'en': '[System]: Could not generate a suggestion. Please dictate your reply.',
                             'hi': '[System]: सुझाव नहीं बन सका। कृपया अपना जवाब बोलें।'},
+    'nav_confirmed':       {'en': '[System]: Opening page.',
+                            'hi': '[System]: पेज खोल रहे हैं।'},
 }
 
 # ----------------------
@@ -844,6 +846,7 @@ with open('Audio/Transcribe.txt', 'a', encoding='utf-8') as file:
         for phrase in NAV_PHRASES:
             if phrase in clean_heard:
                 push_nav_command(clean_heard)
+                speak_text(r('nav_confirmed'), lang=user_lang)
                 _is_nav = True
                 break
 
