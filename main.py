@@ -58,9 +58,10 @@ def spoken_pin_to_digits(spoken: str) -> str:
 def clean_spoken_email(spoken: str) -> str:
     result = spoken.strip().lower()
 
-    # NEW: collapse hyphen-separated spelling — v-i-s-h-r-u-t → vishrut
+    # Collapse all hyphen-separated spellings including digit-to-digit
     result = re.sub(r'(?<=[a-z])-(?=[a-z0-9])', '', result)
     result = re.sub(r'(?<=[a-z0-9])-(?=[a-z])', '', result)
+    result = re.sub(r'(?<=[0-9])-(?=[0-9])', '', result)
 
     for at in ['at the rate', 'at the rate of', 'at the', 'at']:
         if at in result:
@@ -72,10 +73,14 @@ def clean_spoken_email(spoken: str) -> str:
     result = result.replace('dot ', '.')
 
     result = re.sub(r'\.\s*@', '@', result)
-    # Collapse V.I.S.H.R.U.T. style spelling — dot after any char, before any char or digit
-    result = re.sub(r'([a-z0-9])\.([a-z0-9])', r'\1 \2', result)
-    result = re.sub(r'([a-z0-9])\.$', r'\1', result)   # trailing dot at end of word
-    result = re.sub(r'([a-z0-9])\.\s', r'\1 ', result)  # dot followed by space
+    
+    # Iteratively collapse dots until none remain (handles vi.sh.ru.t multi-char groups)
+    prev = None
+    while prev != result:
+        prev = result
+        result = re.sub(r'([a-z0-9])\.([a-z0-9])', r'\1 \2', result)
+    result = re.sub(r'([a-z0-9])\.$', r'\1', result)
+    result = re.sub(r'([a-z0-9])\.\s', r'\1 ', result)
     result = re.sub(r'\.\s+', ' ', result)
 
     if '@' in result:

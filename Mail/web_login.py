@@ -201,15 +201,21 @@ def check_session():
 
 @app.route('/login-cancelled')
 def login_cancelled():
-    """Renders a self-closing page when audio login fails."""
+    """Redirects to login page after showing cancellation message."""
     return '''<!DOCTYPE html>
 <html>
 <head><title>Cancelled</title></head>
-<body>
+<body style="margin:0;background:#0f0f0f;display:flex;align-items:center;justify-content:center;height:100vh;">
+<div style="text-align:center;font-family:sans-serif;">
+    <p style="color:#888;font-size:18px;">Login cancelled.</p>
+    <p style="color:#555;font-size:14px;">Returning to login page...</p>
+    <div style="margin-top:16px;width:200px;height:3px;background:#222;border-radius:2px;overflow:hidden;margin-left:auto;margin-right:auto;">
+        <div id="bar" style="height:100%;width:0%;background:#6366f1;transition:width 3s linear;"></div>
+    </div>
+</div>
 <script>
-  // Show briefly then close
-  document.write('<p style="font-family:sans-serif;color:#888;text-align:center;margin-top:40vh">Login cancelled. Closing...</p>');
-  setTimeout(() => window.close(), 1800);
+  setTimeout(() => document.getElementById('bar').style.width = '100%', 50);
+  setTimeout(() => window.location.href = '/', 3200);
 </script>
 </body>
 </html>'''
@@ -607,8 +613,13 @@ def get_inbox():
         return jsonify({'messages': []})
     
     messages = []
-    services = selected_services or []
-
+    services = app.config.get('verified_services', []) or selected_services or []
+    
+    # Ensure credentials are loaded
+    email = session['user'].get('email', '')
+    if email:
+        apply_user_credentials(email)
+        
     # ── Gmail ──────────────────────────────────────
     if 'gmail' in services:
         try:

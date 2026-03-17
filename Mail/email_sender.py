@@ -69,9 +69,9 @@ def send_email(to: str, subject: str, body: str) -> tuple[bool, str]:
 def spoken_to_email(spoken: str) -> str:
     result = spoken.strip().lower()
 
-    # Collapse hyphen-separated spelling — v-i-s-h-r-u-t2263 → vishrut2263
     result = re.sub(r'(?<=[a-z])-(?=[a-z0-9])', '', result)
     result = re.sub(r'(?<=[a-z0-9])-(?=[a-z])', '', result)
+    result = re.sub(r'(?<=[0-9])-(?=[0-9])', '', result)
 
     # Replace spoken @ symbols — longest first, break after first match
     for at in ['at the rate', 'at the rate of', 'at the', 'at']:
@@ -87,8 +87,10 @@ def spoken_to_email(spoken: str) -> str:
     # Remove trailing dot before @
     result = re.sub(r'\.\s*@', '@', result)
 
-    # Collapse V.I.S.H.R.U.T. style spelling
-    result = re.sub(r'([a-z0-9])\.([a-z0-9])', r'\1 \2', result)
+    prev = None
+    while prev != result:
+        prev = result
+        result = re.sub(r'([a-z0-9])\.([a-z0-9])', r'\1 \2', result)
     result = re.sub(r'([a-z0-9])\.$', r'\1', result)
     result = re.sub(r'([a-z0-9])\.\s', r'\1 ', result)
 

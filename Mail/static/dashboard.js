@@ -305,7 +305,11 @@ function filterInbox(type, el) {
     currentFilter = type;
     document.querySelectorAll('.filter-pill').forEach(p => p.classList.remove('active'));
     if (el) el.classList.add('active');
-    renderInbox();
+    if (!allMessages.length) {
+        loadInbox();   // triggers load + render automatically
+    } else {
+        renderInbox();
+    }
 }
 
 function renderInbox() {

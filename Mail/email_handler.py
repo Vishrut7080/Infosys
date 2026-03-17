@@ -178,6 +178,10 @@ def extract_important_details(msg, body: str) -> dict:
 def get_top_senders(count: int = FETCH_COUNT, category: str = 'ALL'):
     EMAIL_USER = os.getenv('EMAIL_USER')
     EMAIL_PASS = os.getenv('EMAIL_PASS')
+
+    if not EMAIL_USER or not EMAIL_PASS:
+        return [{'error': '[System]: Gmail credentials not configured.'}]
+    
     try:
         mail = imaplib.IMAP4_SSL('imap.gmail.com')
         mail.login(EMAIL_USER, EMAIL_PASS)
