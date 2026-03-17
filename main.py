@@ -34,7 +34,6 @@ typing_pause_until   = 0
 awaiting_services    = False
 heard                = ""
 login_initiated      = False
-_awaiting_services_since = 0.0
 _services_processed  = False   
 
 bye_en = '[System]: Goodbye! Take care.'
@@ -348,13 +347,13 @@ with open('Audio/Transcribe.txt', 'a', encoding='utf-8') as file:
             login_initiated = True
             speak_text('[System]: Welcome! Say your audio password to complete login.')
             continue
-        if awaiting_services:
-            if web_login.selected_services:
-                services = list(web_login.selected_services)
-                web_login.app.config['verified_services'] = services
-                awaiting_services, _services_processed = False, True
-                _connect_services(services, announce=False)
-            continue
+        
+        if awaiting_services and web_login.selected_services:
+            services = list(web_login.selected_services)
+            web_login.app.config['verified_services'] = services
+            awaiting_services, _services_processed = False, True
+            _connect_services(services, announce=False)
+
         if web_login.user_typing: typing_pause_until = time.time() + 5; web_login.user_typing = False
         if web_login.signup_open or time.time() < typing_pause_until: time.sleep(0.5); continue
 
@@ -396,31 +395,70 @@ with open('Audio/Transcribe.txt', 'a', encoding='utf-8') as file:
                 _db_log_activity(email, 'login', 'audio')
                 awaiting_services = True
             else: speak_text(r('login_failed'), lang=user_lang); web_login.login_status = 'failed'
-        elif web_login.is_voice_authenticated and 'telegram' in clean_heard and 'send' in clean_heard:
-            speak_text(r('tg_who'), lang=user_lang)
-            recipient, _ = listen_text()
-            if recipient:
+
+        # ── TELEGRAM ──────────────────────────────────────────
+        elif web_login.is_voice_authenticated and 'telegram' in clean_heard:
+            if 'send' in clean_heard:
+                speak_text(r('tg_who'), lang=user_lang)
+                recipient_raw, _ = listen_text(duration=10)
+                recipient = clean_spoken_name(recipient_raw)
+                if not recipient: speak_text(r('tg_no_recipient'), lang=user_lang); continue
+                speak_text(f'[User]: {recipient}')
                 speak_text(r('tg_what'), lang=user_lang)
-                msg, _ = listen_text()
-                if msg:
-                    speak_text(r('tg_confirm_send'), lang=user_lang)
-                    conf, _ = listen_text()
-                    if any(w in conf.lower() for w in affirmation):
-                        success, res = telegram_send_message(clean_spoken_name(recipient), msg)
+                message, _ = listen_text(duration=10)
+                if not message.strip(): speak_text(r('tg_empty_msg'), lang=user_lang); continue
+                speak_text(f'[User]: {message}')
+                speak_text(r('tg_confirm_send'), lang=user_lang)
+                conf, _ = listen_text()
+                if any(w in conf.lower() for w in affirmation):
+                    speak_text('[System]: Say your Telegram PIN to confirm.', lang=user_lang)
+                    pin_h, _ = listen_text()
+                    if verify_pin(web_login.app.config.get('current_email'), 'telegram', spoken_pin_to_digits(pin_h)):
+                        success, res = telegram_send_message(recipient, message)
                         speak_text(f'[System]: {res}')
-        elif web_login.is_voice_authenticated and 'email' in clean_heard and 'send' in clean_heard:
-            speak_text(r('email_send_prompt'), lang=user_lang)
-            res, _ = listen_text()
-            if any(w in res.lower() for w in affirmation):
-                speak_text('[System]: Say recipient email.', lang=user_lang)
-                raw_email, _ = listen_text()
-                email_addr = clean_spoken_email(raw_email)
-                speak_text('[System]: Subject?', lang=user_lang)
-                subj, _ = listen_text()
-                speak_text('[System]: Message body?', lang=user_lang)
-                body, _ = listen_text()
-                ok, msg = send_reply_direct(to=email_addr, subject=subj, body=body)
-                speak_text(f'[System]: {msg}')
+                    else: speak_text('[System]: Incorrect PIN.', lang=user_lang)
+            elif any(w in clean_heard for w in inbox_req + ['message', 'messages']):
+                speak_text(r('tg_fetching'), lang=user_lang)
+                msgs = telegram_get_messages(5)
+                if msgs:
+                    for i, m in enumerate(msgs, 1):
+                        speak_text(f"Telegram {i}. From: {m['name']}. Message: {m['message']}.")
+                        speak_text(r('suggest_send'), lang=user_lang)
+                        rep, _ = listen_text()
+                        if any(w in rep.lower() for w in affirmation): handle_telegram_reply(m['name'], m['message'])
+                else: speak_text(r('tg_none'), lang=user_lang)
+
+        # ── EMAIL ─────────────────────────────────────────────
+        elif web_login.is_voice_authenticated and any(w in clean_heard for w in mail_req):
+            if 'send' in clean_heard or 'compose' in clean_heard:
+                speak_text(r('email_send_prompt'), lang=user_lang)
+                res, _ = listen_text()
+                if any(w in res.lower() for w in affirmation):
+                    speak_text('[System]: Say recipient email.', lang=user_lang)
+                    raw_email, _ = listen_text()
+                    email_addr = clean_spoken_email(raw_email)
+                    speak_text('[System]: Subject?', lang=user_lang)
+                    subj, _ = listen_text()
+                    speak_text('[System]: Message body?', lang=user_lang)
+                    body, _ = listen_text()
+                    speak_text(f'[System]: Send to {email_addr}? Say your Gmail PIN to confirm.')
+                    pin_h, _ = listen_text()
+                    if verify_pin(web_login.app.config.get('current_email'), 'gmail', spoken_pin_to_digits(pin_h)):
+                        ok, msg = send_reply_direct(to=email_addr, subject=subj, body=body)
+                        speak_text(f'[System]: {msg}')
+                    else: speak_text('[System]: Incorrect PIN.', lang=user_lang)
+            elif any(w in clean_heard for w in inbox_req):
+                speak_text(r('cat_prompt'), lang=user_lang)
+                cat, _ = listen_text()
+                category = 'PRIMARY' if 'primary' in cat.lower() else 'ALL'
+                emails = get_top_senders(3, category=category)
+                for i, e in enumerate(emails, 1):
+                    if 'error' in e: speak_text(e['error']); break
+                    speak_text(f"Email {i}. From: {e['sender']}. Subject: {e['subject']}. Summary: {e['summary']}")
+                    speak_text('[System]: Reply?', lang=user_lang)
+                    rep, _ = listen_text()
+                    if any(w in rep.lower() for w in affirmation): handle_reply(e)
+
         elif any(w in clean_heard for w in logout_commands): do_logout()
         elif 'time' in clean_heard: speak_text(f'[System]: The time is {datetime.datetime.now().strftime("%I:%M %p")}.')
         elif 'joke' in clean_heard: speak_text(f'[System]: {random.choice(JOKES_HI if user_lang=="hi" else JOKES_EN)}')

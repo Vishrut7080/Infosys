@@ -205,7 +205,7 @@ def select_services_route():
 def get_services():
     return jsonify({
         'voice_confirmed': is_voice_authenticated,
-        'services': selected_services,
+        'services': app.config.get('verified_services', []),
     })
 
 @app.route('/get-user-info')
