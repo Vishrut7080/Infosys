@@ -1,277 +1,85 @@
-import os, webbrowser, imaplib, email, re, html
+import os, imaplib, email, re, html
 from email.header import decode_header
 from email.utils import parsedate_to_datetime
 import Mail.web_login as _web_login
 from Audio.text_to_speech import speak_text as _tts_orig
-# ----------------------
-# SUNNY IMPORTS- lightweight
-# ----------------------
-from sumy.parsers.plaintext import PlaintextParser
-from sumy.nlp.tokenizers import Tokenizer
-from sumy.summarizers.lsa import LsaSummarizer
-from sumy.nlp.stemmers import Stemmer
-from sumy.utils import get_stop_words
 
 def speak_text(text: str, lang: str = 'en'):
     _web_login.push_to_feed(text)
     _tts_orig(text, lang=lang)
 
-# ========================
-# CONFIGURATION
-# ========================
-SENTENCE_COUNT = 2                  # Number of sentences to keep in the summary
-FETCH_COUNT    = 3                  # How many of the latest emails to fetch
-
-# # =================================================
-# TEXT SUMMARIZATION
-# # =================================================
-try:
-    from langdetect import detect as _detect_lang
-    _langdetect_available = True
-except ImportError:
-    _langdetect_available = False
-
-def summarize_body(body: str, sentence_count: int = SENTENCE_COUNT) -> str:
-    body = body[:2000]
-    cleaned = re.sub(r'\n+', ' ', body).strip()
-    if len(cleaned.split()) < 30:
-        return cleaned if cleaned else "No body content."
-
-    # ★ Detect language
-    sumy_lang = 'english'
-    if _langdetect_available:
-        try:
-            detected = _detect_lang(cleaned)
-            if detected == 'hi':
-                sumy_lang = 'hindi'
-        except Exception:
-            pass
-
-    try:
-        parser     = PlaintextParser.from_string(cleaned, Tokenizer(sumy_lang))
-        stemmer    = Stemmer(sumy_lang)
-        summarizer = LsaSummarizer(stemmer)
-        summarizer.stop_words = get_stop_words(sumy_lang)
-        summary_sentences = summarizer(parser.document, sentence_count)
-        summary = ' '.join(str(s) for s in summary_sentences)
-        return summary if summary else cleaned[:300]
-    except Exception:
-        return cleaned[:300] + '...' if len(cleaned) > 300 else cleaned
-
-# to open a webpage to compose a new mail
 def open_gmail_compose():
-    # pushes action to client
     _web_login.push_action('open_url', {'url': 'https://mail.google.com/mail/u/0/?fs=1&tf=cm'})
     return '[System]: Opening page to send mail..'
 
-
-def decode_mime_header(raw_header: str) -> str:
-    if not raw_header:
-        return "Unknown"
-
-    decoded_parts = decode_header(raw_header)
-    result = []
-    for part, encoding in decoded_parts:
-        if isinstance(part, bytes):
-            result.append(part.decode(encoding or 'utf-8', errors='replace'))
-        else:
-            result.append(part)
-    return ' '.join(result).strip()
-
-# ----------------------
-# Helper: Extract plain text body from email
-# ----------------------
-
-def extract_body(msg) -> str:
-    body = ""
-
-    if msg.is_multipart():
-        for part in msg.walk():
-            content_type        = part.get_content_type()
-            content_disposition = str(part.get_content_disposition())
-
-            if "attachment" in content_disposition:
-                continue
-
-            if content_type == "text/plain":
-                body = part.get_payload(decode=True).decode(errors='replace')
-                break
-            elif content_type == "text/html" and not body:
-                raw_html = part.get_payload(decode=True).decode(errors='replace')
-                body = strip_html(raw_html)
-    else:
-        raw = msg.get_payload(decode=True)
-        if raw:
-            content_type = msg.get_content_type()
-            if content_type == "text/html":
-                body = strip_html(raw.decode(errors='replace'))
-            else:
-                body = raw.decode(errors='replace')
-
-    return body.strip()
-
-# ----------------------
-# Helper: Strip HTML tags from a string
-# ----------------------
-
-def strip_html(raw_html: str) -> str:
-    text = html.unescape(raw_html)
-    # Remove style and script blocks including their content
-    text = re.sub(r'<style[^>]*>.*?</style>', ' ', text, flags=re.DOTALL)
-    text = re.sub(r'<script[^>]*>.*?</script>', ' ', text, flags=re.DOTALL)
-    # Remove all remaining HTML tags
-    text = re.sub(r'<[^>]+>', ' ', text)
-    # Remove leftover CSS-like junk (anything inside curly braces)
-    text = re.sub(r'\{[^}]+\}', ' ', text)
-    # Collapse whitespace
-    text = re.sub(r'\s+', ' ', text)
-    return text.strip()
-
-# ----------------------
-# Helper: Extract important details from email body
-# ----------------------
-
-def extract_important_details(msg, body: str) -> dict:
-    """
-    Extracts structured 'important details' from the email:
-      - Attachments: names of any attached files
-      - Links: any URLs found in the body
-      - CC / BCC recipients if present
-    """
-    details = {}
-
-    # --- Attachments ---
-    attachments = []
-    if msg.is_multipart():
-        for part in msg.walk():
-            disposition = str(part.get_content_disposition())
-            if "attachment" in disposition:
-                filename = decode_mime_header(part.get_filename() or "unnamed")
-                attachments.append(filename)
-    details['attachments'] = attachments if attachments else None
-
-    # --- URLs found in the body ---
-    urls = re.findall(r'https?://[^\s<>"\']+', body)
-    # Deduplicate while preserving order, limit to 5 to avoid noise
-    seen = set()
-    unique_urls = []
-    for url in urls:
-        if url not in seen:
-            seen.add(url)
-            unique_urls.append(url)
-        if len(unique_urls) == 5:
-            break
-    details['links'] = unique_urls if unique_urls else None
-
-    # --- CC recipients ---
-    cc = msg.get('Cc')
-    details['cc'] = decode_mime_header(cc) if cc else None
-
-    return details
-
-
-# ----------------------
-# Main Function: Fetch and summarize latest emails
-# ----------------------
-
-# open webpage and return the name of the top mail(sender)
-def get_top_senders(count: int = FETCH_COUNT, category: str = 'ALL'):
-    EMAIL_USER = os.getenv('EMAIL_USER')
-    EMAIL_PASS = os.getenv('EMAIL_PASS')
+def get_top_senders(count=5, category='ALL', user_email=None, app_pass=None):
+    # Use provided creds or fallback to environment
+    EMAIL_USER = user_email or os.getenv('EMAIL_USER')
+    EMAIL_PASS = app_pass or os.getenv('EMAIL_PASS')
 
     if not EMAIL_USER or not EMAIL_PASS:
         return [{'error': '[System]: Gmail credentials not configured.'}]
-    
+
     try:
-        mail = imaplib.IMAP4_SSL('imap.gmail.com')
+        mail = imaplib.IMAP4_SSL("imap.gmail.com")
         mail.login(EMAIL_USER, EMAIL_PASS)
+        mail.select("inbox")
 
-        pre_fetched_ids = None
+        search_query = 'ALL'
+        if category == 'PRIMARY': search_query = 'X-GM-RAW "category:primary"'
+        elif category == 'PROMOTIONS': search_query = 'X-GM-RAW "category:promotions"'
+        elif category == 'UPDATES': search_query = 'X-GM-RAW "category:updates"'
 
-        if category == 'PRIMARY':
-            status, _ = mail.select('inbox')
-            if status != 'OK':
-                mail.select('"[Gmail]/All Mail"')
+        status, messages = mail.uid('search', None, search_query)
+        if status != 'OK': return [{'error': f'[System]: Search failed with status {status}'}]
 
-        elif category == 'PROMOTIONS':
-            selected = False
-            for folder in ['"[Gmail]/Promotions"',
-                           '"[Google Mail]/Promotions"',
-                           'Promotions']:
-                status, _ = mail.select(folder)
-                if status == 'OK':
-                    selected = True
-                    break
-            if not selected:
-                mail.select('"[Gmail]/All Mail"')
+        uids = messages[0].split()
+        if not uids: return []
 
-        elif category == 'UPDATES':
-            selected = False
-            for folder in ['"[Gmail]/Updates"', '"[Google Mail]/Updates"']:
-                status, _ = mail.select(folder)
-                if status == 'OK':
-                    selected = True
-                    break
-            if not selected:
-                mail.select('"[Gmail]/All Mail"')
-                # Try Gmail label search for Updates category
-                try:
-                    result, data = mail.search(None, 'X-GM-LABELS', 'updates')
-                    if result == 'OK' and data[0].split():
-                        pre_fetched_ids = data[0].split()
-                except Exception:
-                    pass  # fall through to ALL search if label search fails
-
-        else:
-            mail.select('"[Gmail]/All Mail"')
-
-        # ── Search ──
-        if pre_fetched_ids is not None:
-            mail_ids = pre_fetched_ids
-        else:
-            result, data = mail.search(None, 'ALL')
-            mail_ids = data[0].split()
-
-        if not mail_ids:
-            mail.logout()
-            return [{'error': 'Inbox is empty'}]
-
-        latest_ids = mail_ids[-count:]
+        top_uids = uids[-count:][::-1]
         emails = []
 
-        for mail_id in reversed(latest_ids):
-            result, msg_data = mail.fetch(mail_id, "(RFC822)")
+        for uid in top_uids:
+            res, msg_data = mail.uid('fetch', uid, '(RFC822)')
+            if res != 'OK': continue
+            
             raw_email = msg_data[0][1]
             msg = email.message_from_bytes(raw_email)
 
-            sender  = decode_mime_header(msg.get('From', 'Unknown'))
-            subject = decode_mime_header(msg.get('Subject', 'No Subject'))
+            subject, encoding = decode_header(msg["Subject"])[0]
+            if isinstance(subject, bytes): subject = subject.decode(encoding or "utf-8")
 
-            raw_date = msg.get('Date')
-            try:
-                date_str = parsedate_to_datetime(raw_date).strftime("%a, %d %b %Y %H:%M")
-            except Exception:
-                date_str = raw_date or "Unknown date"
+            sender, encoding = decode_header(msg.get("From"))[0]
+            if isinstance(sender, bytes): sender = sender.decode(encoding or "utf-8")
 
-            body    = extract_body(msg)
-            summary = summarize_body(body)
-            details = extract_important_details(msg, body)
+            date_str = msg.get("Date")
+            dt = parsedate_to_datetime(date_str) if date_str else None
+            fmt_date = dt.strftime("%d %b %H:%M") if dt else "Unknown"
 
+            body = ""
+            if msg.is_multipart():
+                for part in msg.walk():
+                    if part.get_content_type() == "text/plain":
+                        body = part.get_payload(decode=True).decode(errors='ignore')
+                        break
+            else:
+                body = msg.get_payload(decode=True).decode(errors='ignore')
+
+            summary = body.strip()[:150].replace('\n', ' ') + "..."
             emails.append({
-                'sender':  sender,
+                'uid': uid.decode(),
+                'sender': sender,
                 'subject': subject,
-                'date':    date_str,
+                'date': fmt_date,
                 'summary': summary,
-                'details': details,
-                'msg_id':  msg.get('Message-ID', '')
+                'msg_id': msg.get('Message-ID', ''),
+                'details': {'attachments': []}
             })
 
         mail.logout()
         return emails
 
-    except imaplib.IMAP4.error as e:
-        return [{'error': f'[System]: IMAP Error: {str(e)}'}]
     except Exception as e:
-        return [{'error': f'[System]: Error: {str(e)}'}]
+        return [{'error': f'[System]: Error fetching mail: {str(e)}'}]
 
 __all__=['open_gmail_compose', 'get_top_senders']

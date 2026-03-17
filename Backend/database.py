@@ -700,6 +700,32 @@ def get_user_credentials(email: str) -> dict | None:
         return None
 
 
+def get_activity_count(email: str, action: str) -> int:
+    """Returns the total number of times a specific action was performed by a user."""
+    try:
+        with sqlite3.connect(ADMIN_DB_PATH) as conn:
+            cur = conn.execute(
+                "SELECT COUNT(*) FROM activity_log WHERE email = ? AND action = ?",
+                (email.strip().lower(), action)
+            )
+            return cur.fetchone()[0]
+    except Exception as e:
+        print(f'[DB] get_activity_count error: {e}')
+        return 0
+
+def get_activity_count_global(action: str) -> int:
+    """Returns the total number of times a specific action was performed by all users."""
+    try:
+        with sqlite3.connect(ADMIN_DB_PATH) as conn:
+            cur = conn.execute(
+                "SELECT COUNT(*) FROM activity_log WHERE action = ?",
+                (action,)
+            )
+            return cur.fetchone()[0]
+    except Exception as e:
+        print(f'[DB] get_activity_count_global error: {e}')
+        return 0
+
 __all__ = [
     'init_db', 'init_admin_db', 'create_user', 'verify_user', 'verify_audio',
     'get_user_by_email', 'get_user_credentials', 'suggest_audio_word',
@@ -707,5 +733,6 @@ __all__ = [
     'log_session', 'log_activity', 'get_all_users', 'get_active_users',
     'get_activity_log', 'is_admin', 'add_admin', 'remove_admin',
     'admin_delete_user', 'USER_DB_PATH', 'ADMIN_DB_PATH',
-    'generate_pins', 'store_pins', 'verify_pin'
+    'generate_pins', 'store_pins', 'verify_pin', 'get_activity_count',
+    'get_activity_count_global'
 ]
