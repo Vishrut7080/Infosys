@@ -1,0 +1,193 @@
+/* ─────────────────────────────────────────────────────────────
+   toast.css  —  VoiceMail AI toast notification system
+   ───────────────────────────────────────────────────────────── */
+
+#toast-container {
+    position: fixed;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    align-items: center;
+    pointer-events: none;
+    /* min-width keeps short toasts from collapsing the centering */
+    min-width: 0;
+}
+
+.toast {
+    pointer-events: all;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 11px 18px 13px 13px;
+    border-radius: 14px;
+    min-width: 220px;
+    max-width: 380px;
+    cursor: pointer;
+    overflow: hidden;
+    position: relative;
+
+    /* ── Frosted glass ── */
+    background: linear-gradient(135deg,
+            rgba(255, 255, 255, 0.09) 0%,
+            rgba(var(--toast-rgb), 0.06) 100%);
+    backdrop-filter: blur(20px) saturate(1.6);
+    -webkit-backdrop-filter: blur(20px) saturate(1.6);
+
+    /* thin accent rim + soft outer glow */
+    border: 1px solid rgba(255, 255, 255, 0.13);
+    border-top: 1px solid rgba(255, 255, 255, 0.2);
+    box-shadow:
+        0 4px 24px rgba(0, 0, 0, 0.35),
+        0 1px 0 rgba(255, 255, 255, 0.08) inset,
+        0 0 0 1px rgba(var(--toast-rgb), 0.12);
+
+    animation: toast-in 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+.toast:hover {
+    background: linear-gradient(135deg,
+            rgba(255, 255, 255, 0.13) 0%,
+            rgba(var(--toast-rgb), 0.09) 100%);
+}
+
+.toast.toast-out {
+    animation: toast-out 0.22s cubic-bezier(0.4, 0, 1, 1) both;
+}
+
+/* ── Icon circle ── */
+.toast-icon {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: rgba(var(--toast-rgb), 0.18);
+    border: 1px solid rgba(var(--toast-rgb), 0.3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 700;
+    font-family: 'Syne', sans-serif;
+    flex-shrink: 0;
+    color: var(--toast-color);
+    line-height: 1;
+    box-shadow: 0 0 10px rgba(var(--toast-rgb), 0.25);
+}
+
+/* ── Message ── */
+.toast-msg {
+    font-size: 13px;
+    font-weight: 500;
+    color: rgba(255, 255, 255, 0.88);
+    line-height: 1.4;
+    flex: 1;
+    font-family: 'DM Sans', sans-serif;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+}
+
+/* ── Drain progress bar ── */
+.toast-progress {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    height: 2px;
+    width: 100%;
+    background: linear-gradient(90deg, transparent, var(--toast-color), transparent);
+    opacity: 0.5;
+    transform-origin: left center;
+    animation: toast-drain var(--toast-duration, 3500ms) linear both;
+}
+
+/* ── Type colour tokens ── */
+.toast-info {
+    --toast-color: #38bdf8;
+    --toast-rgb: 56, 189, 248;
+}
+
+.toast-success {
+    --toast-color: #34d399;
+    --toast-rgb: 52, 211, 153;
+}
+
+.toast-warning {
+    --toast-color: #fbbf24;
+    --toast-rgb: 251, 191, 36;
+}
+
+.toast-error {
+    --toast-color: #f87171;
+    --toast-rgb: 248, 113, 113;
+}
+
+/* ── Keyframes ── */
+@keyframes toast-in {
+    from {
+        opacity: 0;
+        transform: translateY(-28px) scale(0.92);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+@keyframes toast-out {
+    to {
+        opacity: 0;
+        transform: translateY(-24px) scale(0.94);
+    }
+}
+
+@keyframes toast-drain {
+    from {
+        width: 100%;
+    }
+
+    to {
+        width: 0%;
+    }
+}
+
+/* ── Reduce motion ── */
+@media (prefers-reduced-motion: reduce) {
+
+    .toast,
+    .toast.toast-out {
+        animation: none;
+    }
+
+    .toast-progress {
+        animation: none;
+        width: 0;
+    }
+}
+
+/* Bottom-center placement (used for persistent listening pill on login) */
+#toast-container.position-bottom {
+    top: auto;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+}
+
+/* Specialized listening pill appearance */
+.toast-listening {
+    padding: 14px 20px 14px 16px;
+    min-width: 260px;
+    border-radius: 999px;
+}
+
+.toast-listening .toast-icon {
+    width: 32px;
+    height: 32px;
+    font-size: 14px;
+}
+
+.toast-listening .toast-msg {
+    font-size: 15px;
+    font-weight: 600;
+}

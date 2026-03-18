@@ -1,144 +1,179 @@
-<!-- MILESTONE 1 -->
+# Infosys Voice Assistant
 
-1. python main.py                 (Program starts)
-2. Load environment variables     (From .env)
-3. Enter while loop               (Infinite)
-4. listen_text()                  (Wait for speech)
-5. User: "hello"                  (Speech captured)
-6. speak_text('[User]: hello')    (Echo to user)
-7. Match greeting command         (Find in if-elif)
-8. speak_text(greeting_response)  (Respond)
-9. Loop back to step 4            (Continue)
-10. User: "login"                 (Login command)
-11. Start Flask thread            (Web server)
-12. Open browser                  (Show login page)
-13. User: "program"               (Confirmation)
-14. Set login_status = "success"  (Authenticated)
-15. Browser redirects to Gmail    (Login complete)
-16. User: "send mail"             (Email command)
-17. Check login_status            (Verify authenticated)
-18. Confirm with user             (Ask yes/no)
-19. open_gmail_compose()          (Open Gmail)
-20. User: "logout"                (Logout command)
-21. Reset login_status            (Clear auth)
-22. User: "bye"                   (Exit command)
-23. Break loop                    (End program)
-24. file.close()                  (Clean up)
+A modular, agent-based voice assistant that manages Gmail and Telegram through natural language commands powered by an LLM (via OpenRouter).
 
-# ========================
-# NEW WORK - MILESTONE 2
-# ========================
+## Features
 
-1.  python main.py                        (Program starts)
-2.  Load environment variables            (From .env)
-3.  Open Transcribe.txt                   (For logging)
-4.  Enter while loop                      (Infinite)
+- **Auto voice login** — Microphone starts automatically on the login page; say your audio password without pressing any buttons
+- **Voice-controlled email** — Send, read, search, and summarise Gmail emails by voice
+- **Telegram integration** — Send, receive, and browse Telegram conversations by voice
+- **Task management** — Add, list, complete, and delete personal tasks by voice or via the Tasks dashboard page
+- **LLM-powered agent** — Natural language understanding via OpenRouter (tool-calling architecture)
+- **Agent explains capabilities** — Ask "what can you do?" and the agent describes all available features
+- **WebSocket-first** — All real-time data (conversation feed, TTS, session events) is pushed over Flask-SocketIO; no polling
+- **Multi-language** — English and Hindi UI support
+- **Admin panel** — User management, activity logs, and system monitoring
+- **Google OAuth** — Sign in with Google
+- **Audio password** — Voice-based authentication
+- **Granular mock mode** — Mock email, Telegram, and LLM independently via `MOCK_EMAIL`, `MOCK_TELEGRAM`, `MOCK_LLM`
 
--- TYPING PAUSE CHECK --
-5.  web_login.user_typing == True?        (Browser keypress detected)
-6.  Set typing_pause_until = now + 20s    (Pause audio for 20 seconds)
-7.  Skip listen_text() for 20s           (Wait out the pause)
+## Architecture
 
--- OAUTH CHECK (top of loop) --
-8.  login_initiated AND status=="success"?(OAuth completed between recordings)
-9.  Reset login_initiated = False         (Clear flag)
-10. Continue to next iteration            (Skip recording)
+| Directory             | Purpose                                                |
+| :-------------------- | :----------------------------------------------------- |
+| `app/agent/`          | LLM agent with tool-calling (OpenRouter API)           |
+| `app/services/`       | Email (SMTP/IMAP) and Telegram (Telethon) services     |
+| `app/services/mocks/` | Mock implementations of email and Telegram for testing |
+| `app/tools/`          | Tool registry bridging the agent and services          |
+| `app/web/`            | Flask API, WebSockets (SocketIO), and routes           |
+| `app/database/`       | SQLite backend for users and admin data                |
+| `app/core/`           | Configuration, logging, and error handling             |
+| `tests/`              | Pytest test suite with mocked LLM and service tests    |
 
--- AUDIO RECORDING --
-11. listen_text()                         (Record 5 seconds)
-12. Transcribe audio → heard             (Faster Whisper)
+See [docs/architecture.md](docs/architecture.md) and [docs/agent_design.md](docs/agent_design.md) for detailed design docs.
 
--- OAUTH CHECK (after recording) --
-13. login_initiated AND status=="success"?(OAuth completed DURING recording)
-14. Reset login_initiated = False         (Discard recorded audio)
-15. Continue to next iteration            (Skip processing)
+## Quick Start
 
--- COMMAND PROCESSING --
-16. speak_text('[User]: heard')           (Echo transcription)
-17. clean_heard = heard.lower().strip()   (Normalize)
-18. Write to Transcribe.txt              (Log command)
+1. Copy `.env.example` to `.env` and fill in your API keys:
 
--- GREETING --
-19. "hi/hello/hey" in clean_heard?        (Match greeting)
-20. speak_text('Hi, what can I do?')      (Respond)
+   ```env
+   OPEN_ROUTER_API_key=your-openrouter-key
+   OPENROUTER_MODEL=google/gemini-2.0-flash-exp:free
+   FLASK_SECRET_KEY=pick-a-strong-secret
+   # Optional — leave blank to skip Gmail/Telegram features
+   GOOGLE_CLIENT_ID=
+   GOOGLE_CLIENT_SECRET=
+   ```
 
--- LOGIN --
-21. "login" in clean_heard?               (Match login)
-22. Already logged in? → say so           (Guard)
-23. Start Flask server thread             (Web server)
-24. webbrowser.open(localhost:5000)       (Show login page)
-25. speak_text('Login page opened...')    (Instruct user)
+2. Install dependencies:
 
--- AUDIO PASSWORD --
-26. login_initiated AND word in           (Confirmation word heard)
-    confirmation_words?
-27. verify_audio() against database       (Check audio password)
-28. Match? → login_status = "success"     (Authenticated)
-29. No match? → check SECRET_AUD env      (Admin fallback)
-30. Still no match? → login cancelled     (Failed)
+   ```bash
+   uv sync
+   ```
 
--- BROWSER/KEYBOARD LOGIN --
-31. User types credentials in browser     (Keyboard login)
-32. POST /login → verify_user()           (Check database)
-33. login_status = "success"              (Authenticated)
-34. login.js polls /check → "success"     (JS detects login)
-35. Redirect to /auth/google              (Start OAuth)
-36. Google consent screen                 (User approves)
-37. /auth/google/callback                 (Token exchange)
-38. speak_text('Welcome Name')            (Greet user)
-39. Redirect to Gmail inbox               (Login complete)
+3. Seed the development database (creates test users):
 
--- SIGNUP --
-40. "signup/register" in clean_heard?     (Match signup)
-41. Open localhost:5000/signup            (Show signup page)
-42. User fills form → POST /register      (Submit)
-43. create_user() → hash + store          (Save to SQLite)
-44. Redirect to login page                (Registration done)
+   ```bash
+   uv run seed_db.py
+   ```
 
--- LOGIN CANCELLATION --
-45. login_initiated AND status!="success"?(Any other word heard)
-46. login_status = "failed"               (Cancel login)
-47. speak_text('Login cancelled')         (Inform user)
+   This creates three users (safe to run multiple times — existing users are skipped):
 
--- MAIL FEATURES (requires login) --
-48. Not logged in + mail command?         (Guard)
-49. speak_text('Please log in first')     (Reject)
+   | User         | Email             | Password    | Role  |
+   | ------------ | ----------------- | ----------- | ----- |
+   | Alice Admin  | alice@example.com | password123 | Admin |
+   | Bob User     | bob@example.com   | password123 | User  |
+   | Carol Tester | carol@example.com | password123 | User  |
 
--- SEND MAIL --
-50. "send mail/email" in clean_heard?     (Match send)
-51. Confirm with user (yes/no)            (Ask)
-52. compose_email_by_voice()              (Voice compose)
-53. Collect: recipient → subject → body   (5 steps)
-54. spoken_to_email() → fix address       (Parse email)
-55. Confirm before sending                (Read back)
-56. send_email() via SMTP port 465        (Send)
+4. Run the server:
 
--- CHECK INBOX --
-57. "check inbox/mail" in clean_heard?    (Match inbox)
-58. Confirm with user (yes/no)            (Ask)
-59. get_top_senders() via IMAP            (Fetch 5 emails)
-60. extract_body() → strip_html()         (Parse body)
-61. summarize_body() via Sumy LSA         (Summarize)
-62. speak_text(sender+subject+summary)    (Read each email)
+   ```bash
+   uv run python main.py
+   ```
 
--- OTHER FEATURES --
-63. "time" in clean_heard?                (Match time)
-64. speak_text(current time)              (Respond)
-65. "date/day" in clean_heard?            (Match date)
-66. speak_text(current date)              (Respond)
-67. "joke/funny" in clean_heard?          (Match joke)
-68. speak_text(random joke)               (Respond)
-69. Math keywords in clean_heard?         (Match calculator)
-70. parse_math() → eval() → result        (Calculate)
-71. speak_text(answer)                    (Respond)
+   Open `http://localhost:5000` in your browser.
 
--- LOGOUT --
-72. "logout/sign out" in clean_heard?     (Match logout)
-73. login_status = "waiting"              (Clear auth)
-74. speak_text('Logged out')              (Confirm)
+See [docs/setup.md](docs/setup.md) for the full environment variable reference.
 
--- EXIT --
-75. "bye/goodbye/exit" in clean_heard?    (Match exit)
-76. speak_text('Goodbye')                 (Farewell)
-77. Break while loop                      (End program)
-78. file.close()                          (Clean up)
+## Mock Mode
+
+To run the app **without real Gmail/Telegram credentials**, use granular mock flags:
+
+```env
+MOCK_EMAIL=true      # in-memory email service (no SMTP/IMAP needed)
+MOCK_TELEGRAM=true   # canned Telegram responses (no Telethon needed)
+MOCK_LLM=true        # pattern-matched agent responses (no OpenRouter key needed)
+```
+
+Or enable all three at once:
+
+```env
+MOCK_SERVICES=true
+```
+
+In mock mode:
+
+- **Email tools** use `MockEmailService` — sends go to an in-memory store, inbox returns canned sample emails
+- **Telegram tools** use `MockTelegramState` — messages go to an in-memory store, inbox returns canned sample messages
+- **LLM** uses `MockAgent` — pattern-matched responses with no API calls, full tool dispatch still works
+- Useful for developing and testing the agent loop without configuring external services
+
+See [docs/testing-guide-mock.md](docs/testing-guide-mock.md) for a step-by-step walkthrough.
+
+## Available Agent Tools
+
+| Tool                        | Description                             | Needs Credentials |
+| --------------------------- | --------------------------------------- | :---------------: |
+| `get_time`                  | Current time                            |        No         |
+| `get_date`                  | Current date                            |        No         |
+| `get_datetime`              | Current date and time                   |        No         |
+| `get_system_info`           | OS, Python version, machine info        |        No         |
+| `random_number`             | Random integer in a given range         |        No         |
+| `calculate`                 | Safe arithmetic evaluator               |        No         |
+| `navigate`                  | Returns URL for an app page             |        No         |
+| `get_user_profile`          | Logged-in user's name, email, role      |        No         |
+| `set_reminder`              | Acknowledges a reminder (in-memory)     |        No         |
+| `tell_joke`                 | Random clean programmer joke            |        No         |
+| `add_task`                  | Add a new personal task                 |        No         |
+| `list_tasks`                | List tasks by status                    |        No         |
+| `complete_task`             | Mark a task as done                     |        No         |
+| `delete_task`               | Delete a task                           |        No         |
+| `verify_gmail_pin`          | Verify Gmail PIN before sending         |       Gmail       |
+| `send_email`                | Send an email via Gmail SMTP            |       Gmail       |
+| `get_emails`                | Fetch latest emails via Gmail IMAP      |       Gmail       |
+| `search_emails`             | Search emails by keyword                |       Gmail       |
+| `get_email_overview`        | Inbox summary (count, unread, senders)  |       Gmail       |
+| `get_important_emails`      | Important / high-priority emails        |       Gmail       |
+| `get_email_body`            | Full body of a specific email           |       Gmail       |
+| `verify_telegram_pin`       | Verify Telegram PIN before sending      |     Telegram      |
+| `send_telegram`             | Send a Telegram message                 |     Telegram      |
+| `get_telegram_messages`     | Fetch recent Telegram messages          |     Telegram      |
+| `get_telegram_conversation` | Full conversation thread with a contact |     Telegram      |
+
+See [docs/tools.md](docs/tools.md) for the full tool reference.
+
+## Testing
+
+The test suite uses **pytest** with the LLM fully mocked (no API calls) and mock service backends.
+
+```bash
+# Install test dependencies
+uv pip install pytest pytest-mock
+
+# Run all tests
+uv run pytest tests/ -v
+
+# Run only agent tests
+uv run pytest tests/test_agent.py -v
+
+# Run only mock service tests
+uv run pytest tests/test_mock_services.py -v
+
+# Run only tool/registry tests
+uv run pytest tests/test_tools.py -v
+```
+
+### Test structure
+
+| File                          | What it tests                                                                              |
+| ----------------------------- | ------------------------------------------------------------------------------------------ |
+| `tests/conftest.py`           | Shared fixtures: fake LLM responses, tool call builders                                    |
+| `tests/test_agent.py`         | Agent loop with mocked `_call_llm`: plain chat, tool execution, error handling, loop limit |
+| `tests/test_tools.py`         | Tool registry, system tools (unit), email/telegram/task tools (with mocked services)       |
+| `tests/test_mock_services.py` | Mock email/telegram services directly, tool handlers via mocks, full agent E2E with mocks  |
+
+### Manual test guides
+
+- [docs/testing-guide-mock.md](docs/testing-guide-mock.md) — step-by-step walkthrough using mock services (no credentials needed)
+- [docs/testing-guide-real.md](docs/testing-guide-real.md) — end-to-end walkthrough with real Gmail and Telegram
+
+## Docker
+
+```bash
+docker build -t voice-assistant .
+docker compose up
+```
+
+## License
+
+See [LICENSE](LICENSE).

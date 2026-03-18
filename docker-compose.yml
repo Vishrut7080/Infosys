@@ -1,4 +1,4 @@
-version: '3.8'
+version: "3.8"
 
 services:
   voice-assistant:
@@ -6,8 +6,7 @@ services:
     ports:
       - "5000:5000"
     volumes:
-      - ./Database:/app/Backend/Database  # Assuming SQLite db is stored here or similar
-      - ./Audio:/app/Audio # If there are any transcripts or temp files
+      - ./data/database:/app/app/database # Persist SQLite databases
     env_file:
       - .env
     environment:

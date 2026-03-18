@@ -1,0 +1,103 @@
+from app.tools.registry import registry
+from app.core.config import settings
+from app.services.auth import auth_service
+
+if settings.mock_telegram:
+    from app.services.mocks.mock_telegram import telegram_send_message, telegram_get_messages, telegram_get_conversation
+else:
+    from app.services.telegram import telegram_send_message, telegram_get_messages, telegram_get_conversation
+
+# Track which users have verified their Telegram PIN this session
+_telegram_verified: set[str] = set()
+
+
+def verify_telegram_pin_handler(user_email, pin):
+    """Verify the user's 4-digit Telegram PIN before allowing message sending."""
+    if not pin or not pin.strip():
+        return "Error: Please provide your 4-digit Telegram PIN."
+    verified = auth_service.verify_pin(user_email, 'telegram', pin.strip())
+    if verified:
+        _telegram_verified.add(user_email)
+        return "Telegram PIN verified successfully. You can now send Telegram messages."
+    return "Error: Incorrect Telegram PIN. Please try again."
+
+
+def send_telegram_handler(user_email, contact, message):
+    if user_email not in _telegram_verified:
+        return "Error: Telegram PIN not verified. Please ask the user for their 4-digit Telegram PIN and call verify_telegram_pin first."
+    success, msg = telegram_send_message(contact, message, email=user_email)
+    return msg
+
+def get_telegram_handler(user_email, count=5):
+    msgs = telegram_get_messages(count, email=user_email)
+    if not msgs: return "No new Telegram messages."
+    
+    return f"Here are your latest {len(msgs)} Telegram messages:\n" + "\n".join(
+        [f"- From: {m['name']} | Msg: {m['message']}" for m in msgs]
+    )
+
+registry.register(
+    name="verify_telegram_pin",
+    description="Verify the user's 4-digit Telegram PIN. Must be called before sending any Telegram message.",
+    schema={
+        "type": "object",
+        "properties": {
+            "pin": {"type": "string", "description": "The 4-digit Telegram PIN"}
+        },
+        "required": ["pin"]
+    },
+    handler=verify_telegram_pin_handler
+)
+
+registry.register(
+    name="send_telegram",
+    description="Send a message to a Telegram contact.",
+    schema={
+        "type": "object",
+        "properties": {
+            "contact": {"type": "string", "description": "Name of the contact or group"},
+            "message": {"type": "string", "description": "Message content"}
+        },
+        "required": ["contact", "message"]
+    },
+    handler=send_telegram_handler
+)
+
+registry.register(
+    name="get_telegram_messages",
+    description="Fetch latest messages from Telegram.",
+    schema={
+        "type": "object",
+        "properties": {
+            "count": {"type": "integer", "description": "Number of messages to fetch (default 5)"}
+        },
+        "required": []
+    },
+    handler=get_telegram_handler
+)
+
+
+def get_telegram_conversation_handler(user_email: str, contact: str, count: int = 10):
+    """Fetch the full message history with a specific Telegram contact for summarising or drafting a reply."""
+    if not contact or not contact.strip():
+        return "Error: Please specify a contact name."
+    messages = telegram_get_conversation(contact.strip(), count, email=user_email)
+    if not messages:
+        return f"No conversation history found with '{contact}'."
+    lines = [f"[{m.get('date', '')}] {m.get('sender', '?')}: {m.get('text', '')}" for m in messages]
+    return f"Conversation with {contact} ({len(messages)} messages):\n" + "\n".join(lines)
+
+
+registry.register(
+    name="get_telegram_conversation",
+    description="Fetch the message history with a specific Telegram contact. Use this before summarising a chat or drafting a reply.",
+    schema={
+        "type": "object",
+        "properties": {
+            "contact": {"type": "string", "description": "Name of the Telegram contact or group"},
+            "count":   {"type": "integer", "description": "Number of recent messages to fetch (default 10)"}
+        },
+        "required": ["contact"]
+    },
+    handler=get_telegram_conversation_handler
+)

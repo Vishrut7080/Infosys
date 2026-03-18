@@ -1,7 +1,7 @@
 [project]
 name = "infosys"
 version = "0.1.0"
-description = "Add your description here"
+description = "A modular voice assistant with an OpenRouter tool-calling agent."
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
@@ -9,14 +9,16 @@ dependencies = [
     "bcrypt>=5.0.0",
     "deep-translator>=1.11.4",
     "flask>=3.1.2",
-    "langdetect>=1.0.9",
-    "nltk>=3.9.2",
-    "numpy>=2.4.2",
-    "pyautogui>=0.9.54",
-    "python-dotenv>=1.2.1",
-    "python-telegram-bot>=22.6",
-    "requests>=2.32.5",
-    "sumy>=0.12.0",
+    "httpx>=0.28.0",
     "telethon>=1.42.0",
-    "twilio>=9.10.3",
+    "gunicorn>=23.0.0",
+    "flask-socketio>=5.4.1",
+    "eventlet>=0.38.2",
+    "python-dotenv>=1.2.2",
+    "pydantic-settings>=2.7.0",
+    "pytest>=9.0.2",
+    "pytest-mock>=3.15.1",
 ]
+
+[project.optional-dependencies]
+test = ["pytest>=8.0", "pytest-mock>=3.14"]

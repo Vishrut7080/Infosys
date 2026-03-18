@@ -22,4 +22,5 @@ test_tts.py
 # Variables
 .env
 
+*.db
 step.txt
