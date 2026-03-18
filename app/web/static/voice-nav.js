@@ -27,9 +27,10 @@
         init(page) {
             if (this._inited) return;
             this._inited = true;
-            // On pages without assistant.js, start our own recognition so nav
-            // commands ("go to signup", "logout", etc.) can be heard.
-            if (typeof sendChat === 'undefined') {
+            // On pages without assistant.js AND without their own recognition
+            // (signup, pin_reveal), start our own so nav commands can be heard.
+            // login.js runs its own recognition — skip it there to avoid conflicts.
+            if (typeof sendChat === 'undefined' && page !== 'login') {
                 this._startLocalRecognition();
             }
             window.addEventListener('feed-update', (e) => {

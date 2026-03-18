@@ -95,34 +95,32 @@ document.getElementById('loginForm').addEventListener('submit', async function (
     function setListening(state) {
         listening = state;
         btn.classList.toggle('listening', state);
-        // Update inline label for accessibility/visual parity
         label.textContent = state
             ? (window.LangManager?.isHindi() ? 'सुन रहा है…' : 'Listening…')
             : (window.LangManager?.isHindi() ? 'ऑडियो पासवर्ड से साइन इन करें' : 'Sign in with audio password');
+    }
 
-        // Show a prominent bottom-center frosted pill while listening
+    // The listening pill is managed independently of the recognition cycle.
+    // It is shown once when the user starts a session and hidden only when they
+    // intentionally stop — NOT on every recognition.onend/restart cycle, which
+    // is what caused the constant flash.
+    function showListeningPill() {
+        if (_listeningToast) return; // already visible — skip
         try {
-            // If a previous toast exists, dismiss it first
-            if (state) {
-                if (_listeningToast) {
-                    Toast.dismiss(_listeningToast);
-                    _listeningToast = null;
-                }
-                // Ensure the container is positioned bottom for this page
-                const c = document.getElementById('toast-container');
-                if (c) c.classList.add('position-bottom');
-                const msg = window.LangManager?.isHindi() ? 'सुन रहा है…' : 'Listening…';
-                _listeningToast = Toast.show(msg, 'info', 24 * 60 * 60 * 1000); // 24h until dismissed
-                if (_listeningToast) _listeningToast.classList.add('toast-listening');
-            } else {
-                if (_listeningToast) {
-                    Toast.dismiss(_listeningToast);
-                    _listeningToast = null;
-                }
-                const c = document.getElementById('toast-container');
-                if (c) c.classList.remove('position-bottom');
-            }
-        } catch (e) { /* Toast not available — ignore */ }
+            const c = document.getElementById('toast-container');
+            if (c) c.classList.add('position-bottom');
+            const msg = window.LangManager?.isHindi() ? 'सुन रहा है…' : 'Listening…';
+            _listeningToast = Toast.show(msg, 'info', 24 * 60 * 60 * 1000);
+            if (_listeningToast) _listeningToast.classList.add('toast-listening');
+        } catch (e) { }
+    }
+
+    function hideListeningPill() {
+        try {
+            if (_listeningToast) { Toast.dismiss(_listeningToast); _listeningToast = null; }
+            const c = document.getElementById('toast-container');
+            if (c) c.classList.remove('position-bottom');
+        } catch (e) { }
     }
 
     let shouldListen = true;
@@ -132,6 +130,7 @@ document.getElementById('loginForm').addEventListener('submit', async function (
         try {
             recognition.start();
             setListening(true);
+            showListeningPill(); // idempotent — won't flash on auto-restart
             if (msgEl) {
                 msgEl.style.color = '#94a3b8';
                 msgEl.textContent = window.LangManager?.isHindi()
@@ -147,6 +146,7 @@ document.getElementById('loginForm').addEventListener('submit', async function (
     btn.addEventListener('click', () => {
         if (listening) {
             shouldListen = false;
+            hideListeningPill();
             recognition.stop();
         } else {
             shouldListen = true;
@@ -158,6 +158,7 @@ document.getElementById('loginForm').addEventListener('submit', async function (
     document.querySelectorAll('#email, #password').forEach(input => {
         input.addEventListener('focus', () => {
             shouldListen = false;
+            hideListeningPill();
             if (listening) recognition.stop();
         });
         input.addEventListener('blur', () => {
