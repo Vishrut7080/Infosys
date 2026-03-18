@@ -1,6 +1,8 @@
 import smtplib
 import imaplib
 import email
+import socket
+from typing import cast
 from email.header import decode_header
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
@@ -8,6 +10,27 @@ from email.utils import parsedate_to_datetime
 
 from app.core.logging import logger
 from app.core.errors import EmailError
+
+_SMTP_TIMEOUT = 30   # seconds — fail fast on Render if port is blocked
+_IMAP_TIMEOUT = 30
+
+
+def _tpool_execute(fn, *args, **kwargs):
+    """Run fn in a real OS thread, bypassing eventlet's green-thread scheduler.
+
+    Eventlet monkey-patches ssl/socket, which can deadlock blocking SSL calls
+    (smtplib, imaplib) when running inside gunicorn+eventlet workers on Render.
+    eventlet.tpool.execute dispatches to a native thread pool that is NOT subject
+    to the cooperative scheduler, so the SSL handshake completes normally.
+
+    Falls back to a direct call when eventlet is not present (local dev server).
+    """
+    try:
+        from eventlet import tpool
+        return tpool.execute(fn, *args, **kwargs)
+    except ImportError:
+        return fn(*args, **kwargs)
+
 
 class EmailService:
     def __init__(self, user_email: str, app_pass: str):
@@ -17,7 +40,9 @@ class EmailService:
     def send_email(self, to: str, subject: str, body: str) -> tuple[bool, str]:
         if not self.user_email or not self.app_pass:
             return False, 'Gmail credentials not configured.'
+        return cast(tuple[bool, str], _tpool_execute(self._send_email_blocking, to, subject, body))
 
+    def _send_email_blocking(self, to: str, subject: str, body: str) -> tuple[bool, str]:
         try:
             msg = MIMEMultipart()
             msg['From'] = self.user_email
@@ -25,7 +50,7 @@ class EmailService:
             msg['Subject'] = subject
             msg.attach(MIMEText(body, 'plain'))
 
-            with smtplib.SMTP_SSL('smtp.gmail.com', 465) as server:
+            with smtplib.SMTP_SSL('smtp.gmail.com', 465, timeout=_SMTP_TIMEOUT) as server:
                 server.login(self.user_email, self.app_pass)
                 server.sendmail(self.user_email, to, msg.as_string())
 
@@ -35,6 +60,9 @@ class EmailService:
         except smtplib.SMTPAuthenticationError:
             logger.error("SMTP Authentication failed.")
             return False, 'Authentication failed. Check your Gmail App Password.'
+        except (socket.timeout, TimeoutError):
+            logger.error("SMTP connection timed out.")
+            return False, 'Connection to Gmail timed out. Please try again.'
         except Exception as e:
             logger.error(f"Email sending failed: {e}")
             return False, f'Failed to send. {str(e)}'
@@ -42,9 +70,11 @@ class EmailService:
     def get_emails(self, count: int = 5, category: str = 'ALL') -> list[dict]:
         if not self.user_email or not self.app_pass:
             return [{'error': 'Gmail credentials not configured.'}]
+        return cast(list[dict], _tpool_execute(self._get_emails_blocking, count, category))
 
+    def _get_emails_blocking(self, count: int = 5, category: str = 'ALL') -> list[dict]:
         try:
-            mail = imaplib.IMAP4_SSL("imap.gmail.com")
+            mail = imaplib.IMAP4_SSL("imap.gmail.com", timeout=_IMAP_TIMEOUT)
             mail.login(self.user_email, self.app_pass)
             logger.info(f"IMAP login successful for {self.user_email}")
             mail.select("inbox")
