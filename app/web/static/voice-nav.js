@@ -100,7 +100,7 @@
             }
 
             // Common fallbacks
-            if (/\b(settings|profile)\b/.test(t)) { window.location.href = '/settings'; return; }
+            if (/\b(settings|profile)\b/.test(t)) { window.location.href = '/dashboard'; return; }
             if (/\b(admin)\b/.test(t)) { window.location.href = '/admin'; return; }
 
             // Final fallback: pathify the phrase

@@ -297,8 +297,18 @@ function interruptSpeech() {
     isSpeaking = false;
     clearTimeout(fillerTimeout);
     hideActionIndicator();
+    
+    // Explicitly stop and reset the restart loop
     autoRestart = true;
-    startListening();
+    try {
+        if (recognition) {
+            recognition.stop();
+        }
+    } catch (e) {
+        // Recognition might already be stopped
+    }
+    // Start listening again after a tiny delay to let the browser process cancel()
+    setTimeout(startListening, 50);
 }
 
 // ─── SEND CHAT ──────────────────────────────────────────────

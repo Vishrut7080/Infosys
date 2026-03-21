@@ -54,6 +54,16 @@
                 <button class="copy-btn" onclick="copyPin('gmailPin', this)">Copy</button>
             </div>
 
+            {% if pins.password %}
+            <div class="pin-card password">
+                <div class="service-icon">🔑</div>
+                <div class="service-name">Temporary Password</div>
+                <div class="pin-value" id="tempPass">{{ pins.password }}</div>
+                <div class="pin-hint">Use this for regular logins</div>
+                <button class="copy-btn" onclick="copyPin('tempPass', this)">Copy</button>
+            </div>
+            {% endif %}
+
             {% if pins.telegram_pin %}
             <!-- Telegram PIN — only if Telegram was set up -->
             <div class="pin-card telegram">

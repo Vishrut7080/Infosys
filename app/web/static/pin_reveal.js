@@ -18,9 +18,12 @@ const timer = setInterval(() => {
     }
 }, 1000);
 
-function proceedToLogin() {
+async function proceedToLogin() {
     clearInterval(timer);
-    window.location.href = '/?from=signup';
+    try {
+        await fetch('/finish-signup', { method: 'POST' });
+    } catch (e) { console.error(e); }
+    window.location.href = '/dashboard';
 }
 
 // ── Copy PIN ──

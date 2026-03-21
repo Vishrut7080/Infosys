@@ -183,7 +183,7 @@ def auth_google_callback():
         database.log_session(email, force_insert=True)
         # Note: apply_user_credentials is a no-op, services now fetch directly from DB
         database.log_activity(email, 'login', 'google_oauth')
-        return redirect('/admin' if database.is_admin(email) else '/dashboard')
+        return redirect(url_for('auth.pin_reveal') if is_new_user else ('/admin' if database.is_admin(email) else '/dashboard'))
     except Exception as e:
         import traceback
         print(f"OAuth Error: {e}")
@@ -201,6 +201,10 @@ def check_session():
 @auth_bp.route('/pin-reveal')
 def pin_reveal():
     pins = session.get('pending_pins')
-    if not pins: return redirect(url_for('auth.login_page'))
-    session.pop('pending_pins', None)
+    if not pins: return redirect('/dashboard')
     return render_template('pin_reveal.html', pins=pins)
+
+@auth_bp.route('/finish-signup', methods=['POST'])
+def finish_signup():
+    session.pop('pending_pins', None)
+    return jsonify({'status': 'ok'})

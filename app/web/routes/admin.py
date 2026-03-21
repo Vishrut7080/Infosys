@@ -74,23 +74,29 @@ def admin_remove_admin():
     return jsonify({'status': 'success' if success else 'error', 'message': msg})
 
 
-# ─── Missing admin routes that the admin JS depends on ─────────
-
-@admin_bp.route('/admin/stats')
+@admin_bp.route('/admin/update-profile-name', methods=['POST'])
 @admin_required
-def admin_stats():
-    users = database.get_all_users()
-    return jsonify({
-        'total_users': len(users),
-        'active_users': len(database.get_active_users(minutes=30)),
-        'total_admins': sum(1 for u in users if u['is_admin']),
-        'total_commands': database.get_activity_count_global('voice_command'),
-        'total_logins': database.get_activity_count_global('login'),
-        'emails_sent': database.get_activity_count_global('email_sent'),
-        'tg_sent': database.get_activity_count_global('telegram_sent'),
-        'wa_sent': database.get_activity_count_global('whatsapp_sent'),
-        'pin_fails': database.get_activity_count_global('pin_failed'),
-    })
+def admin_update_name():
+    from app.web.routes.assistant import update_profile_name
+    return update_profile_name()
+
+@admin_bp.route('/admin/update-profile-password', methods=['POST'])
+@admin_required
+def admin_update_password():
+    from app.web.routes.assistant import update_profile_password
+    return update_profile_password()
+
+@admin_bp.route('/admin/update-profile-audio', methods=['POST'])
+@admin_required
+def admin_update_audio():
+    from app.web.routes.assistant import update_profile_audio
+    return update_profile_audio()
+
+@admin_bp.route('/admin/delete-profile-account', methods=['POST'])
+@admin_required
+def admin_delete_account():
+    from app.web.routes.assistant import delete_profile_account
+    return delete_profile_account()
 
 
 @admin_bp.route('/admin/api-usage')
