@@ -1,5 +1,5 @@
 // ── Countdown ──
-const TOTAL = 15;
+const TOTAL = 60;
 let remaining = TOTAL;
 const countdownEl = document.getElementById('countdown');
 const countdownFill = document.getElementById('countdownFill');

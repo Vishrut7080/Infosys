@@ -7,10 +7,6 @@ import secrets
 auth_bp = Blueprint('auth', __name__)
 
 def apply_user_credentials(email: str):
-    # Deprecated: previously set process-wide environment variables
-    # for per-user credentials. This is unsafe in multi-user setups.
-    # Tools and services should fetch per-user credentials from the
-    # database when needed (see services/telegram.py changes).
     return
 
 @auth_bp.route('/')
@@ -116,7 +112,6 @@ def register():
 
 @auth_bp.route('/auth/google')
 def auth_google():
-    # If user is already logged in, they are "linking" their Gmail account
     if 'user' in session:
         session['linking_gmail'] = True
     return oauth.google.authorize_redirect(
@@ -150,20 +145,22 @@ def auth_google_callback():
 
         if not user_record:
             is_new_user = True
+            # Use voice-friendly audio password
+            audio_pass = database.suggest_audio_word()
+            # Ensure the password/audio_pass is also set for text-based logins
             random_pass = secrets.token_urlsafe(16)
-            success, message = database.create_user(name, email, random_pass)
-            if not success:
-                return redirect(url_for('auth.login_page') + f'?error=registration_failed&msg={message}')
             
-            # Generate and store PINs
+            database.create_user(name, email, random_pass, secret_audio=audio_pass)
+            
             pins = database.generate_pins(tg_included=False)
             gmail_pin = str(pins.get('gmail_pin', '0000'))
-            # Fix: store_pins takes email, gmail_pin, telegram_pin
             database.store_pins(email, gmail_pin, None)
             
             session['pending_pins'] = {
                 'email': email, 'name': name, 
                 'gmail_pin': gmail_pin, 
+                'password': random_pass,
+                'audio_password': audio_pass,
                 'telegram_pin': None
             }
             user_record = database.get_user_by_email(email)
@@ -172,18 +169,16 @@ def auth_google_callback():
         token_json = json.dumps(token)
         database.store_gmail_token(email, token_json)
 
-        if is_new_user:
-            # Redirect to PIN reveal so they see their Gmail PIN
-            database.log_activity(email, 'register', 'google_oauth_auto')
-            return redirect(url_for('auth.pin_reveal'))
-
-        # Existing user: log in and go to dashboard
+        # Log in the user
         session['user'] = {'name': user_record['name'], 'email': email, 'picture': user_info.get('picture')}
         session['voice_auth'] = True
         database.log_session(email, force_insert=True)
-        # Note: apply_user_credentials is a no-op, services now fetch directly from DB
-        database.log_activity(email, 'login', 'google_oauth')
-        return redirect(url_for('auth.pin_reveal') if is_new_user else ('/admin' if database.is_admin(email) else '/dashboard'))
+        database.log_activity(email, 'register' if is_new_user else 'login', 'google_oauth')
+
+        if is_new_user:
+            return redirect(url_for('auth.pin_reveal'))
+
+        return redirect('/admin' if database.is_admin(email) else '/dashboard')
     except Exception as e:
         import traceback
         print(f"OAuth Error: {e}")
@@ -201,6 +196,7 @@ def check_session():
 @auth_bp.route('/pin-reveal')
 def pin_reveal():
     pins = session.get('pending_pins')
+    print(f"DEBUG: pin-reveal pins={pins}")
     if not pins: return redirect('/dashboard')
     return render_template('pin_reveal.html', pins=pins)
 

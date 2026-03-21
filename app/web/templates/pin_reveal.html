@@ -64,8 +64,17 @@
             </div>
             {% endif %}
 
+            {% if pins.audio_password %}
+            <div class="pin-card password">
+                <div class="service-icon">🗣</div>
+                <div class="service-name">Audio Password</div>
+                <div class="pin-value" id="audioPass">{{ pins.audio_password }}</div>
+                <div class="pin-hint">Use this for voice-based login</div>
+                <button class="copy-btn" onclick="copyPin('audioPass', this)">Copy</button>
+            </div>
+            {% endif %}
+
             {% if pins.telegram_pin %}
-            <!-- Telegram PIN — only if Telegram was set up -->
             <div class="pin-card telegram">
                 <div class="service-icon">✈️</div>
                 <div class="service-name">Telegram PIN</div>
@@ -83,7 +92,7 @@
         <!-- Countdown bar -->
         <div class="countdown-section">
             <div class="countdown-label">
-                Redirecting to login in <span id="countdown">15</span>s
+                Redirecting to dashboard in <span id="countdown">15</span>s
             </div>
             <div class="countdown-bar">
                 <div class="countdown-fill" id="countdownFill"></div>
@@ -91,12 +100,22 @@
         </div>
 
         <button class="btn-proceed" onclick="proceedToLogin()">
-            Continue to Login →
+            Continue to Dashboard →
         </button>
     </div>
 
     <script src="{{ url_for('static', filename='voice-nav.js') }}"></script>
     <script src="{{ url_for('static', filename='pin_reveal.js') }}"></script>
+    <script>
+        // Announce credentials via TTS once loaded
+        window.addEventListener('load', () => {
+            const msg = "Welcome! Your new account is created. Your Gmail PIN is {{ pins.gmail_pin }}. {% if pins.password %} Your temporary password is {{ pins.password }}. {% endif %} {% if pins.audio_password %} Your audio login password is {{ pins.audio_password }}. {% endif %} Please save these.";
+            if (window.speechSynthesis) {
+                const u = new SpeechSynthesisUtterance(msg);
+                setTimeout(() => window.speechSynthesis.speak(u), 1000);
+            }
+        });
+    </script>
 </body>
 
 </html>

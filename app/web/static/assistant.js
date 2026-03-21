@@ -169,7 +169,7 @@ function initAssistant() {
     }
 
     // Speak a welcome greeting once voices are ready
-    _speakDashboardWelcome();
+    // _speakDashboardWelcome(); // DISABLED: Causes greeting spam on every page reload
 
     // Initialize the action label to the correct language
     const _label = document.getElementById('actionLabel');

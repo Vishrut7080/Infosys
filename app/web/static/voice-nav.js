@@ -80,8 +80,9 @@
 
             if (page === 'dashboard') {
                 if (/\b(inbox|messages|mail)\b/.test(t) && typeof showPage === 'function') { showPage('inbox'); return; }
-                if (/\b(tasks?)\b/.test(t) && typeof showPage === 'function') { showPage('tasks'); return; }
-                if (/\b(dashboard|home)\b/.test(t) && typeof showPage === 'function') { showPage('dashboard'); return; }
+                if (/\b(tasks?|to-do|todo|to dos)\b/.test(t) && typeof showPage === 'function') { showPage('tasks'); return; }
+                if (/\b(profile|account|settings)\b/.test(t) && typeof showPage === 'function') { showPage('profile'); return; }
+                if (/\b(dashboard|home|main)\b/.test(t) && typeof showPage === 'function') { showPage('dashboard'); return; }
             }
 
             if (page === 'signup') {
