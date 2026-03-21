@@ -194,7 +194,7 @@ class TestEmailTools:
     def test_send_email_success(self, mocker):
         mocker.patch(
             "app.tools.email_tools.auth_service.get_credentials",
-            return_value={"gmail_address": "me@gmail.com", "gmail_app_pass": "pass"},
+            return_value={"gmail_address": "me@gmail.com", "gmail_token": '{"email": "me@gmail.com"}'},
         )
         mock_svc = mocker.patch("app.tools.email_tools.EmailService")
         mock_svc.return_value.send_email.return_value = (True, "Email sent!")
@@ -206,7 +206,7 @@ class TestEmailTools:
     def test_get_emails_success(self, mocker):
         mocker.patch(
             "app.tools.email_tools.auth_service.get_credentials",
-            return_value={"gmail_address": "me@gmail.com", "gmail_app_pass": "pass"},
+            return_value={"gmail_address": "me@gmail.com", "gmail_token": '{"email": "me@gmail.com"}'},
         )
         mock_svc = mocker.patch("app.tools.email_tools.EmailService")
         mock_svc.return_value.get_emails.return_value = [
@@ -301,7 +301,7 @@ class TestNewEmailTools:
     def _mock_creds_and_service(self, mocker):
         mocker.patch(
             "app.tools.email_tools.auth_service.get_credentials",
-            return_value={"gmail_address": "me@gmail.com", "gmail_app_pass": "pass"},
+            return_value={"gmail_address": "me@gmail.com", "gmail_token": '{"email": "me@gmail.com"}'},
         )
         mock_svc = mocker.patch("app.tools.email_tools.EmailService")
         mock_svc.return_value.get_emails.return_value = self._canned
@@ -331,7 +331,7 @@ class TestNewEmailTools:
     def test_get_important_emails_none_found(self, mocker):
         mocker.patch(
             "app.tools.email_tools.auth_service.get_credentials",
-            return_value={"gmail_address": "me@gmail.com", "gmail_app_pass": "pass"},
+            return_value={"gmail_address": "me@gmail.com", "gmail_token": '{"email": "me@gmail.com"}'},
         )
         mock_svc = mocker.patch("app.tools.email_tools.EmailService")
         mock_svc.return_value.get_emails.return_value = [

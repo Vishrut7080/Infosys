@@ -26,21 +26,20 @@ def send_email_handler(user_email, to, subject, body):
     if user_email not in _gmail_verified:
         return "Error: Gmail PIN not verified. Please ask the user for their 4-digit Gmail PIN and call verify_gmail_pin first."
     creds = auth_service.get_credentials(user_email)
-    if not creds: return "Error: No Gmail credentials found."
+    if not creds or not creds.get('gmail_token'): 
+        return "Error: Gmail not connected. Please ask the user to log in with Google to enable email features."
     
-    service = EmailService(creds['gmail_address'], creds['gmail_app_pass'])
+    service = EmailService(creds['gmail_token'])
     success, msg = service.send_email(to, subject, body)
     return msg
 
 def get_emails_handler(user_email, count=5, category='ALL'):
-    """Fetch latest emails, allowing voice-friendly category names (case-insensitive).
-
-    Accepted categories: ALL, PRIMARY, PROMOTIONS, UPDATES, SOCIAL, FORUMS
-    """
+    """Fetch latest emails, allowing voice-friendly category names (case-insensitive)."""
     creds = auth_service.get_credentials(user_email)
-    if not creds: return "Error: No Gmail credentials found."
+    if not creds or not creds.get('gmail_token'): 
+        return "Error: Gmail not connected. Please ask the user to log in with Google to enable email features."
 
-    # Normalize category from voice input (accept common synonyms)
+    # Normalize category from voice input
     cat = (category or 'ALL').strip().lower()
     mapping = {
         'all': 'ALL',
@@ -57,10 +56,9 @@ def get_emails_handler(user_email, count=5, category='ALL'):
     }
     category_norm = mapping.get(cat, None)
     if category_norm is None:
-        # fallback: if caller passed an already-valid token like 'PRIMARY'
         category_norm = category.upper() if isinstance(category, str) else 'ALL'
 
-    service = EmailService(creds['gmail_address'], creds['gmail_app_pass'])
+    service = EmailService(creds['gmail_token'])
     emails = service.get_emails(count, category_norm)
     if emails and 'error' in emails[0]: return emails[0]['error']
     
@@ -72,9 +70,10 @@ def get_emails_handler(user_email, count=5, category='ALL'):
 def search_emails_handler(user_email, query, count=5):
     """Search emails by keyword in subject or sender."""
     creds = auth_service.get_credentials(user_email)
-    if not creds: return "Error: No Gmail credentials found."
+    if not creds or not creds.get('gmail_token'): 
+        return "Error: Gmail not connected. Please ask the user to log in with Google to enable email features."
     
-    service = EmailService(creds['gmail_address'], creds['gmail_app_pass'])
+    service = EmailService(creds['gmail_token'])
     emails = service.get_emails(count * 3, 'ALL')  # fetch more to filter
     if emails and isinstance(emails[0], dict) and 'error' in emails[0]:
         return emails[0]['error']
@@ -94,11 +93,12 @@ _PRIORITY_KEYWORDS = {'urgent', 'asap', 'deadline', 'action required', 'importan
 
 
 def get_email_overview_handler(user_email, count=10):
-    """Return a high-level overview of the inbox: total count, unique senders, and subject list."""
+    """Return a high-level overview of the inbox."""
     creds = auth_service.get_credentials(user_email)
-    if not creds: return "Error: No Gmail credentials found."
+    if not creds or not creds.get('gmail_token'): 
+        return "Error: Gmail not connected. Please ask the user to log in with Google to enable email features."
 
-    service = EmailService(creds['gmail_address'], creds['gmail_app_pass'])
+    service = EmailService(creds['gmail_token'])
     emails = service.get_emails(count, 'ALL')
     if emails and isinstance(emails[0], dict) and 'error' in emails[0]:
         return emails[0]['error']
@@ -115,9 +115,10 @@ def get_email_overview_handler(user_email, count=10):
 def get_important_emails_handler(user_email, count=5):
     """Return emails that appear high-priority based on subject keywords."""
     creds = auth_service.get_credentials(user_email)
-    if not creds: return "Error: No Gmail credentials found."
+    if not creds or not creds.get('gmail_token'): 
+        return "Error: Gmail not connected. Please ask the user to log in with Google to enable email features."
 
-    service = EmailService(creds['gmail_address'], creds['gmail_app_pass'])
+    service = EmailService(creds['gmail_token'])
     emails = service.get_emails(max(count * 4, 20), 'ALL')
     if emails and isinstance(emails[0], dict) and 'error' in emails[0]:
         return emails[0]['error']
@@ -138,9 +139,10 @@ def get_important_emails_handler(user_email, count=5):
 def get_email_body_handler(user_email, subject_keyword='', index=1):
     """Fetch the full body of an email by subject keyword or 1-based index."""
     creds = auth_service.get_credentials(user_email)
-    if not creds: return "Error: No Gmail credentials found."
+    if not creds or not creds.get('gmail_token'): 
+        return "Error: Gmail not connected. Please ask the user to log in with Google to enable email features."
 
-    service = EmailService(creds['gmail_address'], creds['gmail_app_pass'])
+    service = EmailService(creds['gmail_token'])
     emails = service.get_emails(20, 'ALL')
     if emails and isinstance(emails[0], dict) and 'error' in emails[0]:
         return emails[0]['error']

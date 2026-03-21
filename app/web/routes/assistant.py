@@ -64,7 +64,10 @@ def get_agent(email: str):
 @assistant_bp.route('/dashboard')
 @login_required
 def dashboard():
-    return render_template('dashboard.html', user=session['user'])
+    email = session.get('user', {}).get('email')
+    creds = database.get_user_credentials(email) if email else None
+    has_gmail = bool(creds and creds.get('gmail_token'))
+    return render_template('dashboard.html', user=session['user'], has_gmail=has_gmail)
 
 @assistant_bp.route('/api/chat', methods=['POST'])
 @login_required
@@ -375,7 +378,7 @@ def get_services():
     email = session['user'].get('email')
     creds = database.get_user_credentials(email)
     services = []
-    if creds and creds.get('gmail_address') and creds.get('gmail_app_pass'):
+    if creds and creds.get('gmail_token'):
         services.append('gmail')
     if creds and creds.get('tg_api_id') and creds.get('tg_api_hash'):
         services.append('telegram')

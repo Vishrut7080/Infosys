@@ -119,6 +119,16 @@ async function refreshUserAndRole() {
             if (adminLink) adminLink.style.display = 'block';
         }
     } catch (e) { }
+
+    // Update connected services
+    try {
+        const sRes = await fetch('/get-services');
+        const sData = await sRes.json();
+        const gmailPill = document.getElementById('pill-gmail');
+        const tgPill = document.getElementById('pill-telegram');
+        if (gmailPill) gmailPill.style.display = sData.services.includes('gmail') ? 'flex' : 'none';
+        if (tgPill) tgPill.style.display = sData.services.includes('telegram') ? 'flex' : 'none';
+    } catch (e) { }
 }
 refreshUserAndRole();
 setTimeout(refreshUserAndRole, 2000);

@@ -163,20 +163,21 @@
         </div>
 
     </div>
-    {% if error == 'not_registered' %}
     <script>
         window.addEventListener('load', () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            const error = urlParams.get('error');
             const msg = document.getElementById('message');
-            if (msg) {
+            if (msg && error) {
                 msg.style.color = '#f87171';
-                msg.textContent = 'This Google account is not registered. Please sign up first.';
+                if (error === 'not_registered') {
+                    msg.textContent = 'This Google account is not registered. Please sign up first.';
+                } else if (error === 'oauth_failed') {
+                    msg.textContent = 'Google login failed. Please check your credentials or try again.';
+                }
             }
         });
     </script>
-    {% endif %}
-    <script src="{{ url_for('static', filename='toast.js') }}"></script>
-    <script src="{{ url_for('static', filename='voice-nav.js') }}"></script>
-    <script src="{{ url_for('static', filename='login.js') }}"></script>
 </body>
 
 </html>

@@ -65,10 +65,18 @@ class MockEmailService:
         },
     ]
 
-    def __init__(self, user_email: str, app_pass: str):
-        self.user_email = user_email
-        self.app_pass = app_pass
-        logger.info(f"[MockEmail] Initialized for {user_email}")
+    def __init__(self, token_json: str):
+        self.token_json = token_json
+        self.user_email = "mock-user@example.com" # Default for mock
+        try:
+             import json
+             data = json.loads(token_json)
+             # If the token mock contains an email, use it (optional)
+             if 'email' in data:
+                 self.user_email = data['email']
+        except:
+            pass
+        logger.info(f"[MockEmail] Initialized with token")
 
     def send_email(self, to: str, subject: str, body: str) -> tuple[bool, str]:
         entry = {

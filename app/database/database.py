@@ -14,7 +14,7 @@ in the codebase while improving internal organization.
 from .utils import USER_DB_PATH, ADMIN_DB_PATH, suggest_audio_word
 from .users import (
     init_db, create_user, verify_user, verify_audio, get_user_by_email,
-    get_user_credentials, generate_pins, store_pins, verify_pin,
+    get_user_credentials, generate_pins, store_pins, store_gmail_token, verify_pin,
     get_all_users, get_active_users, log_session, update_name,
     update_password, update_audio, delete_user
 )
@@ -34,7 +34,7 @@ __all__ = [
     'log_session', 'log_activity', 'get_all_users', 'get_active_users',
     'get_activity_log', 'is_admin', 'add_admin', 'remove_admin',
     'admin_delete_user', 'USER_DB_PATH', 'ADMIN_DB_PATH',
-    'generate_pins', 'store_pins', 'verify_pin', 'get_activity_count',
+    'generate_pins', 'store_pins', 'store_gmail_token', 'verify_pin', 'get_activity_count',
     'get_activity_count_global',
     'add_task', 'list_tasks', 'complete_task', 'delete_task', 'get_task',
 ]

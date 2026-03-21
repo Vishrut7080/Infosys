@@ -1,160 +1,116 @@
-import smtplib
-import imaplib
-import email
-import socket
-from typing import cast
-from email.header import decode_header
+import base64
+import json
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
-from email.utils import parsedate_to_datetime
+from typing import cast, List, Dict, Optional
+
+from google.oauth2.credentials import Credentials
+from googleapiclient.discovery import build
+from google.auth.transport.requests import Request
 
 from app.core.logging import logger
-from app.core.errors import EmailError
-
-_SMTP_TIMEOUT = 30   # seconds — fail fast on Render if port is blocked
-_IMAP_TIMEOUT = 30
-
-
-def _tpool_execute(fn, *args, **kwargs):
-    """Run fn in a real OS thread, bypassing eventlet's green-thread scheduler.
-
-    Eventlet monkey-patches ssl/socket, which can deadlock blocking SSL calls
-    (smtplib, imaplib) when running inside gunicorn+eventlet workers on Render.
-    eventlet.tpool.execute dispatches to a native thread pool that is NOT subject
-    to the cooperative scheduler, so the SSL handshake completes normally.
-
-    Falls back to a direct call when eventlet is not present (local dev server).
-    """
-    try:
-        from eventlet import tpool
-        return tpool.execute(fn, *args, **kwargs)
-    except ImportError:
-        return fn(*args, **kwargs)
-
+from app.core.config import settings
 
 class EmailService:
-    def __init__(self, user_email: str, app_pass: str):
-        self.user_email = user_email
-        self.app_pass = app_pass
+    def __init__(self, token_json: str):
+        self.creds = None
+        if token_json:
+            try:
+                # token_json is stored as a stringified dict from authlib
+                token_data = json.loads(token_json)
+                self.creds = Credentials(
+                    token=token_data.get('access_token'),
+                    refresh_token=token_data.get('refresh_token'),
+                    token_uri=token_data.get('uri', 'https://oauth2.googleapis.com/token'),
+                    client_id=settings.GOOGLE_CLIENT_ID,
+                    client_secret=settings.GOOGLE_CLIENT_SECRET,
+                    scopes=token_data.get('scope', '').split() if isinstance(token_data.get('scope'), str) else token_data.get('scope')
+                )
+            except Exception as e:
+                logger.error(f"Failed to load credentials: {e}")
+
+    def _get_service(self):
+        if not self.creds:
+            return None
+        if self.creds.expired and self.creds.refresh_token:
+            try:
+                self.creds.refresh(Request())
+            except Exception as e:
+                logger.error(f"Failed to refresh token: {e}")
+                return None
+        return build('gmail', 'v1', credentials=self.creds)
 
     def send_email(self, to: str, subject: str, body: str) -> tuple[bool, str]:
-        if not self.user_email or not self.app_pass:
-            return False, 'Gmail credentials not configured.'
-        return cast(tuple[bool, str], _tpool_execute(self._send_email_blocking, to, subject, body))
+        service = self._get_service()
+        if not service:
+            return False, "Gmail credentials invalid or expired. Please log in with Google again."
 
-    def _send_email_blocking(self, to: str, subject: str, body: str) -> tuple[bool, str]:
         try:
-            msg = MIMEMultipart()
-            msg['From'] = self.user_email
-            msg['To'] = to
-            msg['Subject'] = subject
-            msg.attach(MIMEText(body, 'plain'))
+            message = MIMEMultipart()
+            message['to'] = to
+            message['subject'] = subject
+            message.attach(MIMEText(body, 'plain'))
+            raw_string = base64.urlsafe_b64encode(message.as_bytes()).decode()
 
-            with smtplib.SMTP_SSL('smtp.gmail.com', 465, timeout=_SMTP_TIMEOUT) as server:
-                server.login(self.user_email, self.app_pass)
-                server.sendmail(self.user_email, to, msg.as_string())
-
+            service.users().messages().send(userId='me', body={'raw': raw_string}).execute()
             logger.info(f"Email sent successfully to {to}")
             return True, f'Email sent successfully to {to}.'
-
-        except smtplib.SMTPAuthenticationError:
-            logger.error("SMTP Authentication failed.")
-            return False, 'Authentication failed. Check your Gmail App Password.'
-        except (socket.timeout, TimeoutError):
-            logger.error("SMTP connection timed out.")
-            return False, 'Connection to Gmail timed out. Please try again.'
         except Exception as e:
             logger.error(f"Email sending failed: {e}")
             return False, f'Failed to send. {str(e)}'
 
-    def get_emails(self, count: int = 5, category: str = 'ALL') -> list[dict]:
-        if not self.user_email or not self.app_pass:
-            return [{'error': 'Gmail credentials not configured.'}]
-        return cast(list[dict], _tpool_execute(self._get_emails_blocking, count, category))
+    def get_emails(self, count: int = 5, category: str = 'ALL') -> List[Dict]:
+        service = self._get_service()
+        if not service:
+            return [{'error': 'Gmail credentials invalid or expired. Please log in with Google again.'}]
 
-    def _get_emails_blocking(self, count: int = 5, category: str = 'ALL') -> list[dict]:
         try:
-            mail = imaplib.IMAP4_SSL("imap.gmail.com", timeout=_IMAP_TIMEOUT)
-            mail.login(self.user_email, self.app_pass)
-            logger.info(f"IMAP login successful for {self.user_email}")
-            mail.select("inbox")
-            # ... (rest of implementation)
+            query = ''
+            if category.upper() == 'PRIMARY': query = 'category:primary'
+            elif category.upper() == 'PROMOTIONS': query = 'category:promotions'
+            elif category.upper() == 'UPDATES': query = 'category:updates'
+            elif category.upper() == 'SOCIAL': query = 'category:social'
+            elif category.upper() == 'FORUMS': query = 'category:forums'
+            
+            results = service.users().messages().list(userId='me', labelIds=['INBOX'], q=query, maxResults=count).execute()
+            messages = results.get('messages', [])
 
-            search_query = 'ALL'
-            if category.upper() == 'PRIMARY':
-                search_query = 'X-GM-RAW "category:primary"'
-            elif category.upper() == 'PROMOTIONS':
-                search_query = 'X-GM-RAW "category:promotions"'
-            elif category.upper() == 'UPDATES':
-                search_query = 'X-GM-RAW "category:updates"'
-            elif category.upper() == 'SOCIAL':
-                search_query = 'X-GM-RAW "category:social"'
-            elif category.upper() == 'FORUMS':
-                search_query = 'X-GM-RAW "category:forums"'
-
-            status, messages = mail.search(None, search_query)
-            if status != 'OK':
-                return [{'error': f'Search failed with status {status}'}]
-
-            uids = messages[0].split()
-            if not uids:
-                logger.info(f"No emails found for {self.user_email}")
-                return []
-
-            top_uids = uids[-count:][::-1]
             emails = []
+            for msg in messages:
+                m = service.users().messages().get(userId='me', id=msg['id'], format='full').execute()
+                payload = m.get('payload', {})
+                headers = payload.get('headers', [])
 
-            for uid in top_uids:
-                res, msg_data = mail.fetch(uid, '(RFC822)')
-                if res != 'OK':
-                    continue
-
-                raw_email: bytes = msg_data[0][1] # type: ignore
-                msg = email.message_from_bytes(raw_email)
-
-                # Safely decode headers
-                subject_header = msg.get("Subject")
-                subject = "No Subject"
-                if subject_header:
-                    val, encoding = decode_header(subject_header)[0]
-                    subject = val.decode(encoding or "utf-8") if isinstance(val, bytes) else val
-
-                from_header = msg.get("From")
-                sender = "Unknown"
-                if from_header:
-                    val, encoding = decode_header(from_header)[0]
-                    sender = val.decode(encoding or "utf-8") if isinstance(val, bytes) else val
-
-                date_str = msg.get("Date")
-                dt = parsedate_to_datetime(date_str) if date_str else None
-                fmt_date = dt.strftime("%d %b %H:%M") if dt else "Unknown"
-
-                body = ""
-                if msg.is_multipart():
-                    for part in msg.walk():
-                        if part.get_content_type() == "text/plain":
-                            payload = part.get_payload(decode=True)
-                            if isinstance(payload, bytes):
-                                body = payload.decode(errors='ignore')
+                subject = next((h['value'] for h in headers if h['name'] == 'Subject'), 'No Subject')
+                sender = next((h['value'] for h in headers if h['name'] == 'From'), 'Unknown')
+                date_str = next((h['value'] for h in headers if h['name'] == 'Date'), '')
+                
+                snippet = m.get('snippet', '')
+                body = snippet 
+                
+                if 'parts' in payload:
+                    for part in payload['parts']:
+                        if part['mimeType'] == 'text/plain':
+                            data = part['body'].get('data')
+                            if data:
+                                body = base64.urlsafe_b64decode(data).decode()
                             break
-                else:
-                    payload = msg.get_payload(decode=True)
-                    if isinstance(payload, bytes):
-                        body = payload.decode(errors='ignore')
+                elif 'body' in payload:
+                     data = payload['body'].get('data')
+                     if data:
+                        body = base64.urlsafe_b64decode(data).decode()
 
-                summary = body.strip()[:150].replace('\n', ' ') + "..."
                 emails.append({
                     'sender': sender,
                     'subject': subject,
-                    'date': fmt_date,
-                    'summary': summary,
+                    'date': date_str,
+                    'summary': snippet,
                     'body': body
                 })
 
-            mail.logout()
-            logger.info(f"Fetched {len(emails)} emails for {self.user_email}")
+            logger.info(f"Fetched {len(emails)} emails")
             return emails
 
         except Exception as e:
-            logger.error(f"Error fetching mail for {self.user_email}: {e}")
+            logger.error(f"Error fetching mail: {e}")
             return [{'error': f'Error fetching mail: {str(e)}'}]

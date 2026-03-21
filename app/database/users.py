@@ -42,6 +42,7 @@ def init_db() -> None:
         for col, definition in [
             ('gmail_address',  'TEXT'),
             ('gmail_app_pass', 'TEXT'),
+            ('gmail_token',    'TEXT'),
             ('tg_api_id',      'TEXT'),
             ('tg_api_hash',    'TEXT'),
             ('tg_phone',       'TEXT'),
@@ -96,6 +97,22 @@ def store_pins(email: str, gmail_pin: str, telegram_pin: str = None) -> Tuple[bo
         return True, 'PINs stored.'
     except Exception as e:
         print(f'[DB] store_pins error: {e}')
+        return False, str(e)
+
+
+def store_gmail_token(email: str, token_json: str) -> Tuple[bool, str]:
+    try:
+        with sqlite3.connect(USER_DB_PATH) as conn:
+            existing = [row[1] for row in conn.execute("PRAGMA table_info(users)").fetchall()]
+            if 'gmail_token' not in existing:
+                conn.execute('ALTER TABLE users ADD COLUMN gmail_token TEXT')
+                conn.commit()
+            
+            conn.execute('UPDATE users SET gmail_token = ? WHERE email = ?', (token_json, email.strip().lower()))
+            conn.commit()
+        return True, 'Gmail token stored.'
+    except Exception as e:
+        print(f'[DB] store_gmail_token error: {e}')
         return False, str(e)
 
 
@@ -330,7 +347,7 @@ def get_user_credentials(email: str) -> Optional[Dict]:
     try:
         with sqlite3.connect(USER_DB_PATH) as conn:
             cursor = conn.execute(
-                '''SELECT gmail_address, gmail_app_pass, tg_api_id, tg_api_hash, tg_phone
+                '''SELECT gmail_address, gmail_app_pass, tg_api_id, tg_api_hash, tg_phone, gmail_token
                    FROM users WHERE email = ?''',
                 (email.strip().lower(),)
             )
@@ -343,6 +360,7 @@ def get_user_credentials(email: str) -> Optional[Dict]:
             'tg_api_id': row[2] or '',
             'tg_api_hash': row[3] or '',
             'tg_phone': row[4] or '',
+            'gmail_token': row[5] or None,
         }
     except Exception as e:
         print(f'[DB] get_user_credentials error: {e}')

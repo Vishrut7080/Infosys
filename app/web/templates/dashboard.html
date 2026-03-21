@@ -138,6 +138,26 @@
                 </div>
             </div>
 
+            {% if not has_gmail %}
+            <!-- Gmail Connection Prompt -->
+            <div class="profile-card" style="margin-bottom: 24px; border-left: 4px solid #facc15; background: #fefce8; padding: 16px; border-radius: 8px;">
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <span style="font-size: 24px;">📧</span>
+                    <div style="flex: 1;">
+                        <div style="font-weight: 600; color: #854d0e;" data-en="Gmail not connected" data-hi="Gmail कनेक्ट नहीं है">
+                            Gmail not connected
+                        </div>
+                        <div style="font-size: 13px; color: #a16207;" data-en="Connect your Google account to enable voice-controlled emails." data-hi="वॉइस-नियंत्रित ईमेल सक्षम करने के लिए अपना Google खाता कनेक्ट करें।">
+                            Connect your Google account to enable voice-controlled emails.
+                        </div>
+                    </div>
+                    <a href="/auth/google" class="btn btn-primary" style="background: #eab308; border: none; color: #422006; padding: 8px 16px; border-radius: 6px; text-decoration: none; font-weight: 600; font-size: 13px;" data-en="Connect Now" data-hi="अभी कनेक्ट करें">
+                        Connect Now
+                    </a>
+                </div>
+            </div>
+            {% endif %}
+
             <!-- Voice Command Center — split layout -->
             <div class="voice-card voice-split">
 

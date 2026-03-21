@@ -1,6 +1,8 @@
 from flask import Blueprint, render_template, request, jsonify, redirect, url_for, session
 from app.database import database
 from app.web import oauth
+import json
+import secrets
 
 auth_bp = Blueprint('auth', __name__)
 
@@ -114,25 +116,78 @@ def register():
 
 @auth_bp.route('/auth/google')
 def auth_google():
-    return oauth.google.authorize_redirect(url_for('auth.auth_google_callback', _external=True), prompt='select_account')
+    # If user is already logged in, they are "linking" their Gmail account
+    if 'user' in session:
+        session['linking_gmail'] = True
+    return oauth.google.authorize_redirect(
+        url_for('auth.auth_google_callback', _external=True),
+        prompt='consent',
+        access_type='offline'
+    )
 
 @auth_bp.route('/auth/google/callback')
 def auth_google_callback():
     try:
         token = oauth.google.authorize_access_token()
         user_info = token.get('userinfo') or oauth.google.get('https://openidconnect.googleapis.com/v1/userinfo').json()
-        email = user_info.get('email')
-        user_record = database.get_user_by_email(email)
-        if not user_record:
-            return redirect(url_for('auth.login_page') + '?error=not_registered')
         
+        email = user_info.get('email')
+        name = user_info.get('name') or email.split('@')[0]
+        
+        # Case 1: User is already logged in and linking their Gmail
+        if session.get('linking_gmail'):
+            session.pop('linking_gmail', None)
+            current_user_email = session.get('user', {}).get('email')
+            if current_user_email:
+                token_json = json.dumps(token)
+                database.store_gmail_token(current_user_email, token_json)
+                database.log_activity(current_user_email, 'link_gmail', 'google_oauth')
+                return redirect('/dashboard')
+
+        # Case 2: Standard Login/Register flow
+        user_record = database.get_user_by_email(email)
+        is_new_user = False
+
+        if not user_record:
+            is_new_user = True
+            random_pass = secrets.token_urlsafe(16)
+            success, message = database.create_user(name, email, random_pass)
+            if not success:
+                return redirect(url_for('auth.login_page') + f'?error=registration_failed&msg={message}')
+            
+            # Generate and store PINs
+            pins = database.generate_pins(tg_included=False)
+            gmail_pin = str(pins.get('gmail_pin', '0000'))
+            # Fix: store_pins takes email, gmail_pin, telegram_pin
+            database.store_pins(email, gmail_pin, None)
+            
+            session['pending_pins'] = {
+                'email': email, 'name': name, 
+                'gmail_pin': gmail_pin, 
+                'telegram_pin': None
+            }
+            user_record = database.get_user_by_email(email)
+
+        # Store Gmail API token
+        token_json = json.dumps(token)
+        database.store_gmail_token(email, token_json)
+
+        if is_new_user:
+            # Redirect to PIN reveal so they see their Gmail PIN
+            database.log_activity(email, 'register', 'google_oauth_auto')
+            return redirect(url_for('auth.pin_reveal'))
+
+        # Existing user: log in and go to dashboard
         session['user'] = {'name': user_record['name'], 'email': email, 'picture': user_info.get('picture')}
         session['voice_auth'] = True
         database.log_session(email, force_insert=True)
-        apply_user_credentials(email)
+        # Note: apply_user_credentials is a no-op, services now fetch directly from DB
         database.log_activity(email, 'login', 'google_oauth')
         return redirect('/admin' if database.is_admin(email) else '/dashboard')
-    except Exception:
+    except Exception as e:
+        import traceback
+        print(f"OAuth Error: {e}")
+        traceback.print_exc()
         return redirect(url_for('auth.login_page') + '?error=oauth_failed')
 
 @auth_bp.route('/signup')

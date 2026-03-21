@@ -64,9 +64,14 @@ class _BaseAgent:
         self.last_tool_results = []
 
         for _ in range(5):
-            response = self._call_llm()
+            try:
+                response = self._call_llm()
+            except Exception as e:
+                logger.error(f"LLM call failed: {e}")
+                return "I'm having trouble connecting to my AI service. Please try again later."
+            
             if not response:
-                raise LLMUnavailableError(f"{self.__class__.__name__} did not return a valid response")
+                return "I'm having trouble connecting to my AI service. Please try again later."
 
             msg = response.get("message", {})
             content = msg.get("content", "")

@@ -38,7 +38,7 @@ def _reset_mocks():
 
 class TestMockEmailService:
     def test_send_email(self):
-        svc = MockEmailService("me@test.com", "fake-pass")
+        svc = MockEmailService('{"email": "me@test.com"}')
         ok, msg = svc.send_email("dest@test.com", "Hi", "Hello body")
         assert ok is True
         assert "MOCK" in msg
@@ -48,13 +48,13 @@ class TestMockEmailService:
         assert sent[0]["subject"] == "Hi"
 
     def test_get_emails_returns_canned(self):
-        svc = MockEmailService("me@test.com", "fake-pass")
+        svc = MockEmailService('{"email": "me@test.com"}')
         emails = svc.get_emails(count=1)
         assert len(emails) == 1
         assert "sender" in emails[0]
 
     def test_reset_clears_sent(self):
-        svc = MockEmailService("me@test.com", "fake-pass")
+        svc = MockEmailService('{"email": "me@test.com"}')
         svc.send_email("a@b.com", "x", "y")
         assert len(MockEmailService.get_sent_emails()) == 1
         MockEmailService.reset()
@@ -100,7 +100,7 @@ class TestToolsWithMocks:
     def test_send_email_tool_with_mock(self, mocker):
         mocker.patch(
             "app.tools.email_tools.auth_service.get_credentials",
-            return_value={"gmail_address": "me@gmail.com", "gmail_app_pass": "pass"},
+            return_value={"gmail_address": "me@gmail.com", "gmail_token": '{"email": "me@gmail.com"}'},
         )
         # Patch the EmailService reference inside email_tools to use mock
         mocker.patch(
@@ -116,7 +116,7 @@ class TestToolsWithMocks:
     def test_get_emails_tool_with_mock(self, mocker):
         mocker.patch(
             "app.tools.email_tools.auth_service.get_credentials",
-            return_value={"gmail_address": "me@gmail.com", "gmail_app_pass": "pass"},
+            return_value={"gmail_address": "me@gmail.com", "gmail_token": '{"email": "me@gmail.com"}'},
         )
         mocker.patch(
             "app.tools.email_tools.EmailService",
@@ -162,7 +162,7 @@ class TestAgentE2EWithMocks:
         # Mock auth to return credentials
         mocker.patch(
             "app.tools.email_tools.auth_service.get_credentials",
-            return_value={"gmail_address": "me@gmail.com", "gmail_app_pass": "pass"},
+            return_value={"gmail_address": "me@gmail.com", "gmail_token": '{"email": "me@gmail.com"}'},
         )
         # Wire mock email service
         mocker.patch("app.tools.email_tools.EmailService", MockEmailService)
@@ -230,7 +230,7 @@ class TestMockAgent:
     def test_check_emails(self, mocker):
         mocker.patch(
             "app.tools.email_tools.auth_service.get_credentials",
-            return_value={"gmail_address": "me@gmail.com", "gmail_app_pass": "pass"},
+            return_value={"gmail_address": "me@gmail.com", "gmail_token": '{"email": "me@gmail.com"}'},
         )
         mocker.patch("app.tools.email_tools.EmailService", MockEmailService)
         from app.services.mocks.mock_agent import MockAgent
@@ -271,7 +271,7 @@ class TestMockAgent:
         from app.services.mocks.mock_agent import MockAgent
         agent = MockAgent("u@test.com")
         reply = agent.chat("xyzzy nonsense blah")
-        assert "mock mode" in reply.lower()
+        assert "offline mode" in reply.lower()
 
     def test_email_overview_pattern(self):
         from app.services.mocks.mock_agent import MockAgent
