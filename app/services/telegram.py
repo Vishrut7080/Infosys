@@ -37,7 +37,7 @@ def _get_name(entity) -> str:
     return 'Unknown'
 
 
-async def _init_client(email: str):
+async def _init_client(email: str, loop=None):
     try:
         # Load per-user Telegram credentials from the database (do not rely on process env for per-user secrets)
         creds = database.get_user_credentials(email) or {}
@@ -59,7 +59,8 @@ async def _init_client(email: str):
             app_version="1.0", lang_code="en", system_lang_code="en",
             request_retries=1,
             connection_retries=3,
-            retry_delay=2
+            retry_delay=2,
+            loop=loop
         )
         
         await client.connect()
@@ -131,33 +132,24 @@ async def _start_listener(email: str, client: TelegramClient):
 def _run_async(email, coro):
     loop = _loops.get(email)
     if loop is None:
-        raise RuntimeError(f'Telegram loop not started for {email}.')
+        # If the loop is not initialized, we cannot run the coroutine safely
+        # because the client object is tied to that specific loop.
+        raise TelegramError(f'Telegram loop not started for {email}. User might need to re-login.')
 
-    # If the background loop exists but isn't running, fall back to running the
-    # coroutine in a fresh local event loop. Otherwise submit to the running
-    # background loop and await the future with a timeout; on timeout, attempt
-    # a safe local fallback before raising.
+    # If the background loop exists but isn't running, we cannot execute tasks on it.
     try:
-        is_running = getattr(loop, 'is_running', lambda: False)()
+        is_running = loop.is_running()
     except Exception:
         is_running = False
 
     if not is_running:
-        try:
-            return asyncio.run(coro)
-        except Exception as e:
-            logger.error(f'[Telegram] Fallback run failed for {email}: {e}')
-            raise
+        raise TelegramError(f'Telegram background service is not running for {email}.')
 
     try:
         return asyncio.run_coroutine_threadsafe(coro, loop).result(timeout=20)
     except concurrent.futures.TimeoutError:
-        logger.warning(f'[Telegram] run_coroutine_threadsafe timed out for {email}; trying local fallback')
-        try:
-            return asyncio.run(coro)
-        except Exception as e:
-            logger.error(f'[Telegram] Fallback after timeout failed for {email}: {e}')
-            raise TelegramError('Telegram operation timed out and fallback failed')
+        logger.error(f'[Telegram] run_coroutine_threadsafe timed out for {email}')
+        raise TelegramError('Telegram operation timed out.')
     except Exception as e:
         logger.error(f'[Telegram] _run_async error for {email}: {e}')
         raise
@@ -237,7 +229,7 @@ def start_telegram_in_thread(email: str):
         asyncio.set_event_loop(loop)
         _loops[email] = loop
         
-        client = loop.run_until_complete(_init_client(email))
+        client = loop.run_until_complete(_init_client(email, loop=loop))
         if not client:
             return
 

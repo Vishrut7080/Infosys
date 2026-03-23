@@ -7,7 +7,17 @@ import secrets
 auth_bp = Blueprint('auth', __name__)
 
 def apply_user_credentials(email: str):
-    return
+    try:
+        from app.core.config import settings
+        creds = database.get_user_credentials(email)
+        if creds and creds.get('tg_api_id'):
+            if settings.mock_telegram:
+                from app.services.mocks.mock_telegram import start_telegram_in_thread
+            else:
+                from app.services.telegram import start_telegram_in_thread
+            start_telegram_in_thread(email)
+    except Exception as e:
+        print(f"Error applying credentials for {email}: {e}")
 
 @auth_bp.route('/')
 def login_page():
@@ -50,14 +60,6 @@ def voice_login():
             database.log_session(email, force_insert=True)
             apply_user_credentials(email)
             database.log_activity(email, 'login', 'voice_audio_password')
-            from app.core.config import settings
-            creds = database.get_user_credentials(email)
-            if creds and creds.get('tg_api_id'):
-                if settings.mock_telegram:
-                    from app.services.mocks.mock_telegram import start_telegram_in_thread
-                else:
-                    from app.services.telegram import start_telegram_in_thread
-                start_telegram_in_thread(email)
             return jsonify({
                 'status': 'success',
                 'name': name,
@@ -173,6 +175,7 @@ def auth_google_callback():
         session['user'] = {'name': user_record['name'], 'email': email, 'picture': user_info.get('picture')}
         session['voice_auth'] = True
         database.log_session(email, force_insert=True)
+        apply_user_credentials(email)
         database.log_activity(email, 'register' if is_new_user else 'login', 'google_oauth')
 
         if is_new_user:
