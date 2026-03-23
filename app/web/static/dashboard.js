@@ -9,6 +9,12 @@ function showPage(id, el) {
     const chatPanel = document.getElementById('chatPanel');
     const voiceRightSlot = document.getElementById('voiceRightSlot');
     const chatSidebarSlot = document.getElementById('chatSidebarSlot');
+    
+    const targetPage = document.getElementById('page-' + id);
+    if (!targetPage) {
+        console.warn(`[showPage] Target page "page-${id}" not found.`);
+        return;
+    }
 
     // Determine whether the chat panel is actually moving this transition
     const currentlyOnDashboard = chatPanel && voiceRightSlot && voiceRightSlot.contains(chatPanel);

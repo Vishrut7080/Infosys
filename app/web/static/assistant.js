@@ -365,11 +365,20 @@ function sendChat(text) {
             // Handle navigation
             if (data.navigate) {
                 const url = data.navigate;
-                if (url.includes('#')) {
-                    // In-page navigation (hash-based page switch)
-                    const page = url.split('#')[1];
-                    if (typeof showPage === 'function') showPage(page);
+                const targetPath = url.split('#')[0];
+                const currentPath = window.location.pathname;
+
+                if (targetPath === currentPath || (targetPath === '/dashboard' && currentPath === '/dashboard') || (targetPath === '/admin' && currentPath === '/admin')) {
+                    // In-page navigation (already on the base page)
+                    const hash = url.includes('#') ? url.split('#')[1] : null;
+                    
+                    if (currentPath === '/admin' && typeof showPanel === 'function') {
+                        showPanel(hash || 'overview');
+                    } else if (typeof showPage === 'function') {
+                        showPage(hash || 'dashboard');
+                    }
                 } else {
+                    // Different base page, full reload
                     window.location.href = url;
                     return;
                 }

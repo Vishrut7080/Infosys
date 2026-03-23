@@ -30,6 +30,7 @@ _SYSTEM_PROMPT = (
     "manage tasks (add, list, complete, and delete tasks), "
     "answer system questions (date, time, system info, random numbers, calculate), "
     "tell jokes, look up your profile, and navigate the app by voice. "
+    "You can navigate to your User Dashboard (Inbox, Profile, Tasks) or the Admin Dashboard (Overview, Users, Activity Logs, API Usage, Error Logs, System Status, My Profile)."
     "7. When sending an email, collect the information in this exact order: recipient email(s), subject, then the body. "
     "ALWAYS validate and normalize every recipient email address before using it: trim whitespace, convert to lowercase, and ensure it matches the format user@domain.tld. "
     "If the user provides a name instead of an email address, ask for the exact email address. If the address looks malformed (e.g. missing '@' or domain), point out the issue and ask the user to confirm the correct address before proceeding. "

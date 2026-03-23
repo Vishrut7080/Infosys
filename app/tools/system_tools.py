@@ -44,10 +44,16 @@ def navigate_handler(user_email=None, page="dashboard"):
     pages = {
         "dashboard": "/dashboard",
         "inbox": "/dashboard#inbox",
-        "settings": "/dashboard#settings",
         "profile": "/dashboard#profile",
-        "commands": "/dashboard#commands",
+        "tasks": "/dashboard#tasks",
         "admin": "/admin",
+        "admin_overview": "/admin#overview",
+        "admin_users": "/admin#users",
+        "admin_activity": "/admin#activity",
+        "admin_api": "/admin#api",
+        "admin_errors": "/admin#errors",
+        "admin_status": "/admin#status",
+        "admin_profile": "/admin#profile",
         "login": "/login",
         "signup": "/signup",
         "telegram": "/telegram-auth",
@@ -153,7 +159,7 @@ registry.register(
 
 registry.register(
     name="navigate",
-    description="Navigate the user to a page in the application. Available pages: dashboard, inbox, settings, profile, commands, admin, login, signup, telegram.",
+    description="Navigate the user to a page. User Dashboard targets: (dashboard, inbox, profile, tasks). Admin Dashboard targets: (admin, admin_overview, admin_users, admin_activity, admin_api, admin_errors, admin_status, admin_profile). Others: (login, signup, telegram).",
     schema={
         "type": "object",
         "properties": {

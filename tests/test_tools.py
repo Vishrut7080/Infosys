@@ -125,7 +125,13 @@ class TestSystemTools:
 
     def test_navigate_all_pages(self):
         from app.tools.system_tools import navigate_handler
-        for page in ["dashboard", "inbox", "settings", "profile", "commands", "admin", "login", "signup", "telegram"]:
+        pages = [
+            "dashboard", "inbox", "profile", "tasks", 
+            "admin", "admin_users", "admin_activity", "admin_api", 
+            "admin_errors", "admin_status", "admin_profile",
+            "login", "signup", "telegram"
+        ]
+        for page in pages:
             result = navigate_handler(page=page)
             assert result.startswith("NAVIGATE:")
 
