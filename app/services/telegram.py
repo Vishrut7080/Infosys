@@ -52,6 +52,15 @@ async def _init_client(email: str, loop=None):
         api_id = int(api_id_str)
         session_path = _get_session_path(email)
         
+        # Cleanup lock file before connecting to avoid 'database is locked'
+        lock_file = session_path + '.lock'
+        if os.path.exists(lock_file):
+            try:
+                os.remove(lock_file)
+                logger.debug(f'[Telegram] Removed stale lock file: {lock_file}')
+            except Exception as e:
+                logger.warning(f'[Telegram] Could not remove lock file {lock_file}: {e}')
+
         logger.info(f'[Telegram] Initializing client for {email} with API ID: {api_id}')
         
         client = TelegramClient(
@@ -245,73 +254,91 @@ def start_telegram_in_thread(email: str):
                 client = await _init_client(email, loop=loop)
                 if not client:
                     logger.warning(f'[Telegram] Client initialization failed for {email} (check API credentials)')
+                    loop.stop()
                     return
 
                 _clients[email] = client
                 
-                try:
-                    if client.is_connected():
-                        is_auth = await client.is_user_authorized()
-                        logger.info(f'[Telegram] Client connected for {email}. Authorized: {is_auth}')
+                async def run_client(c, retries=0):
+                    try:
+                        if c.is_connected():
+                            # Register listener regardless of auth state
+                            @c.on(events.NewMessage(incoming=True))
+                            async def handler(event):
+                                try:
+                                    if not await c.is_user_authorized():
+                                        return
+                                    sender = await event.get_sender()
+                                    sender_name = _get_name(sender)
+                                    text = event.raw_text
+                                    from app.web import socketio
+                                    socketio.emit('tts', {'text': f"New Telegram from {sender_name}: {text}", 'lang': 'en'})
+                                    from app.database import database
+                                    database.log_activity(email, 'telegram_received', f"From {sender_name}")
+                                except Exception as e:
+                                    logger.error(f"[Telegram] Event handler error: {e}")
+
+                            is_auth = await c.is_user_authorized()
+                            logger.info(f'[Telegram] Client connected for {email}. Authorized: {is_auth}')
+                            await c.run_until_disconnected()
+                    except (AuthKeyUnregisteredError, Exception) as e:
+                        # Treat AuthKeyUnregisteredError or specific Telethon restart errors as session invalidation
+                        is_unregistered = isinstance(e, AuthKeyUnregisteredError) or 'AuthRestartError' in str(e)
                         
-                        if is_auth:
-                            await _start_listener(email, client)
+                        if is_unregistered:
+                            logger.warning(f'[Telegram] Session invalid for {email}: {e} — clearing session and retrying')
                         else:
-                            logger.info(f'[Telegram] User {email} not authorized. Waiting for auth...')
-                            # Even if not authorized, we keep the client in _clients so 
-                            # the web routes can trigger sign_in / send_code
-                except AuthKeyUnregisteredError as e:
-                    logger.warning(f'[Telegram] AuthKeyUnregistered for {email}: {e} — clearing session and retrying')
-                    # Best-effort cleanup of local session files so the user can re-authorize
-                    try:
-                        await client.disconnect()
-                    except Exception:
-                        pass
-                    session_path = _get_session_path(email)
-                    for ext in ('', '.session', '.session-journal', '.session.lock'):
-                        p = session_path + ext
+                            logger.error(f'[Telegram] Client error for {email}: {e}')
+
+                        # Best-effort cleanup
                         try:
-                            if os.path.exists(p):
-                                os.remove(p)
-                                logger.info(f'[Telegram] Removed session file {p}')
+                            await c.disconnect()
                         except Exception:
-                            logger.debug(f'[Telegram] Could not remove session file {p}')
+                            pass
+                        
+                        if is_unregistered and retries < 2:
+                            session_path = _get_session_path(email)
+                            for ext in ('', '.session', '.session-journal', '.session.lock'):
+                                p = session_path + ext
+                                try:
+                                    if os.path.exists(p):
+                                        os.remove(p)
+                                        logger.info(f'[Telegram] Removed session file {p}')
+                                except Exception as ex:
+                                    logger.debug(f'[Telegram] Could not remove session file {p}: {ex}')
 
-                    # Notify the frontend so the user can re-authorize Telegram
-                    try:
-                        from app.web import socketio
-                        socketio.emit('toast', {
-                            'message': f'⚠️ Telegram needs re-authorization for {email}',
-                            'type': 'warning',
-                            'duration': 8000,
-                            'link': {'url': '/telegram-auth', 'text': 'Re-authorize'}
-                        })
-                    except Exception:
-                        logger.debug('[Telegram] Could not emit re-authorization toast')
+                            # Notify the frontend
+                            try:
+                                from app.web import socketio
+                                socketio.emit('toast', {
+                                    'message': f'⚠️ Telegram needs re-authorization for {email}',
+                                    'type': 'warning',
+                                    'duration': 8000,
+                                    'link': {'url': '/telegram-auth', 'text': 'Re-authorize'}
+                                })
+                            except Exception:
+                                pass
 
-                    try:
-                        client = await _init_client(email, loop=loop)
-                        if client:
-                            _clients[email] = client
-                            if client.is_connected():
-                                await _start_listener(email, client)
-                    except AuthKeyUnregisteredError:
-                        logger.error(f'[Telegram] AuthKeyUnregistered again for {email} after cleanup.')
-                        # Remove session file again just in case
-                        session_path = _get_session_path(email)
-                        for ext in ('.session', '.session-journal', '.session.lock'):
-                            p = session_path + ext
-                            if os.path.exists(p): os.remove(p)
-                    except Exception as e2:
-                        logger.error(f'[Telegram] Retry init failed for {email}: {e2}')
-                except (asyncio.CancelledError, GeneratorExit):
-                    raise
-                except Exception as e:
-                    logger.error(f'[Telegram] Listener error for {email}: {e}')
+                            # Try again
+                            try:
+                                new_client = await _init_client(email, loop=loop)
+                                if new_client:
+                                    _clients[email] = new_client
+                                    await run_client(new_client, retries + 1)
+                            except Exception as e2:
+                                logger.error(f'[Telegram] Retry failed for {email}: {e2}')
+                                loop.stop()
+                        else:
+                            if is_unregistered:
+                                logger.error(f'[Telegram] Persistent session invalidation for {email}. Stopping.')
+                            loop.stop()
+                
+                await run_client(client)
             except (asyncio.CancelledError, GeneratorExit):
                 logger.debug(f'[Telegram] Background task exiting for {email}')
             except Exception as e:
                 logger.error(f'[Telegram] Main task error for {email}: {e}')
+                loop.stop()
                 
         loop.create_task(main_task())
         try:

@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Assistant — Setup Integrations</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Cabinet+Grotesk:wght@700&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='login.css') }}">
+    <style>
+        body {
+            font-family: 'Instrument Sans', sans-serif;
+            background: #0f0f13;
+            color: #ededf0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+        }
+        .setup-card {
+            background: #17171d;
+            border: 1px solid rgba(255, 255, 255, 0.07);
+            border-radius: 16px;
+            padding: 40px;
+            width: 100%;
+            max-width: 440px;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.3);
+        }
+        h1 {
+            font-family: 'Cabinet Grotesk', sans-serif;
+            font-size: 24px;
+            margin-bottom: 8px;
+            text-align: center;
+        }
+        p.subtitle {
+            color: #7f7f99;
+            font-size: 14px;
+            text-align: center;
+            margin-bottom: 32px;
+        }
+        .integration-item {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .integration-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .icon {
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(255,255,255,0.05);
+            border-radius: 8px;
+            font-size: 18px;
+        }
+        .name {
+            font-weight: 500;
+            font-size: 15px;
+        }
+        .status {
+            font-size: 12px;
+            color: #7f7f99;
+        }
+        .btn-connect {
+            background: #6c63ff;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        .btn-connect:hover { background: #7b74ff; }
+        .btn-connect.connected {
+            background: rgba(74, 222, 128, 0.1);
+            color: #4ade80;
+            cursor: default;
+        }
+        .actions {
+            margin-top: 32px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        .btn-finish {
+            background: #ededf0;
+            color: #0f0f13;
+            border: none;
+            padding: 12px;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            text-align: center;
+            text-decoration: none;
+        }
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.8);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+        }
+        .modal {
+            background: #17171d;
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 12px;
+            padding: 32px;
+            width: 340px;
+        }
+        .modal input {
+            width: 100%;
+            background: #0f0f13;
+            border: 1px solid rgba(255,255,255,0.1);
+            padding: 10px;
+            border-radius: 6px;
+            color: white;
+            margin: 12px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="setup-card">
+        <h1>Connect Integrations</h1>
+        <p class="subtitle">Grant permission to access your Gmail and Telegram so Assistant can help you.</p>
+
+        <div class="integration-item">
+            <div class="integration-info">
+                <div class="icon">G</div>
+                <div>
+                    <div class="name">Gmail</div>
+                    <div class="status">{{ 'Connected' if has_gmail else 'Not connected' }}</div>
+                </div>
+            </div>
+            {% if has_gmail %}
+                <div class="btn-connect connected">✓</div>
+            {% else %}
+                <button class="btn-connect" onclick="location.href='/auth/google'">Connect</button>
+            {% endif %}
+        </div>
+
+        <div class="integration-item">
+            <div class="integration-info">
+                <div class="icon">T</div>
+                <div>
+                    <div class="name">Telegram</div>
+                    <div class="status" id="tg-status">Not connected</div>
+                </div>
+            </div>
+            <button class="btn-connect" id="tg-btn" onclick="showTgModal()">Connect</button>
+        </div>
+
+        <div class="actions">
+            <button class="btn-finish" onclick="finishSetup()">Go to Dashboard</button>
+        </div>
+    </div>
+
+    <!-- Telegram Modal -->
+    <div class="modal-overlay" id="tg-modal">
+        <div class="modal">
+            <h3 id="tg-title">Telegram Login</h3>
+            <p id="tg-desc" style="font-size:13px; color:#7f7f99; margin:8px 0 16px;">Enter your phone number</p>
+            
+            <div id="step-phone">
+                <input type="tel" id="tg-phone-input" value="{{ tg_phone or '' }}" placeholder="+1234567890">
+                <button class="btn-connect" style="width:100%" onclick="sendTgCode()">Send Code</button>
+            </div>
+            
+            <div id="step-code" style="display:none">
+                <input type="text" id="tg-code-input" placeholder="Enter OTP code">
+                <button class="btn-connect" style="width:100%" onclick="verifyTgCode()">Verify</button>
+            </div>
+            
+            <p id="tg-msg" style="font-size:12px; margin-top:12px; text-align:center"></p>
+            <button onclick="hideTgModal()" style="background:none; border:none; color:#7f7f99; font-size:12px; margin-top:12px; width:100%; cursor:pointer">Cancel</button>
+        </div>
+    </div>
+
+    <script>
+        function showTgModal() { document.getElementById('tg-modal').style.display = 'flex'; }
+        function hideTgModal() { document.getElementById('tg-modal').style.display = 'none'; }
+
+        async function sendTgCode() {
+            const phone = document.getElementById('tg-phone-input').value.trim();
+            const msg = document.getElementById('tg-msg');
+            msg.innerText = 'Sending...';
+            const res = await fetch('/telegram/send-code', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ phone })
+            });
+            const data = await res.json();
+            if(data.status === 'ok') {
+                document.getElementById('step-phone').style.display = 'none';
+                document.getElementById('step-code').style.display = 'block';
+                msg.innerText = 'Code sent to your Telegram app.';
+            } else {
+                msg.innerText = data.message || 'Error';
+            }
+        }
+
+        async function verifyTgCode() {
+            const phone = document.getElementById('tg-phone-input').value.trim();
+            const otp = document.getElementById('tg-code-input').value.trim();
+            const msg = document.getElementById('tg-msg');
+            msg.innerText = 'Verifying...';
+            const res = await fetch('/telegram/verify-otp', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ phone, otp })
+            });
+            const data = await res.json();
+            if(data.status === 'ok') {
+                msg.style.color = '#4ade80';
+                msg.innerText = 'Connected!';
+                document.getElementById('tg-status').innerText = 'Connected';
+                document.getElementById('tg-btn').className = 'btn-connect connected';
+                document.getElementById('tg-btn').innerText = '✓';
+                document.getElementById('tg-btn').onclick = null;
+                setTimeout(hideTgModal, 1500);
+            } else {
+                msg.innerText = data.message || 'Error';
+            }
+        }
+
+        async function finishSetup() {
+            await fetch('/finish-signup', { method: 'POST' });
+            window.location.href = '/dashboard';
+        }
+    </script>
+</body>
+</html>

@@ -75,7 +75,7 @@ def logout():
     if email: 
         database.log_activity(email, 'logout', '')
     session.clear()
-    return redirect(url_for('auth.login_page'))
+    return redirect('/')
 
 @auth_bp.route('/register', methods=['POST'])
 def register():
@@ -99,17 +99,25 @@ def register():
             gmail_pin = str(pins.get('gmail_pin', '0000'))
             telegram_pin = str(pins.get('telegram_pin') or '')
             database.store_pins(email, gmail_pin, telegram_pin)
-            session['pending_pins'] = {
+            
+            pending_pins = {
                 'email': email, 'name': name, 
                 'gmail_pin': gmail_pin, 
-                'telegram_pin': telegram_pin
+                'telegram_pin': telegram_pin,
+                'tg_phone': data.get('tg_phone', '').strip()
             }
             if data.get('is_admin') and data.get('admin_password', '').strip() == 'infosys':
                 database.add_admin(email)
-                session['pending_pins']['is_admin'] = True
+                pending_pins['is_admin'] = True
             
-            # Start telegram if credentials provided
+            session['pending_pins'] = pending_pins
+            
+            # Auto-login after registration so they can access setup-integrations
+            session['user'] = {'name': name, 'email': email}
+            session['voice_auth'] = True
+            database.log_session(email, force_insert=True)
             apply_user_credentials(email)
+            database.log_activity(email, 'register', 'keyboard')
             
             return jsonify({'status': 'success', 'message': 'Registration successful!'})
         return jsonify({'status': 'error', 'message': message})
@@ -184,6 +192,8 @@ def auth_google_callback():
         apply_user_credentials(email)
         database.log_activity(email, 'register' if is_new_user else 'login', 'google_oauth')
 
+        if session.get('pending_pins'):
+            return redirect('/setup-integrations')
         if is_new_user:
             return redirect(url_for('auth.pin_reveal'))
 
