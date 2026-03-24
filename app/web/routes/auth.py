@@ -107,6 +107,10 @@ def register():
             if data.get('is_admin') and data.get('admin_password', '').strip() == 'infosys':
                 database.add_admin(email)
                 session['pending_pins']['is_admin'] = True
+            
+            # Start telegram if credentials provided
+            apply_user_credentials(email)
+            
             return jsonify({'status': 'success', 'message': 'Registration successful!'})
         return jsonify({'status': 'error', 'message': message})
     except Exception as e:
@@ -139,6 +143,8 @@ def auth_google_callback():
                 token_json = json.dumps(token)
                 database.store_gmail_token(current_user_email, token_json)
                 database.log_activity(current_user_email, 'link_gmail', 'google_oauth')
+                if session.get('pending_pins'):
+                    return redirect('/setup-integrations')
                 return redirect('/dashboard')
 
         # Case 2: Standard Login/Register flow
@@ -155,16 +161,16 @@ def auth_google_callback():
             database.create_user(name, email, random_pass, secret_audio=audio_pass)
             
             pins = database.generate_pins(tg_included=False)
+            pins.update({
+                'email': email,
+                'name': name,
+                'password': random_pass,
+                'audio_password': audio_pass
+            })
             gmail_pin = str(pins.get('gmail_pin', '0000'))
             database.store_pins(email, gmail_pin, None)
             
-            session['pending_pins'] = {
-                'email': email, 'name': name, 
-                'gmail_pin': gmail_pin, 
-                'password': random_pass,
-                'audio_password': audio_pass,
-                'telegram_pin': None
-            }
+            session['pending_pins'] = pins
             user_record = database.get_user_by_email(email)
 
         # Store Gmail API token
@@ -202,6 +208,21 @@ def pin_reveal():
     print(f"DEBUG: pin-reveal pins={pins}")
     if not pins: return redirect('/dashboard')
     return render_template('pin_reveal.html', pins=pins)
+
+@auth_bp.route('/setup-integrations')
+def setup_integrations():
+    pins = session.get('pending_pins')
+    if not pins: return redirect('/dashboard')
+    
+    email = pins.get('email')
+    creds = database.get_user_credentials(email)
+    has_gmail = bool(creds and creds.get('gmail_token'))
+    tg_phone = pins.get('tg_phone') or (creds.get('tg_phone') if creds else None)
+    
+    return render_template('setup_integrations.html', 
+                           email=email, 
+                           has_gmail=has_gmail, 
+                           tg_phone=tg_phone)
 
 @auth_bp.route('/finish-signup', methods=['POST'])
 def finish_signup():

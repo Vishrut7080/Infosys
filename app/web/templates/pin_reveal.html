@@ -92,27 +92,36 @@
         <!-- Countdown bar -->
         <div class="countdown-section">
             <div class="countdown-label">
-                Redirecting to dashboard in <span id="countdown">15</span>s
+                Redirecting to login in <span id="countdown">15</span>s
             </div>
             <div class="countdown-bar">
                 <div class="countdown-fill" id="countdownFill"></div>
             </div>
         </div>
 
+        <!-- User activation for TTS announcement -->
+        <div style="margin: 20px 0; text-align: center;">
+            <button id="announceBtn" class="btn btn-secondary" style="background: #f3f4f6; color: #374151; border: 1px solid #d1d5db; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: 500; transition: all 0.2s; display: inline-flex; align-items: center; gap: 8px; font-family: 'Inter', sans-serif;">
+                <span>🔊</span> <span data-en="Hear my login details" data-hi="मेरा विवरण सुनें">Hear my login details</span>
+            </button>
+        </div>
+
         <button class="btn-proceed" onclick="proceedToLogin()">
-            Continue to Dashboard →
+            Continue to Login →
         </button>
     </div>
 
     <script src="{{ url_for('static', filename='voice-nav.js') }}"></script>
     <script src="{{ url_for('static', filename='pin_reveal.js') }}"></script>
     <script>
-        // Announce credentials via TTS once loaded
-        window.addEventListener('load', () => {
+        document.getElementById('announceBtn').addEventListener('click', () => {
             const msg = "Welcome! Your new account is created. Your Gmail PIN is {{ pins.gmail_pin }}. {% if pins.password %} Your temporary password is {{ pins.password }}. {% endif %} {% if pins.audio_password %} Your audio login password is {{ pins.audio_password }}. {% endif %} Please save these.";
             if (window.speechSynthesis) {
+                // Cancel any ongoing speech
+                window.speechSynthesis.cancel();
                 const u = new SpeechSynthesisUtterance(msg);
-                setTimeout(() => window.speechSynthesis.speak(u), 1000);
+                u.rate = 0.9;
+                window.speechSynthesis.speak(u);
             }
         });
     </script>

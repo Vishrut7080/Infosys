@@ -20,10 +20,7 @@ const timer = setInterval(() => {
 
 async function proceedToLogin() {
     clearInterval(timer);
-    try {
-        await fetch('/finish-signup', { method: 'POST' });
-    } catch (e) { console.error(e); }
-    window.location.href = '/dashboard';
+    window.location.href = '/setup-integrations';
 }
 
 // ── Copy PIN ──

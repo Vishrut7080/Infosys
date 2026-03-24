@@ -240,16 +240,26 @@ def start_telegram_in_thread(email: str):
             _loops[email] = loop
         
         async def main_task():
+            logger.info(f'[Telegram] Main task starting for {email}')
             try:
                 client = await _init_client(email, loop=loop)
                 if not client:
+                    logger.warning(f'[Telegram] Client initialization failed for {email} (check API credentials)')
                     return
 
                 _clients[email] = client
                 
                 try:
                     if client.is_connected():
-                        await _start_listener(email, client)
+                        is_auth = await client.is_user_authorized()
+                        logger.info(f'[Telegram] Client connected for {email}. Authorized: {is_auth}')
+                        
+                        if is_auth:
+                            await _start_listener(email, client)
+                        else:
+                            logger.info(f'[Telegram] User {email} not authorized. Waiting for auth...')
+                            # Even if not authorized, we keep the client in _clients so 
+                            # the web routes can trigger sign_in / send_code
                 except AuthKeyUnregisteredError as e:
                     logger.warning(f'[Telegram] AuthKeyUnregistered for {email}: {e} — clearing session and retrying')
                     # Best-effort cleanup of local session files so the user can re-authorize
@@ -285,6 +295,13 @@ def start_telegram_in_thread(email: str):
                             _clients[email] = client
                             if client.is_connected():
                                 await _start_listener(email, client)
+                    except AuthKeyUnregisteredError:
+                        logger.error(f'[Telegram] AuthKeyUnregistered again for {email} after cleanup.')
+                        # Remove session file again just in case
+                        session_path = _get_session_path(email)
+                        for ext in ('.session', '.session-journal', '.session.lock'):
+                            p = session_path + ext
+                            if os.path.exists(p): os.remove(p)
                     except Exception as e2:
                         logger.error(f'[Telegram] Retry init failed for {email}: {e2}')
                 except (asyncio.CancelledError, GeneratorExit):

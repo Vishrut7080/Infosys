@@ -64,9 +64,14 @@ def get_agent(email: str):
 @assistant_bp.route('/dashboard')
 @login_required
 def dashboard():
-    from app.services.telegram import telegram_is_ready
+    from app.services.telegram import telegram_is_ready, start_telegram_in_thread
     email = session.get('user', {}).get('email')
     creds = database.get_user_credentials(email) if email else None
+    
+    # Auto-start telegram if credentials present but not running
+    if creds and creds.get('tg_api_id') and not telegram_is_ready(email):
+        start_telegram_in_thread(email)
+
     has_gmail = bool(creds and creds.get('gmail_token'))
     has_telegram = telegram_is_ready(email)
     return render_template('dashboard.html', user=session['user'], has_gmail=has_gmail, has_telegram=has_telegram)
