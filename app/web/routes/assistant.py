@@ -350,10 +350,9 @@ def telegram_status_route():
 @assistant_bp.route('/voice-logout', methods=['POST'])
 @login_required
 def voice_logout():
+    from app.web.routes.auth import logout_user
     email = session['user'].get('email')
-    database.log_activity(email, 'logout', 'voice')
-    session['voice_auth'] = False
-    session.clear()
+    logout_user(email)
     return '', 204
 
 

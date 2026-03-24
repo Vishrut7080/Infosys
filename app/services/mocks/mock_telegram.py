@@ -143,6 +143,11 @@ def start_telegram_in_thread(email: str):
     MockTelegramState._connected_emails.add(email)
 
 
+def stop_telegram_in_thread(email: str):
+    logger.info(f"[MockTelegram] stop_telegram_in_thread({email}) — marking as disconnected")
+    MockTelegramState._connected_emails.discard(email)
+
+
 # Stubs for variables that assistant.py's telegram_contacts route accesses
 _clients: dict = {}
 _loops: dict = {}

@@ -25,7 +25,7 @@ def login_page():
     error = request.args.get('error', '')
     return render_template('login.html', from_signup=from_signup, error=error)
 
-@auth_bp.route('/login', methods=['POST'])
+@auth_bp.route('/', methods=['POST'])
 def login():
     try:
         data = request.get_json()
@@ -69,13 +69,27 @@ def voice_login():
     except Exception as e:
         return jsonify({'status': 'error', 'message': str(e)})
 
-@auth_bp.route('/logout')
+def logout_user(email):
+    """Clean up user session and integrations."""
+    if email:
+        database.log_activity(email, 'logout', '')
+        # Stop Telegram background logic
+        try:
+            from app.core.config import settings
+            if settings.mock_telegram:
+                from app.services.mocks.mock_telegram import stop_telegram_in_thread
+            else:
+                from app.services.telegram import stop_telegram_in_thread
+            stop_telegram_in_thread(email)
+        except Exception as e:
+            print(f"Error stopping credentials for {email}: {e}")
+    session.clear()
+
+@auth_bp.route('/logout', methods=['GET', 'POST'])
 def logout():
     email = session.get('user', {}).get('email')
-    if email: 
-        database.log_activity(email, 'logout', '')
-    session.clear()
-    return redirect('/')
+    logout_user(email)
+    return redirect(url_for('auth.login_page'))
 
 @auth_bp.route('/register', methods=['POST'])
 def register():

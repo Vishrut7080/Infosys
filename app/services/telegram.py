@@ -361,9 +361,30 @@ def start_telegram_in_thread(email: str):
     threading.Thread(target=run, daemon=True).start()
     logger.info(f'[Telegram] Background thread started for {email}.')
 
+def stop_telegram_in_thread(email: str):
+    """Disconnects and cleans up the Telegram client for the given email."""
+    if not email: return
+    with _startup_lock:
+        client = _clients.get(email)
+        loop = _loops.get(email)
+
+    if client:
+        try:
+            if loop and loop.is_running():
+                asyncio.run_coroutine_threadsafe(client.disconnect(), loop)
+        except Exception as e:
+            logger.error(f"[Telegram] Error disconnecting client for {email}: {e}")
+
+    if loop:
+        try:
+            loop.call_soon_threadsafe(loop.stop)
+        except Exception as e:
+            logger.error(f"[Telegram] Error stopping loop for {email}: {e}")
+        logger.info(f"[Telegram] Stopped telegram thread for {email}")
 
 __all__ = [
     'start_telegram_in_thread',
+    'stop_telegram_in_thread',
     'telegram_get_messages',
     'telegram_send_message',
     'telegram_get_latest',

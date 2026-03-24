@@ -54,7 +54,7 @@ def navigate_handler(user_email=None, page="dashboard"):
         "admin_errors": "/admin#errors",
         "admin_status": "/admin#status",
         "admin_profile": "/admin#profile",
-        "login": "/login",
+        "login": "/",
         "signup": "/signup",
         "telegram": "/telegram-auth",
     }
