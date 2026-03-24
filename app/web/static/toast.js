@@ -48,8 +48,9 @@ const Toast = (() => {
      * @param {string} message  - Display text
      * @param {'info'|'success'|'warning'|'error'} type
      * @param {number} duration - Auto-dismiss delay in ms (default 3500)
+     * @param {object} options  - Extra options like { link: { url: '', text: '' } }
      */
-    function show(message, type = 'info', duration = 3500) {
+    function show(message, type = 'info', duration = 3500, options = {}) {
         const c = ensureContainer();
 
         const el = document.createElement('div');
@@ -63,6 +64,19 @@ const Toast = (() => {
         const msg = document.createElement('span');
         msg.className = 'toast-msg';
         msg.textContent = message;
+
+        if (options.link) {
+            const a = document.createElement('a');
+            a.href = options.link.url;
+            a.textContent = options.link.text || 'View';
+            a.className = 'toast-link';
+            a.style.marginLeft = '8px';
+            a.style.color = 'inherit';
+            a.style.textDecoration = 'underline';
+            a.style.fontWeight = '600';
+            a.onclick = (e) => e.stopPropagation();
+            msg.appendChild(a);
+        }
 
         const progress = document.createElement('div');
         progress.className = 'toast-progress';

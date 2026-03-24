@@ -64,10 +64,12 @@ def get_agent(email: str):
 @assistant_bp.route('/dashboard')
 @login_required
 def dashboard():
+    from app.services.telegram import telegram_is_ready
     email = session.get('user', {}).get('email')
     creds = database.get_user_credentials(email) if email else None
     has_gmail = bool(creds and creds.get('gmail_token'))
-    return render_template('dashboard.html', user=session['user'], has_gmail=has_gmail)
+    has_telegram = telegram_is_ready(email)
+    return render_template('dashboard.html', user=session['user'], has_gmail=has_gmail, has_telegram=has_telegram)
 
 @assistant_bp.route('/api/chat', methods=['POST'])
 @login_required

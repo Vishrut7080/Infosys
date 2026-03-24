@@ -246,11 +246,13 @@ def start_telegram_in_thread(email: str):
                     return
 
                 _clients[email] = client
+                
                 try:
                     if client.is_connected():
                         await _start_listener(email, client)
                 except AuthKeyUnregisteredError as e:
                     logger.warning(f'[Telegram] AuthKeyUnregistered for {email}: {e} — clearing session and retrying')
+                    # Best-effort cleanup of local session files so the user can re-authorize
                     try:
                         await client.disconnect()
                     except Exception:
@@ -265,9 +267,15 @@ def start_telegram_in_thread(email: str):
                         except Exception:
                             logger.debug(f'[Telegram] Could not remove session file {p}')
 
+                    # Notify the frontend so the user can re-authorize Telegram
                     try:
                         from app.web import socketio
-                        socketio.emit('toast', {'message': f'⚠️ Telegram needs re-authorization for {email}', 'type': 'warning', 'duration': 8000})
+                        socketio.emit('toast', {
+                            'message': f'⚠️ Telegram needs re-authorization for {email}',
+                            'type': 'warning',
+                            'duration': 8000,
+                            'link': {'url': '/telegram-auth', 'text': 'Re-authorize'}
+                        })
                     except Exception:
                         logger.debug('[Telegram] Could not emit re-authorization toast')
 

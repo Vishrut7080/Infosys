@@ -164,6 +164,32 @@
             </div>
             {% endif %}
 
+            {% if not has_telegram %}
+            <!-- Telegram Connection Prompt -->
+            <div class="profile-card"
+                style="margin-bottom: 24px; border-left: 4px solid #6c63ff; background: #f5f3ff; padding: 16px; border-radius: 8px;">
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <span style="font-size: 24px;">✈️</span>
+                    <div style="flex: 1;">
+                        <div style="font-weight: 600; color: #4338ca;" data-en="Telegram not connected"
+                            data-hi="Telegram कनेक्ट नहीं है">
+                            Telegram not connected
+                        </div>
+                        <div style="font-size: 13px; color: #4f46e5; margin-top: 2px;"
+                            data-en="Connect your Telegram account to manage messages by voice."
+                            data-hi="वॉयस द्वारा मैसेज मैनेज करने के लिए अपना Telegram खाता कनेक्ट करें।">
+                            Connect your Telegram account to manage messages by voice.
+                        </div>
+                    </div>
+                    <a href="/telegram-auth" class="btn btn-primary"
+                        style="background: #6366f1; border: none; color: white; padding: 8px 16px; border-radius: 6px; text-decoration: none; font-weight: 600; font-size: 13px;"
+                        data-en="Connect Now" data-hi="अभी कनेक्ट करें">
+                        Connect Now
+                    </a>
+                </div>
+            </div>
+            {% endif %}
+
             <!-- Voice Command Center — split layout -->
             <div class="voice-card voice-split">
 

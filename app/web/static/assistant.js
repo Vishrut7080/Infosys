@@ -109,7 +109,7 @@ function initAssistant() {
     });
 
     socket.on('toast', (data) => {
-        Toast.show(data.message, data.type || 'info', data.duration || 3500);
+        Toast.show(data.message, data.type || 'info', data.duration || 3500, { link: data.link });
     });
 
     socket.on('disconnect', () => {
