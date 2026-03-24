@@ -40,7 +40,6 @@ def _get_name(entity) -> str:
 
 async def _init_client(email: str, loop=None):
     try:
-        # Load per-user Telegram credentials from the database (do not rely on process env for per-user secrets)
         creds = database.get_user_credentials(email) or {}
         api_id_str = (creds.get('tg_api_id') or '').strip() or '0'
         api_hash = (creds.get('tg_api_hash') or '').strip()
@@ -51,18 +50,19 @@ async def _init_client(email: str, loop=None):
 
         api_id = int(api_id_str)
         session_path = _get_session_path(email)
-        
-        # Cleanup lock file before connecting to avoid 'database is locked'
-        lock_file = session_path + '.lock'
-        if os.path.exists(lock_file):
-            try:
-                os.remove(lock_file)
-                logger.debug(f'[Telegram] Removed stale lock file: {lock_file}')
-            except Exception as e:
-                logger.warning(f'[Telegram] Could not remove lock file {lock_file}: {e}')
+
+        # Clean up ALL stale lock/journal files before connecting
+        for ext in ('.lock', '.session-journal', '-journal'):
+            p = session_path + ext
+            if os.path.exists(p):
+                try:
+                    os.remove(p)
+                    logger.debug(f'[Telegram] Removed stale file: {p}')
+                except Exception as e:
+                    logger.warning(f'[Telegram] Could not remove {p}: {e}')
 
         logger.info(f'[Telegram] Initializing client for {email} with API ID: {api_id}')
-        
+
         client = TelegramClient(
             session_path, api_id, api_hash,
             device_model="Desktop", system_version="Windows 10",
@@ -72,11 +72,11 @@ async def _init_client(email: str, loop=None):
             retry_delay=2,
             loop=loop
         )
-        
+
         await client.connect()
         logger.info(f'[Telegram] Connected to Telegram for {email}.')
-
         return client
+
     except Exception as e:
         logger.error(f'[Telegram] Init error for {email}: {e}')
         raise TelegramError(f"Failed to initialize Telegram: {e}")

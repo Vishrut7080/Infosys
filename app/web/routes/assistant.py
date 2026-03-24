@@ -311,17 +311,49 @@ def telegram_auth_page():
 @assistant_bp.route('/telegram/send-code', methods=['POST'])
 @login_required
 def telegram_send_code():
-    from app.services.telegram import _clients, _loops
+    from app.services.telegram import _clients, _loops, start_telegram_in_thread
     email = session['user'].get('email')
-    if not email or email not in _clients: return jsonify({'status': 'error', 'message': 'Telegram not initialized'})
+    if not email:
+        return jsonify({'status': 'error', 'message': 'Not logged in'})
+
+    # Start the client if it hasn't been initialized yet
+    if email not in _clients:
+        start_telegram_in_thread(email)
+        import time
+        for _ in range(10):
+            time.sleep(0.5)
+            if email in _clients:
+                break
+
+    if email not in _clients:
+        return jsonify({'status': 'error', 'message': 'Telegram failed to initialize. Check your API ID and Hash.'})
+
     data = request.get_json()
     phone = data.get('phone', '').strip()
+    if not phone:
+        return jsonify({'status': 'error', 'message': 'Phone number is required.'})
+
     try:
         import asyncio
-        asyncio.run_coroutine_threadsafe(_clients[email].send_code_request(phone), _loops[email]).result(timeout=15)
+
+        client = _clients[email]
+        loop = _loops[email]
+
+        # Force reconnect if disconnected
+        async def connect_and_send():
+            if not client.is_connected():
+                await client.connect()
+            return await client.send_code_request(phone)
+
+        asyncio.run_coroutine_threadsafe(
+            connect_and_send(),
+            loop
+        ).result(timeout=20)
+
         session['telegram_phone'] = phone
         return jsonify({'status': 'ok'})
     except Exception as e:
+        logger.error(f'[Telegram] send_code error for {email}: {e}')
         return jsonify({'status': 'error', 'message': str(e)})
 
 @assistant_bp.route('/telegram/verify-otp', methods=['POST'])
