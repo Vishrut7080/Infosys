@@ -39,48 +39,55 @@ def _get_name(entity) -> str:
 
 
 async def _init_client(email: str, loop=None):
-    try:
-        creds = database.get_user_credentials(email) or {}
-        api_id_str = (creds.get('tg_api_id') or '').strip() or '0'
-        api_hash = (creds.get('tg_api_hash') or '').strip()
+    max_retries = 3
+    for attempt in range(max_retries):
+        try:
+            creds = database.get_user_credentials(email) or {}
+            api_id_str = (creds.get('tg_api_id') or '').strip() or '0'
+            api_hash = (creds.get('tg_api_hash') or '').strip()
 
-        if not api_id_str or api_id_str == '0' or not api_hash:
-            logger.error(f'[Telegram] API credentials not found for {email}.')
-            return None
+            if not api_id_str or api_id_str == '0' or not api_hash:
+                logger.error(f'[Telegram] API credentials not found for {email}.')
+                return None
 
-        api_id = int(api_id_str)
-        session_path = _get_session_path(email)
+            api_id = int(api_id_str)
+            session_path = _get_session_path(email)
 
-        # Clean up ALL stale lock/journal files before connecting
-        # Telethon uses .session and .session.lock by default
-        for ext in ('.session.lock', '.session-journal', '.lock', '-journal'):
-            p = session_path + ext
-            if os.path.exists(p):
-                try:
-                    os.remove(p)
-                    logger.debug(f'[Telegram] Removed stale file: {p}')
-                except Exception as e:
-                    logger.warning(f'[Telegram] Could not remove {p}: {e}')
+            # Clean up ALL stale lock/journal files before connecting
+            for ext in ('.session.lock', '.session-journal', '.lock', '-journal'):
+                p = session_path + ext
+                if os.path.exists(p):
+                    try:
+                        os.remove(p)
+                        logger.debug(f'[Telegram] Removed stale file: {p}')
+                    except Exception as e:
+                        # On Windows, this is common if the old thread hasn't fully exited
+                        logger.warning(f'[Telegram] Attempt {attempt+1}: Could not remove {p}: {e}')
 
-        logger.info(f'[Telegram] Initializing client for {email} with API ID: {api_id}')
+            logger.info(f'[Telegram] Initializing client for {email} with API ID: {api_id}')
 
-        client = TelegramClient(
-            session_path, api_id, api_hash,
-            device_model="Desktop", system_version="Windows 10",
-            app_version="1.0", lang_code="en", system_lang_code="en",
-            request_retries=1,
-            connection_retries=3,
-            retry_delay=2,
-            loop=loop
-        )
+            client = TelegramClient(
+                session_path, api_id, api_hash,
+                device_model="Desktop", system_version="Windows 10",
+                app_version="1.0", lang_code="en", system_lang_code="en",
+                request_retries=1,
+                connection_retries=3,
+                retry_delay=2,
+                loop=loop
+            )
 
-        await client.connect()
-        logger.info(f'[Telegram] Connected to Telegram for {email}.')
-        return client
+            await client.connect()
+            logger.info(f'[Telegram] Connected to Telegram for {email}.')
+            return client
 
-    except Exception as e:
-        logger.error(f'[Telegram] Init error for {email}: {e}')
-        raise TelegramError(f"Failed to initialize Telegram: {e}")
+        except Exception as e:
+            if "database is locked" in str(e).lower() and attempt < max_retries - 1:
+                logger.warning(f'[Telegram] Database locked for {email}, retrying in 2s...')
+                await asyncio.sleep(2)
+                continue
+            logger.error(f'[Telegram] Init error for {email}: {e}')
+            raise TelegramError(f"Failed to initialize Telegram: {e}")
+    return None
 
 
 async def _get_messages(client, count: int = 5) -> list[dict]:
@@ -237,9 +244,11 @@ def start_telegram_in_thread(email: str):
         if email in _loops:
             try:
                 loop_val = _loops[email]
-                if isinstance(loop_val, str) or loop_val.is_running():
+                if loop_val == "starting" or (hasattr(loop_val, 'is_running') and loop_val.is_running()):
                     logger.debug(f'[Telegram] Loop already running or starting for {email}')
                     return
+                # If it's in _loops but not running, it's cleaning up. 
+                # We should wait or just let it finish.
             except Exception:
                 pass
         # Place a placeholder to claim the startup process synchronously
@@ -363,27 +372,39 @@ def start_telegram_in_thread(email: str):
         finally:
             # Cleanup on exit
             try:
-                tasks = asyncio.all_tasks(loop)
+                # Disconnect client first if still there
+                if email in _clients:
+                    c = _clients[email]
+                    if c.is_connected():
+                        loop.run_until_complete(c.disconnect())
+            except:
+                pass
+
+            try:
+                tasks = [t for t in asyncio.all_tasks(loop) if not t.done()]
                 for t in tasks: t.cancel()
                 # Give tasks a moment to cancel
                 if tasks:
                     loop.run_until_complete(asyncio.gather(*tasks, return_exceptions=True))
             except:
                 pass
-            loop.close()
+            
             with _startup_lock:
                 _loops.pop(email, None)
                 _clients.pop(email, None)
+            
+            loop.close()
                 
     threading.Thread(target=run, daemon=True).start()
     logger.info(f'[Telegram] Background thread started for {email}.')
 
 def stop_telegram_in_thread(email: str):
-    """Disconnects and cleans up the Telegram client for the given email."""
+    """Signals the Telegram background thread to stop."""
     if not email: return
     with _startup_lock:
-        client = _clients.pop(email, None)
-        loop = _loops.pop(email, None)
+        # Don't pop yet, let the thread's finally block do it
+        client = _clients.get(email)
+        loop = _loops.get(email)
 
     if client:
         try:
@@ -395,9 +416,9 @@ def stop_telegram_in_thread(email: str):
     if loop and hasattr(loop, 'call_soon_threadsafe'):
         try:
             loop.call_soon_threadsafe(loop.stop)
+            logger.info(f"[Telegram] Signaled telegram thread to stop for {email}")
         except Exception as e:
             logger.error(f"[Telegram] Error stopping loop for {email}: {e}")
-        logger.info(f"[Telegram] Stopped telegram thread for {email}")
 
 __all__ = [
     'start_telegram_in_thread',
