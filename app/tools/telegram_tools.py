@@ -1,15 +1,22 @@
 from app.tools.registry import registry
 from app.core.config import settings
 from app.services.auth import auth_service
+from app.database import database
 
 if settings.mock_telegram:
     from app.services.mocks.mock_telegram import telegram_send_message, telegram_get_messages, telegram_get_conversation
 else:
     from app.services.telegram import telegram_send_message, telegram_get_messages, telegram_get_conversation
 
-# Track which users have verified their Telegram PIN this session
-_telegram_verified: set[str] = set()
-
+def _is_telegram_verified(user_email: str) -> bool:
+    """Check if the user has verified their Telegram PIN since their last login."""
+    logs = database.get_activity_log(email=user_email, limit=50)
+    for log in logs:
+        if log['action'] == 'telegram_verified':
+            return True
+        if log['action'] == 'login':
+            return False
+    return False
 
 def verify_telegram_pin_handler(user_email, pin):
     """Verify the user's 4-digit Telegram PIN before allowing message sending."""
@@ -17,13 +24,12 @@ def verify_telegram_pin_handler(user_email, pin):
         return "Error: Please provide your 4-digit Telegram PIN."
     verified = auth_service.verify_pin(user_email, 'telegram', pin.strip())
     if verified:
-        _telegram_verified.add(user_email)
+        database.log_activity(user_email, 'telegram_verified', 'success')
         return "Telegram PIN verified successfully. You can now send Telegram messages."
     return "Error: Incorrect Telegram PIN. Please try again."
 
-
 def send_telegram_handler(user_email, contact, message):
-    if user_email not in _telegram_verified:
+    if not _is_telegram_verified(user_email):
         return "Error: Telegram PIN not verified. Please ask the user for their 4-digit Telegram PIN and call verify_telegram_pin first."
     success, msg = telegram_send_message(contact, message, email=user_email)
     return msg

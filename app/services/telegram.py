@@ -52,7 +52,8 @@ async def _init_client(email: str, loop=None):
         session_path = _get_session_path(email)
 
         # Clean up ALL stale lock/journal files before connecting
-        for ext in ('.lock', '.session-journal', '-journal'):
+        # Telethon uses .session and .session.lock by default
+        for ext in ('.session.lock', '.session-journal', '.lock', '-journal'):
             p = session_path + ext
             if os.path.exists(p):
                 try:
@@ -235,11 +236,14 @@ def start_telegram_in_thread(email: str):
     with _startup_lock:
         if email in _loops:
             try:
-                if _loops[email].is_running():
-                    logger.debug(f'[Telegram] Loop already running for {email}')
+                loop_val = _loops[email]
+                if isinstance(loop_val, str) or loop_val.is_running():
+                    logger.debug(f'[Telegram] Loop already running or starting for {email}')
                     return
             except Exception:
                 pass
+        # Place a placeholder to claim the startup process synchronously
+        _loops[email] = "starting"
 
     def run():
         loop = asyncio.new_event_loop()
@@ -280,7 +284,20 @@ def start_telegram_in_thread(email: str):
 
                             is_auth = await c.is_user_authorized()
                             logger.info(f'[Telegram] Client connected for {email}. Authorized: {is_auth}')
-                            await c.run_until_disconnected()
+                            
+                            if is_auth:
+                                await c.run_until_disconnected()
+                            else:
+                                logger.info(f'[Telegram] Waiting for authorization for {email}...')
+                                # Polling for authorization state. 
+                                # This avoids GetStateRequest failures on some unauthorized sessions.
+                                while c.is_connected() and not await c.is_user_authorized():
+                                    await asyncio.sleep(5)
+                                
+                                if c.is_connected():
+                                    logger.info(f'[Telegram] {email} authorized! Starting listener.')
+                                    await c.run_until_disconnected()
+
                     except (AuthKeyUnregisteredError, Exception) as e:
                         # Treat AuthKeyUnregisteredError or specific Telethon restart errors as session invalidation
                         is_unregistered = isinstance(e, AuthKeyUnregisteredError) or 'AuthRestartError' in str(e)
@@ -365,17 +382,17 @@ def stop_telegram_in_thread(email: str):
     """Disconnects and cleans up the Telegram client for the given email."""
     if not email: return
     with _startup_lock:
-        client = _clients.get(email)
-        loop = _loops.get(email)
+        client = _clients.pop(email, None)
+        loop = _loops.pop(email, None)
 
     if client:
         try:
-            if loop and loop.is_running():
+            if loop and hasattr(loop, 'is_running') and loop.is_running():
                 asyncio.run_coroutine_threadsafe(client.disconnect(), loop)
         except Exception as e:
             logger.error(f"[Telegram] Error disconnecting client for {email}: {e}")
 
-    if loop:
+    if loop and hasattr(loop, 'call_soon_threadsafe'):
         try:
             loop.call_soon_threadsafe(loop.stop)
         except Exception as e:

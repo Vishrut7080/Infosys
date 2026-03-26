@@ -353,8 +353,10 @@ def telegram_send_code():
         session['telegram_phone'] = phone
         return jsonify({'status': 'ok'})
     except Exception as e:
+        import traceback
         logger.error(f'[Telegram] send_code error for {email}: {e}')
-        return jsonify({'status': 'error', 'message': str(e)})
+        logger.error(traceback.format_exc())
+        return jsonify({'status': 'error', 'message': f"{type(e).__name__}: {str(e)}"})
 
 @assistant_bp.route('/telegram/verify-otp', methods=['POST'])
 @login_required
