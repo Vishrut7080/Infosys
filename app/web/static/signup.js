@@ -233,9 +233,6 @@ form.addEventListener('submit', async function (e) {
                 email: emailInput.value.trim(),
                 password: passwordInput.value,
                 secret_audio: audioInput.value.trim().toLowerCase(),
-                tg_api_id: document.getElementById('tgApiId').value.trim(),
-                tg_api_hash: document.getElementById('tgApiHash').value.trim(),
-                tg_phone: document.getElementById('tgPhone').value.trim(),
                 is_admin: document.getElementById('isAdminCheck').checked,
                 admin_password: document.getElementById('adminPassword').value
             })
