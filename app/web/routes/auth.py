@@ -232,6 +232,32 @@ def auth_google_callback():
                 success, message = database.store_gmail_token(current_user_email, token_json)
                 if success:
                     logger.info(f'Gmail token linked successfully for {current_user_email}')
+                    
+                    # Ensure pins are set for this user
+                    existing_pins = database.get_user_pins(current_user_email)
+                    gmail_pin = existing_pins.get('gmail_pin') if existing_pins else None
+                    telegram_pin = existing_pins.get('telegram_pin') if existing_pins else None
+                    
+                    # If no Gmail PIN exists, generate one
+                    if not gmail_pin:
+                        new_pins = database.generate_pins(tg_included=False)
+                        gmail_pin = new_pins['gmail_pin']
+                        # Update database with new Gmail PIN (keep existing Telegram PIN if any)
+                        database.store_pins(current_user_email, gmail_pin, telegram_pin)
+                        logger.info(f'Generated new Gmail PIN for {current_user_email}')
+                    
+                    # Ensure pending_pins session variable includes both pins
+                    pending_pins = session.get('pending_pins', {})
+                    if not pending_pins.get('email'):
+                        pending_pins['email'] = current_user_email
+                    if not pending_pins.get('name'):
+                        pending_pins['name'] = session.get('user', {}).get('name', current_user_email.split('@')[0])
+                    pending_pins['gmail_pin'] = gmail_pin
+                    if telegram_pin:
+                        pending_pins['telegram_pin'] = telegram_pin
+                    session['pending_pins'] = pending_pins
+                    logger.debug(f'Updated pending_pins with Gmail PIN for {current_user_email}')
+                    
                     # Show success toast
                     try:
                         from app.web import socketio
