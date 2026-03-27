@@ -207,8 +207,6 @@ def auth_google_callback():
         database.log_activity(email, 'register' if is_new_user else 'login', 'google_oauth')
 
         if session.get('pending_pins'):
-            return redirect('/setup-integrations')
-        if is_new_user:
             return redirect(url_for('auth.pin_reveal'))
 
         return redirect('/admin' if database.is_admin(email) else '/dashboard')
