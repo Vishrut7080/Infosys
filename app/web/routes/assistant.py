@@ -126,7 +126,7 @@ def api_chat():
         socketio.emit('toast', {'message': '⚠️ AI unavailable — using offline mode', 'type': 'warning'})
         fallback = MockAgent(email)
         active_agent = fallback
-        response = fallback.chat(text)
+        response = fallback.chat(text, lang_hint)
     database.log_activity(email, 'voice_command', response[:200])
 
     # Determine which services were involved and if navigation was requested
@@ -345,6 +345,12 @@ def telegram_send_code():
         async def connect_and_send():
             if not client.is_connected():
                 await client.connect()
+                for _ in range(10):
+                    if client.is_connected():
+                        break
+                    await asyncio.sleep(0.5)
+            if not client.is_connected():
+                raise ConnectionError("Failed to connect to Telegram")
             return await client.send_code_request(phone)
 
         asyncio.run_coroutine_threadsafe(
@@ -487,4 +493,15 @@ def api_delete_task(task_id):
     email = session['user']['email']
     deleted = database.delete_task(email, task_id)
     return jsonify({'status': 'ok' if deleted else 'not_found'})
+
+
+@assistant_bp.route('/api/my-pins')
+@login_required
+def get_my_pins():
+    email = session['user']['email']
+    pins = database.get_user_pins(email)
+    return jsonify({
+        'gmail_pin': pins.get('gmail_pin') if pins else '',
+        'telegram_pin': pins.get('telegram_pin') if pins else '',
+    })
 

@@ -20,7 +20,8 @@ const timer = setInterval(() => {
 
 async function proceedToLogin() {
     clearInterval(timer);
-    window.location.href = '/setup-integrations';
+    await fetch('/api/clear-pending-pins', { method: 'POST' });
+    window.location.href = '/dashboard';
 }
 
 // ── Copy PIN ──

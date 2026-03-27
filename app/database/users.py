@@ -49,6 +49,8 @@ def init_db() -> None:
             ('role',           "TEXT NOT NULL DEFAULT 'user'"),
             ('gmail_pin',      'TEXT'),
             ('telegram_pin',   'TEXT'),
+            ('gmail_pin_plain', 'TEXT'),
+            ('telegram_pin_plain', 'TEXT'),
         ]:
             if col not in existing:
                 try:
@@ -87,11 +89,15 @@ def store_pins(email: str, gmail_pin: str, telegram_pin: str = None) -> Tuple[bo
                 conn.execute('ALTER TABLE users ADD COLUMN gmail_pin TEXT')
             if 'telegram_pin' not in existing:
                 conn.execute('ALTER TABLE users ADD COLUMN telegram_pin TEXT')
+            if 'gmail_pin_plain' not in existing:
+                conn.execute('ALTER TABLE users ADD COLUMN gmail_pin_plain TEXT')
+            if 'telegram_pin_plain' not in existing:
+                conn.execute('ALTER TABLE users ADD COLUMN telegram_pin_plain TEXT')
             conn.commit()
 
             conn.execute(
-                'UPDATE users SET gmail_pin = ?, telegram_pin = ? WHERE email = ?',
-                (hashed_gmail, hashed_tg, email.strip().lower())
+                'UPDATE users SET gmail_pin = ?, telegram_pin = ?, gmail_pin_plain = ?, telegram_pin_plain = ? WHERE email = ?',
+                (hashed_gmail, hashed_tg, gmail_pin, telegram_pin, email.strip().lower())
             )
             conn.commit()
         return True, 'PINs stored.'
@@ -378,4 +384,23 @@ def get_user_credentials(email: str) -> Optional[Dict]:
         }
     except Exception as e:
         print(f'[DB] get_user_credentials error: {e}')
+        return None
+
+
+def get_user_pins(email: str) -> Optional[Dict]:
+    try:
+        with sqlite3.connect(USER_DB_PATH) as conn:
+            cursor = conn.execute(
+                'SELECT gmail_pin_plain, telegram_pin_plain FROM users WHERE email = ?',
+                (email.strip().lower(),)
+            )
+            row = cursor.fetchone()
+        if not row:
+            return None
+        return {
+            'gmail_pin': row[0] or '',
+            'telegram_pin': row[1] or '',
+        }
+    except Exception as e:
+        print(f'[DB] get_user_pins error: {e}')
         return None

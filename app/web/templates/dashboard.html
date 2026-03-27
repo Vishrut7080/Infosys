@@ -190,6 +190,23 @@
             </div>
             {% endif %}
 
+                <div class="profile-card" style="margin-top: 16px;">
+                    <div class="profile-card-title">
+                        <span data-en="Connected Services" data-hi="कनेक्टेड सर्विसेस">Connected Services</span>
+                        <a href="/setup-integrations" class="btn btn-outline" style="float:right;padding:4px 12px;font-size:12px;" data-en="Manage" data-hi="मैनेज करें">Manage</a>
+                    </div>
+                    <div class="profile-field">
+                        <span style="font-size:16px;">📧</span>
+                        <span class="field-label" style="margin-left:8px;">Gmail</span>
+                        <span class="field-value" style="float:right;color:#4ade80;">{{ 'Connected' if has_gmail else 'Not connected' }}</span>
+                    </div>
+                    <div class="profile-field" style="margin-top:8px;">
+                        <span style="font-size:16px;">✈️</span>
+                        <span class="field-label" style="margin-left:8px;">Telegram</span>
+                        <span class="field-value" style="float:right;color:{{ '#4ade80' if has_telegram else '#f87171' }};">{{ 'Connected' if has_telegram else 'Not connected' }}</span>
+                    </div>
+                </div>
+
             <!-- Voice Command Center — split layout -->
             <div class="voice-card voice-split">
 
@@ -463,6 +480,18 @@
                     <div class="profile-field">
                         <div class="field-label" data-en="Email Address" data-hi="ईमेल पता">Email Address</div>
                         <div class="field-value" id="profileEmail">{{ user.email }}</div>
+                    </div>
+                </div>
+
+                <div class="profile-card">
+                    <div class="profile-card-title">🔑 My PINs</div>
+                    <div class="profile-field">
+                        <div class="field-label">Gmail PIN</div>
+                        <div class="field-value" id="gmailPinValue" style="font-family:monospace;letter-spacing:0.2em;user-select:all;">—</div>
+                    </div>
+                    <div class="profile-field" style="margin-top:8px;">
+                        <div class="field-label">Telegram PIN</div>
+                        <div class="field-value" id="telegramPinValue" style="font-family:monospace;letter-spacing:0.2em;user-select:all;">—</div>
                     </div>
                 </div>
 

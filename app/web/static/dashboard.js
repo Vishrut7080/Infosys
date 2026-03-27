@@ -83,6 +83,18 @@ if (profileNameEl) profileNameEl.textContent = userData.name;
 const profileEmailEl = document.getElementById('profileEmail');
 if (profileEmailEl) profileEmailEl.textContent = userData.email;
 
+async function loadMyPins() {
+    try {
+        const res = await fetch('/api/my-pins');
+        const data = await res.json();
+        const gmailPinEl = document.getElementById('gmailPinValue');
+        const tgPinEl = document.getElementById('telegramPinValue');
+        if (gmailPinEl) gmailPinEl.textContent = data.gmail_pin || '—';
+        if (tgPinEl) tgPinEl.textContent = data.telegram_pin || '—';
+    } catch {}
+}
+loadMyPins();
+
 // ─── STATS ────────────────────────────────────────────────────
 async function loadStats() {
     try {

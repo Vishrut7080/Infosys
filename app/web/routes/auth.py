@@ -133,7 +133,7 @@ def register():
             apply_user_credentials(email)
             database.log_activity(email, 'register', 'keyboard')
             
-            return jsonify({'status': 'success', 'message': 'Registration successful!', 'redirect': '/pin-reveal'})
+            return jsonify({'status': 'success', 'message': 'Registration successful!', 'redirect': '/setup-integrations'})
         return jsonify({'status': 'error', 'message': message})
     except Exception as e:
         return jsonify({'status': 'error', 'message': str(e)})
@@ -169,7 +169,7 @@ def auth_google_callback():
                 database.store_gmail_token(current_user_email, token_json)
                 database.log_activity(current_user_email, 'link_gmail', 'google_oauth')
                 if session.get('pending_pins'):
-                    return redirect('/setup-integrations')
+                    return redirect('/pin-reveal')
                 return redirect('/dashboard')
 
         # Case 2: Standard Login/Register flow
@@ -183,7 +183,7 @@ def auth_google_callback():
             
             database.create_user(name, email, random_pass, secret_audio=audio_pass)
             
-            pins = database.generate_pins(tg_included=False)
+            pins = database.generate_pins(tg_included=True)
             pins.update({
                 'email': email,
                 'name': name,
@@ -191,7 +191,8 @@ def auth_google_callback():
                 'audio_password': audio_pass
             })
             gmail_pin = str(pins.get('gmail_pin', '0000'))
-            database.store_pins(email, gmail_pin, None)
+            telegram_pin = str(pins.get('telegram_pin') or '')
+            database.store_pins(email, gmail_pin, telegram_pin)
             
             session['pending_pins'] = pins
             user_record = database.get_user_by_email(email)
@@ -207,9 +208,9 @@ def auth_google_callback():
         apply_user_credentials(email)
         database.log_activity(email, 'register' if is_new_user else 'login', 'google_oauth')
 
-        # Only redirect to pin_reveal for genuinely new users created in this OAuth callback
+        # Only redirect to setup-integrations for genuinely new users created in this OAuth callback
         if is_new_user:
-            return redirect(url_for('auth.pin_reveal'))
+            return redirect(url_for('auth.setup_integrations'))
 
         return redirect('/admin' if database.is_admin(email) else '/dashboard')
     except Exception as e:
@@ -232,32 +233,40 @@ def pin_reveal():
     current_email = session.get('user', {}).get('email')
     if pins and pins.get('email') and pins.get('email') != current_email:
         session.pop('pending_pins', None)
-        return redirect('/dashboard')
-    if not pins: return redirect('/dashboard')
+        return redirect('/setup-integrations')
+    if not pins: return redirect('/setup-integrations')
     return render_template('pin_reveal.html', pins=pins)
 
 @auth_bp.route('/setup-integrations')
 def setup_integrations():
-    pins = session.get('pending_pins')
-    current_email = session.get('user', {}).get('email')
-    if pins and pins.get('email') and pins.get('email') != current_email:
-        session.pop('pending_pins', None)
-        return redirect('/dashboard')
-    if not pins: return redirect('/dashboard')
+    email = session.get('user', {}).get('email')
+    if not email:
+        return redirect('/')
     
-    email = pins.get('email')
     creds = database.get_user_credentials(email)
     has_gmail = bool(creds and creds.get('gmail_token'))
-    tg_phone = pins.get('tg_phone') or (creds.get('tg_phone') if creds else None)
+    tg_phone = creds.get('tg_phone') if creds else None
     
     return render_template('setup_integrations.html', 
                            email=email, 
                            has_gmail=has_gmail, 
-                           tg_phone=tg_phone,
-                           telegram_pin=pins.get('telegram_pin', ''))
+                           tg_phone=tg_phone)
 
 @auth_bp.route('/finish-signup', methods=['POST'])
 def finish_signup():
+    return jsonify({'status': 'ok'})
+
+
+@auth_bp.route('/api/has-pending-pins')
+def api_has_pending_pins():
+    email = session.get('user', {}).get('email')
+    pins = session.get('pending_pins', {})
+    has_pins = bool(pins and pins.get('email') == email and (pins.get('gmail_pin') or pins.get('telegram_pin')))
+    return jsonify({'has_pending_pins': has_pins})
+
+
+@auth_bp.route('/api/clear-pending-pins', methods=['POST'])
+def api_clear_pending_pins():
     session.pop('pending_pins', None)
     return jsonify({'status': 'ok'})
 
@@ -268,10 +277,15 @@ def save_telegram_creds():
     if not email:
         return jsonify({'status': 'error', 'message': 'Not logged in'})
     data = request.get_json()
-    ok = database.save_telegram_creds(
-        email,
-        data.get('tg_api_id', ''),
-        data.get('tg_api_hash', ''),
-        data.get('tg_phone', '')
-    )
+    api_id = data.get('tg_api_id', '')
+    api_hash = data.get('tg_api_hash', '')
+    phone = data.get('tg_phone', '')
+    ok = database.save_telegram_creds(email, api_id, api_hash, phone)
+    if ok:
+        pins = database.generate_pins(tg_included=True)
+        tg_pin = pins['telegram_pin']
+        database.store_pins(email, '0000', tg_pin)
+        session['pending_pins'] = session.get('pending_pins', {})
+        session['pending_pins']['telegram_pin'] = tg_pin
+        session['pending_pins']['email'] = email
     return jsonify({'status': 'ok' if ok else 'error'})

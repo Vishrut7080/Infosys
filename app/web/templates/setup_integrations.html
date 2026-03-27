@@ -155,28 +155,6 @@
             justify-content: space-between;
             margin-bottom: 16px;
         }
-        .tg-pin-banner {
-            background: rgba(108,99,255,0.12);
-            border: 1px solid rgba(108,99,255,0.3);
-            border-radius: 8px;
-            padding: 10px 14px;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            margin-bottom: 16px;
-        }
-        .tg-pin-label {
-            font-size: 12px;
-            color: #7f7f99;
-        }
-        .tg-pin-value {
-            font-family: 'Space Mono', monospace;
-            font-size: 20px;
-            font-weight: 700;
-            letter-spacing: 0.25em;
-            color: #a5b4fc;
-            user-select: all;
-        }
         .tg-hint {
             font-size: 12px;
             color: #7f7f99;
@@ -263,13 +241,6 @@
                     <button class="btn-connect" id="tg-btn" onclick="showTgSetup()">Setup</button>
                 </div>
             </div>
-
-            {% if telegram_pin %}
-            <div class="tg-pin-banner" id="tg-pin-banner">
-                <span class="tg-pin-label">Your Telegram PIN:</span>
-                <span class="tg-pin-value" id="tg-pin-value">{{ telegram_pin }}</span>
-            </div>
-            {% endif %}
 
             <!-- Step 1: API Credentials -->
             <div id="tg-step-api">
@@ -431,8 +402,14 @@
         }
 
         async function finishSetup() {
+            const pinsRes = await fetch('/api/has-pending-pins');
+            const pinsData = await pinsRes.json();
             await fetch('/finish-signup', { method: 'POST' });
-            window.location.href = '/dashboard';
+            if (pinsData.has_pending_pins) {
+                window.location.href = '/pin-reveal';
+            } else {
+                window.location.href = '/dashboard';
+            }
         }
     </script>
 </body>
