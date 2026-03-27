@@ -114,6 +114,23 @@ def admin_api_usage():
     return jsonify({'usage': usage})
 
 
+@admin_bp.route('/admin/stats')
+@admin_required
+def admin_stats():
+    users = database.get_all_users()
+    return jsonify({
+        'total_users': len(users),
+        'active_users': len(database.get_active_users(minutes=30)),
+        'total_admins': sum(1 for u in users if u['is_admin']),
+        'total_commands': database.get_activity_count_global('voice_command'),
+        'total_logins': database.get_activity_count_global('login'),
+        'emails_sent': database.get_activity_count_global('email_sent'),
+        'tg_sent': database.get_activity_count_global('telegram_sent'),
+        'wa_sent': database.get_activity_count_global('whatsapp_sent'),
+        'pin_fails': database.get_activity_count_global('pin_failed'),
+    })
+
+
 @admin_bp.route('/admin/error-logs')
 @admin_required
 def admin_error_logs():

@@ -32,6 +32,8 @@ def send_telegram_handler(user_email, contact, message):
     if not _is_telegram_verified(user_email):
         return "Error: Telegram PIN not verified. Please ask the user for their 4-digit Telegram PIN and call verify_telegram_pin first."
     success, msg = telegram_send_message(contact, message, email=user_email)
+    if success:
+        database.log_activity(user_email, 'telegram_sent', f'to={contact}')
     return msg
 
 def get_telegram_handler(user_email, count=5):

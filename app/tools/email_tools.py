@@ -1,6 +1,7 @@
 from app.tools.registry import registry
 from app.services.auth import auth_service
 from app.core.config import settings
+from app.database import database
 
 if settings.mock_email:
     from app.services.mocks.mock_email import MockEmailService as EmailService
@@ -31,6 +32,8 @@ def send_email_handler(user_email, to, subject, body):
     
     service = EmailService(creds['gmail_token'])
     success, msg = service.send_email(to, subject, body)
+    if success:
+        database.log_activity(user_email, 'email_sent', f'to={to}')
     return msg
 
 def get_emails_handler(user_email, count=5, category='ALL'):
@@ -61,7 +64,8 @@ def get_emails_handler(user_email, count=5, category='ALL'):
     service = EmailService(creds['gmail_token'])
     emails = service.get_emails(count, category_norm)
     if emails and 'error' in emails[0]: return emails[0]['error']
-    
+    database.log_activity(user_email, 'email_read', f'fetched={len(emails)}')
+
     return f"Here are your latest {len(emails)} emails:\n" + "\n".join(
         [f"- From: {e['sender']} | Sub: {e['subject']} | {e['summary']}" for e in emails]
     )
@@ -84,6 +88,7 @@ def search_emails_handler(user_email, query, count=5):
         return f"No emails found matching '{query}'."
     
     matches = matches[:count]
+    database.log_activity(user_email, 'email_read', f'search={query!r}, found={len(matches)}')
     return f"Found {len(matches)} emails matching '{query}':\n" + "\n".join(
         [f"- From: {e['sender']} | Sub: {e['subject']} | {e['summary']}" for e in matches]
     )
@@ -105,6 +110,7 @@ def get_email_overview_handler(user_email, count=10):
 
     senders = list(dict.fromkeys(e.get('sender', 'Unknown') for e in emails))
     subjects = [f"{i+1}. {e.get('subject', 'No Subject')} — from {e.get('sender', '?')}" for i, e in enumerate(emails)]
+    database.log_activity(user_email, 'email_read', f'overview fetched={len(emails)}')
     return (
         f"Inbox overview ({len(emails)} emails):\n"
         f"Senders: {', '.join(senders[:5])}{'…' if len(senders) > 5 else ''}\n"
@@ -131,6 +137,7 @@ def get_important_emails_handler(user_email, count=5):
     if not important:
         return "No high-priority emails found in your recent inbox."
 
+    database.log_activity(user_email, 'email_read', f'important fetched={len(important)}')
     return f"Found {len(important)} important email(s):\n" + "\n".join(
         [f"- From: {e['sender']} | Sub: {e['subject']} | {e.get('summary', '')}" for e in important]
     )
@@ -158,6 +165,7 @@ def get_email_body_handler(user_email, subject_keyword='', index=1):
     if not email:
         return f"Email not found. Try a different keyword or index."
 
+    database.log_activity(user_email, 'email_read', f'body={email.get("subject", "")!r}')
     body = email.get('body') or email.get('summary', 'No content available.')
     return (
         f"Email from {email.get('sender', '?')} on {email.get('date', '?')}\n"

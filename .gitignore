@@ -25,3 +25,6 @@ test_tts.py
 
 *.db
 step.txt
+
+remove.ps1
+todo.txt
