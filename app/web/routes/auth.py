@@ -164,7 +164,7 @@ def auth_google_callback():
                 token_json = json.dumps(token)
                 database.store_gmail_token(current_user_email, token_json)
                 database.log_activity(current_user_email, 'link_gmail', 'google_oauth')
-                return redirect('/setup-integrations')
+                return redirect('/setup-integrations?oauth=success')
 
         # Case 2: Standard Login/Register flow
         user_record = database.get_user_by_email(email)
@@ -204,9 +204,9 @@ def auth_google_callback():
 
         # Only redirect to setup-integrations for genuinely new users created in this OAuth callback
         if is_new_user:
-            return redirect(url_for('auth.setup_integrations'))
+            return redirect(url_for('auth.setup_integrations') + '?oauth=success')
 
-        return redirect('/admin' if database.is_admin(email) else '/dashboard')
+        return redirect(('/admin' if database.is_admin(email) else '/dashboard') + '?oauth=success')
     except Exception as e:
         import traceback
         print(f"OAuth Error: {e}")

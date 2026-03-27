@@ -283,6 +283,12 @@
     </div>
 
     <script>
+        // ── Handle OAuth redirect ────────────────────────────────────
+        if (window.location.search.includes('oauth=success')) {
+            // Remove the query param and reload to get fresh state
+            window.location.replace(window.location.pathname);
+        }
+
         // ── Unified Telegram Setup ────────────────────────────────────
         let _tgSavedPhone = '';
 

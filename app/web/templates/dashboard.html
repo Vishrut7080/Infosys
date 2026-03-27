@@ -138,10 +138,8 @@
                 </div>
             </div>
 
-            {% if not has_gmail %}
-            <!-- Gmail Connection Prompt -->
-            <div class="profile-card"
-                style="margin-bottom: 24px; border-left: 4px solid #facc15; background: #fefce8; padding: 16px; border-radius: 8px;">
+            <div id="gmail-banner" class="profile-card"
+                style="margin-bottom: 24px; border-left: 4px solid #facc15; background: #fefce8; padding: 16px; border-radius: 8px; display: none;">
                 <div style="display: flex; align-items: center; gap: 12px;">
                     <span style="font-size: 24px;">📧</span>
                     <div style="flex: 1;">
@@ -151,7 +149,7 @@
                         </div>
                         <div style="font-size: 13px; color: #a16207;"
                             data-en="Connect your Google account to enable voice-controlled emails."
-                            data-hi="वॉइस-नियंत्रित ईमेल सक्षम करने के लिए अपना Google खाता कनेक्ट करें।">
+                            data-hi="वॉयस-नियंत्रित ईमेल सक्षम करने के लिए अपना Google खाता कनेक्ट करें।">
                             Connect your Google account to enable voice-controlled emails.
                         </div>
                     </div>
@@ -162,7 +160,6 @@
                     </a>
                 </div>
             </div>
-            {% endif %}
 
             <div id="telegram-banner" class="profile-card"
                 style="margin-bottom: 24px; border-left: 4px solid #6c63ff; background: #f5f3ff; padding: 16px; border-radius: 8px; display: none;">
@@ -196,13 +193,12 @@
                 <div class="profile-field">
                     <span style="font-size:16px;">📧</span>
                     <span class="field-label" style="margin-left:8px;">Gmail</span>
-                    <span id="gmail-status" class="field-value" style="float:right;color:#4ade80;">{{ 'Connected' if
-                        has_gmail else 'Not connected' }}</span>
+                    <span id="gmail-status" class="field-value" style="float:right;color:#facc15;">Checking...</span>
                 </div>
                 <div class="profile-field" style="margin-top:8px;">
                     <span style="font-size:16px;">✈️</span>
                     <span class="field-label" style="margin-left:8px;">Telegram</span>
-                    <span id="telegram-status" class="field-value" style="float:right;color:#f87171;">Checking...</span>
+                    <span id="telegram-status" class="field-value" style="float:right;color:#facc15;">Checking...</span>
                 </div>
             </div>
 
