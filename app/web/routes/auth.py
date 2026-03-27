@@ -150,9 +150,6 @@ def auth_google():
 @auth_bp.route('/auth/google/callback')
 def auth_google_callback():
     try:
-        # Clear any stale pending_pins from a keyboard signup that leaked into this OAuth flow
-        session.pop('pending_pins', None)
-
         token = oauth.google.authorize_access_token()
         user_info = token.get('userinfo') or oauth.google.get('https://openidconnect.googleapis.com/v1/userinfo').json()
         
@@ -167,9 +164,7 @@ def auth_google_callback():
                 token_json = json.dumps(token)
                 database.store_gmail_token(current_user_email, token_json)
                 database.log_activity(current_user_email, 'link_gmail', 'google_oauth')
-                if session.get('pending_pins'):
-                    return redirect('/pin-reveal')
-                return redirect('/dashboard')
+                return redirect('/setup-integrations')
 
         # Case 2: Standard Login/Register flow
         user_record = database.get_user_by_email(email)
