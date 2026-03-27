@@ -112,6 +112,12 @@ function initAssistant() {
         Toast.show(data.message, data.type || 'info', data.duration || 3500, { link: data.link });
     });
 
+    socket.on('lang_update', (data) => {
+        if (data.lang === 'hi' || data.lang === 'en') {
+            if (window.LangManager) LangManager.set(data.lang);
+        }
+    });
+
     socket.on('disconnect', () => {
         console.log("[Assistant] WebSocket Disconnected");
         hadDisconnect = true;
@@ -347,7 +353,7 @@ function sendChat(text) {
     fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: text, lang: 'en' })
+        body: JSON.stringify({ text: text, lang: currentLang })
     })
         .then(res => res.json())
         .then(data => {
@@ -431,11 +437,23 @@ function speakText(text, lang) {
     window.speechSynthesis.cancel(); // clear any queued/stuck utterances
 
     const utterance = new SpeechSynthesisUtterance(text);
-    // Re-fetch voices in case they weren't loaded yet (Chrome async)
     if (!availableVoices.length) availableVoices = window.speechSynthesis.getVoices();
+
+    const langCode = (lang || 'en').split('-')[0];
+    let voice = null;
     if (selectedVoiceURI) {
-        utterance.voice = availableVoices.find(v => v.voiceURI === selectedVoiceURI) || null;
+        voice = availableVoices.find(v => v.voiceURI === selectedVoiceURI) || null;
     }
+    if (!voice && langCode === 'hi') {
+        voice = availableVoices.find(v =>
+            v.lang.startsWith('hi') ||
+            v.name.toLowerCase().includes('hindi')
+        ) || null;
+        if (!voice) {
+            Toast.show('No Hindi voice found on this device', 'warning', 4000);
+        }
+    }
+    utterance.voice = voice;
 
     isSpeaking = true;
     utterance.onend = () => {

@@ -1,5 +1,6 @@
 from app.tools.registry import registry
 from app.services.auth import auth_service
+from app.web import socketio
 from datetime import datetime
 import random
 import platform
@@ -74,6 +75,14 @@ def get_user_profile_handler(user_email=None):
         f"Email: {user.get('email', 'Unknown')}, "
         f"Role: {user.get('role', 'user')}"
     )
+
+
+def switch_language_handler(user_email=None, language="hi"):
+    lang = language.lower().strip()
+    if lang not in ("hi", "en"):
+        return f"Unknown language '{language}'. Use 'hi' for Hindi or 'en' for English."
+    socketio.emit("lang_update", {"lang": lang}, room=user_email)
+    return f"Language switched to {'Hindi' if lang == 'hi' else 'English'}."
 
 
 def set_reminder_handler(user_email=None, message="", minutes=5):
@@ -195,8 +204,18 @@ registry.register(
 )
 
 registry.register(
-    name="tell_joke",
-    description="Tell a random joke to lighten the mood.",
-    schema={"type": "object", "properties": {}},
-    handler=tell_joke_handler,
+    name="switch_language",
+    description="Switch the frontend UI language and TTS voice to Hindi (hi) or English (en). Use this when the user asks to switch language, enable Hindi mode, or similar.",
+    schema={
+        "type": "object",
+        "properties": {
+            "language": {
+                "type": "string",
+                "description": "Target language: 'hi' for Hindi (Devnagari script) or 'en' for English.",
+                "enum": ["hi", "en"]
+            }
+        },
+        "required": ["language"],
+    },
+    handler=switch_language_handler,
 )

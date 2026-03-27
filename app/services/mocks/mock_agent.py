@@ -17,9 +17,15 @@ class MockAgent:
     def __init__(self, user_email: str):
         self.user_email = user_email
         self.last_tool_results: list[dict] = []
+        self.history: list[dict] = []
 
-    def chat(self, user_input: str) -> str:
+    def chat(self, user_input: str, lang_hint: str = '') -> str:
         """Always returns a string; falls back to a hint message if unrecognised."""
+        if lang_hint == 'hi':
+            self.history.append({
+                "role": "user",
+                "content": "[System note: The user is speaking in Hindi. Respond in Devnagari script.]"
+            })
         result = self.try_chat(user_input)
         if result is not None:
             return result
@@ -31,6 +37,7 @@ class MockAgent:
 
     def try_chat(self, user_input: str) -> str | None:
         """Pattern-match user_input and return a response, or None if unrecognised."""
+        self.last_tool_results = []
         self.last_tool_results = []
         text = user_input.lower().strip()
 

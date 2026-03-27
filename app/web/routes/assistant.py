@@ -34,6 +34,7 @@ TOOL_TOASTS: dict[str, tuple[str, str]] = {
     'get_user_profile':          ('info',    '👤 Profile loaded'),
     'set_reminder':              ('success', '⏰ Reminder set'),
     'tell_joke':                 ('success', '😄 Here comes a joke!'),
+    'switch_language':           ('success', '🔤 Language updated'),
 }
 
 from app.services.mocks.mock_agent import MockAgent
@@ -81,6 +82,7 @@ def dashboard():
 def api_chat():
     data = request.get_json()
     text = data.get('text', '')
+    lang_hint = data.get('lang', '')
     email = session.get('user', {}).get('email')
     
     if not email:
@@ -109,7 +111,7 @@ def api_chat():
     timeout_val = getattr(settings, 'OPENROUTER_TIMEOUT', None)
     logger.info(f"Submitting agent.chat for user={email} with timeout={timeout_val}")
     start_exec = _time.monotonic()
-    future = _agent_executor.submit(active_agent.chat, text)
+    future = _agent_executor.submit(active_agent.chat, text, lang_hint)
     try:
         response = future.result(timeout=timeout_val)
         logger.info(f"agent.chat completed in {_time.monotonic() - start_exec:.2f}s for user={email}")

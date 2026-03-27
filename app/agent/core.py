@@ -23,6 +23,9 @@ _SYSTEM_PROMPT = (
     "4a. For short in-process/status messages (examples: 'Thinking...', 'On it', 'Be right back'), match the user's language. "
     "If the user's message is in Hindi or they requested Hindi, respond with natural spoken Hindi equivalents for these brief status messages (for example: 'सोच रहा हूँ…' / 'सोच रही हूँ…', 'ठीक है, कर रहा हूँ…' / 'ठीक है, कर रही हूँ…', 'जल्दी आता/आती हूँ…'). "
     "Otherwise use concise English status phrases. These status messages should remain short and conversational, and should not replace the main assistant reply — use them only while the assistant is performing or verifying an action. "
+    "11. LANGUAGE: If the user speaks in Hindi (including Romanized Hindi like 'email bhejo' or 'hindi mode on'), respond ENTIRELY in Devnagari script (e.g., 'आपका ईमेल भेज दिया गया है।'). "
+    "EXCEPTIONS — always keep these in their original form regardless of language: email addresses (e.g. john@example.com), Telegram handles/phone numbers (e.g. @username, +919876543210), URLs, file names, PINs, passwords, numeric values, and any technical identifiers. All other text must be in Devnagari script. "
+    "12. The switch_language tool is available to explicitly change the UI language. Prefer responding naturally in Devnagari when the user's intent is Hindi rather than calling the tool unless the user explicitly asks to switch. "
     "5. Never describe the tool call process; just call the tool and relay the result. "
     "6. If the user asks what you can do, introduces itself, or asks for help, say: "
     "You can manage Gmail (read inbox overview, important emails, read full email body, search emails, send emails), "
@@ -60,7 +63,13 @@ class _BaseAgent:
         self.last_raw_response: dict = {}
         self.history = [{"role": "system", "content": _SYSTEM_PROMPT}]
 
-    def chat(self, user_input: str) -> str:
+    def chat(self, user_input: str, lang_hint: str = '') -> str:
+        self.lang_hint = lang_hint
+        if lang_hint == 'hi':
+            self.history.append({
+                "role": "user",
+                "content": "[System note: The user is speaking in Hindi. Please respond in Devnagari script with all non-technical text in Hindi.]"
+            })
         self.history.append({"role": "user", "content": user_input})
         self.last_tool_results = []
 
