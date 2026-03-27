@@ -38,6 +38,105 @@ def _get_name(entity) -> str:
     return 'Unknown'
 
 
+def _safe_remove_with_retry(path: str, max_retries: int = 3) -> bool:
+    """
+    Safely remove a file with exponential backoff retry logic.
+    Returns True if file was removed or didn't exist, False if removal failed.
+    """
+    import time
+    if not os.path.exists(path):
+        return True
+    
+    for attempt in range(max_retries):
+        try:
+            os.remove(path)
+            logger.debug(f'[Telegram] Removed file: {path}')
+            return True
+        except (PermissionError, OSError) as e:
+            # On Windows, WindowsError is a subclass of OSError, so we catch both
+            if attempt == max_retries - 1:
+                logger.warning(f'[Telegram] Failed to remove {path} after {max_retries} attempts: {e}')
+                return False
+            # Exponential backoff: 0.5s, 1s, 2s
+            sleep_time = 0.5 * (2 ** attempt)
+            logger.debug(f'[Telegram] File {path} locked, retrying in {sleep_time}s (attempt {attempt + 1}/{max_retries})')
+            time.sleep(sleep_time)
+        except Exception as e:
+            logger.warning(f'[Telegram] Unexpected error removing {path}: {e}')
+            return False
+    return False
+
+
+def cleanup_stale_session_files():
+    """
+    Clean up session files that are older than 7 days.
+    Called on server startup to prevent accumulation of stale files.
+    """
+    import time
+    session_dir = os.path.dirname(os.path.abspath(__file__))
+    current_time = time.time()
+    max_age_seconds = 7 * 24 * 3600  # 7 days
+    
+    cleaned_count = 0
+    for filename in os.listdir(session_dir):
+        if filename.startswith('session_') and filename.endswith('.session'):
+            filepath = os.path.join(session_dir, filename)
+            try:
+                file_age = current_time - os.path.getmtime(filepath)
+                if file_age > max_age_seconds:
+                    if _safe_remove_with_retry(filepath):
+                        logger.info(f'[Telegram] Cleaned up stale session file: {filename} (age: {file_age/3600:.1f} hours)')
+                        cleaned_count += 1
+            except Exception as e:
+                logger.debug(f'[Telegram] Could not check/clean {filename}: {e}')
+    
+    if cleaned_count > 0:
+        logger.info(f'[Telegram] Cleaned up {cleaned_count} stale session files')
+    return cleaned_count
+
+
+def delete_all_session_files(max_age_hours: int = 1):
+    """
+    Delete session files older than max_age_hours for clean break after updates.
+    Forces users to re-authenticate with Telegram.
+    Called on server startup for major updates.
+    """
+    import time
+    session_dir = os.path.dirname(os.path.abspath(__file__))
+    current_time = time.time()
+    max_age_seconds = max_age_hours * 3600
+    deleted_count = 0
+    
+    for filename in os.listdir(session_dir):
+        if filename.startswith('session_') and filename.endswith('.session'):
+            filepath = os.path.join(session_dir, filename)
+            try:
+                file_age = current_time - os.path.getmtime(filepath)
+                if file_age > max_age_seconds:
+                    if _safe_remove_with_retry(filepath):
+                        logger.info(f'[Telegram] Deleted old session file for clean break: {filename} (age: {file_age/3600:.1f} hours)')
+                        deleted_count += 1
+                else:
+                    logger.debug(f'[Telegram] Keeping recent session file: {filename} (age: {file_age/3600:.1f} hours)')
+            except Exception as e:
+                logger.warning(f'[Telegram] Could not delete {filename}: {e}')
+    
+    # Also delete any lock/journal files (they are always stale)
+    for ext in ('.session.lock', '.session-journal', '.lock', '-journal'):
+        for filename in os.listdir(session_dir):
+            if filename.startswith('session_') and filename.endswith(ext):
+                filepath = os.path.join(session_dir, filename)
+                try:
+                    if _safe_remove_with_retry(filepath):
+                        logger.debug(f'[Telegram] Deleted associated file: {filename}')
+                except Exception as e:
+                    logger.debug(f'[Telegram] Could not delete {filename}: {e}')
+    
+    if deleted_count > 0:
+        logger.info(f'[Telegram] Clean break: deleted {deleted_count} old session files. Users will need to re-authenticate.')
+    return deleted_count
+
+
 async def _init_client(email: str, loop=None):
     max_retries = 3
     for attempt in range(max_retries):
@@ -53,16 +152,15 @@ async def _init_client(email: str, loop=None):
             api_id = int(api_id_str)
             session_path = _get_session_path(email)
 
-            # Clean up ALL stale lock/journal files before connecting
+            # Clean up ALL stale lock/journal files before connecting with retry logic
             for ext in ('.session.lock', '.session-journal', '.lock', '-journal'):
                 p = session_path + ext
                 if os.path.exists(p):
-                    try:
-                        os.remove(p)
+                    success = _safe_remove_with_retry(p, max_retries=3)
+                    if not success:
+                        logger.warning(f'[Telegram] Could not remove {p} after retries, may cause connection issues')
+                    else:
                         logger.debug(f'[Telegram] Removed stale file: {p}')
-                    except Exception as e:
-                        # On Windows, this is common if the old thread hasn't fully exited
-                        logger.warning(f'[Telegram] Attempt {attempt+1}: Could not remove {p}: {e}')
 
             logger.info(f'[Telegram] Initializing client for {email} with API ID: {api_id}')
 
@@ -244,13 +342,26 @@ def start_telegram_in_thread(email: str):
         if email in _loops:
             try:
                 loop_val = _loops[email]
-                if loop_val == "starting" or (hasattr(loop_val, 'is_running') and loop_val.is_running()):
-                    logger.debug(f'[Telegram] Loop already running or starting for {email}')
+                if loop_val == "starting":
+                    # Already starting, wait a bit for initialization to complete
+                    import time
+                    start_time = time.time()
+                    while time.time() - start_time < 10:  # Wait up to 10 seconds
+                        if email in _clients:
+                            logger.debug(f'[Telegram] Client already initialized for {email}')
+                            return
+                        time.sleep(0.5)
+                        loop_val = _loops.get(email)
+                        if loop_val != "starting":
+                            break
+                    # If still "starting" after timeout, something went wrong, continue with new thread
+                    logger.warning(f'[Telegram] Previous startup for {email} timed out, starting new thread')
+                elif hasattr(loop_val, 'is_running') and loop_val.is_running():
+                    logger.debug(f'[Telegram] Loop already running for {email}')
                     return
-                # If it's in _loops but not running, it's cleaning up. 
-                # We should wait or just let it finish.
-            except Exception:
-                pass
+                # If it's in _loops but not running, it's cleaning up. We should wait or just let it finish.
+            except Exception as e:
+                logger.debug(f'[Telegram] Error checking loop status for {email}: {e}')
         # Place a placeholder to claim the startup process synchronously
         _loops[email] = "starting"
 
@@ -434,4 +545,6 @@ __all__ = [
     'telegram_is_authorized',
     'telegram_is_ready',
     'telegram_status',
+    'cleanup_stale_session_files',
+    'delete_all_session_files',
 ]

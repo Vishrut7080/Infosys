@@ -1,5 +1,6 @@
 import base64
 import json
+import time
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from typing import cast, List, Dict, Optional
@@ -33,17 +34,61 @@ class EmailService:
         if not self.creds:
             return None
         if self.creds.expired and self.creds.refresh_token:
-            try:
-                self.creds.refresh(Request())
-            except Exception as e:
-                logger.error(f"Failed to refresh token: {e}")
+            # Retry token refresh with exponential backoff
+            max_retries = 3
+            last_error = None
+            for attempt in range(max_retries):
+                try:
+                    self.creds.refresh(Request())
+                    logger.debug(f"Token refreshed successfully on attempt {attempt + 1}")
+                    break
+                except Exception as e:
+                    last_error = e
+                    error_str = str(e).lower()
+                    
+                    # Check if this is a permanent error (don't retry)
+                    if "invalid_grant" in error_str or "deleted" in error_str:
+                        logger.error(f"Token permanently invalid (revoked/deleted): {e}")
+                        # Don't retry for permanent errors
+                        return None
+                    elif "network" in error_str or "timeout" in error_str or "timed out" in error_str:
+                        # Network errors - retry with backoff
+                        if attempt < max_retries - 1:
+                            sleep_time = 2 ** attempt  # 1s, 2s, 4s
+                            logger.warning(f"Network error refreshing token (attempt {attempt + 1}/{max_retries}), retrying in {sleep_time}s: {e}")
+                            time.sleep(sleep_time)
+                        else:
+                            logger.error(f"Failed to refresh token after {max_retries} attempts (network): {e}")
+                    else:
+                        # Other errors - retry once then give up
+                        if attempt < max_retries - 1:
+                            sleep_time = 2 ** attempt
+                            logger.warning(f"Error refreshing token (attempt {attempt + 1}/{max_retries}), retrying in {sleep_time}s: {e}")
+                            time.sleep(sleep_time)
+                        else:
+                            logger.error(f"Failed to refresh token after {max_retries} attempts: {e}")
+            
+            # If all retries failed, check if we should still try to use the token
+            if last_error and not self.creds.valid:
+                # Token is invalid and refresh failed
+                logger.error(f"Token refresh failed permanently: {last_error}")
                 return None
-        return build('gmail', 'v1', credentials=self.creds)
+        
+        # Build the service if credentials are valid
+        if not self.creds.valid:
+            logger.warning("Credentials are not valid, cannot build service")
+            return None
+            
+        try:
+            return build('gmail', 'v1', credentials=self.creds)
+        except Exception as e:
+            logger.error(f"Failed to build Gmail service: {e}")
+            return None
 
     def send_email(self, to: str, subject: str, body: str) -> tuple[bool, str]:
         service = self._get_service()
         if not service:
-            return False, "Gmail credentials invalid or expired. Please log in with Google again."
+            return False, "Gmail credentials invalid or expired. Please log in with Google again to reconnect."
 
         try:
             message = MIMEMultipart()
@@ -62,7 +107,7 @@ class EmailService:
     def get_emails(self, count: int = 5, category: str = 'ALL') -> List[Dict]:
         service = self._get_service()
         if not service:
-            return [{'error': 'Gmail credentials invalid or expired. Please log in with Google again.'}]
+            return [{'error': 'Gmail credentials invalid or expired. Please log in with Google again to reconnect.'}]
 
         try:
             query = ''

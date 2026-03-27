@@ -1,8 +1,10 @@
 from flask import Blueprint, render_template, request, jsonify, redirect, url_for, session
 from app.database import database
 from app.web import oauth
+from app.core.logging import logger
 import json
 import secrets
+import time
 
 auth_bp = Blueprint('auth', __name__)
 
@@ -12,12 +14,49 @@ def apply_user_credentials(email: str):
         creds = database.get_user_credentials(email)
         if creds and creds.get('tg_api_id'):
             if settings.mock_telegram:
-                from app.services.mocks.mock_telegram import start_telegram_in_thread
+                from app.services.mocks.mock_telegram import start_telegram_in_thread, telegram_is_authorized
             else:
-                from app.services.telegram import start_telegram_in_thread
+                from app.services.telegram import start_telegram_in_thread, telegram_is_authorized
             start_telegram_in_thread(email)
+            logger.info(f"Started Telegram integration for {email}")
+            
+            # Check if user needs to authorize
+            import time
+            time.sleep(0.5)  # Give thread a moment to initialize
+            try:
+                is_authorized = telegram_is_authorized(email)
+                if is_authorized:
+                    message = '✅ Telegram integration started and authorized'
+                else:
+                    message = '✅ Telegram integration started. Please authorize via <a href="/telegram-auth">Telegram Authorization</a>'
+            except Exception:
+                message = '✅ Telegram integration started'
+                is_authorized = False
+            
+            # Notify user via toast
+            try:
+                from app.web import socketio
+                socketio.emit('toast', {
+                    'message': message,
+                    'type': 'success' if is_authorized else 'warning',
+                    'duration': 5000
+                }, room=email)
+            except Exception:
+                pass
+        else:
+            logger.debug(f"No Telegram credentials configured for {email}")
     except Exception as e:
-        print(f"Error applying credentials for {email}: {e}")
+        logger.error(f"Error applying credentials for {email}: {e}")
+        # Optionally notify user via toast
+        try:
+            from app.web import socketio
+            socketio.emit('toast', {
+                'message': f'⚠️ Failed to initialize Telegram integration: {str(e)[:100]}',
+                'type': 'warning',
+                'duration': 5000
+            }, room=email)
+        except Exception:
+            pass
 
 @auth_bp.route('/')
 def login_page():
@@ -73,6 +112,14 @@ def logout_user(email):
     """Clean up user session and integrations."""
     if email:
         database.log_activity(email, 'logout', '')
+        
+        # Clear Gmail verification status
+        try:
+            from app.tools.email_tools import _gmail_verified
+            _gmail_verified.discard(email)
+        except Exception:
+            pass
+        
         # Stop Telegram background logic
         try:
             from app.core.config import settings
@@ -158,11 +205,47 @@ def auth_google_callback():
         
         # Case 1: User is already logged in and linking their Gmail
         if session.get('linking_gmail'):
+            logger.info(f'Gmail linking flow initiated. Session user: {session.get("user")}')
             session.pop('linking_gmail', None)
             current_user_email = session.get('user', {}).get('email')
             if current_user_email:
+                # Ensure user exists in database (they should, but safety check)
+                logger.debug(f'Checking if user exists: {current_user_email}')
+                user_record = database.get_user_by_email(current_user_email)
+                if not user_record:
+                    # Create user record if missing (shouldn't happen but safety net)
+                    name = session.get('user', {}).get('name', current_user_email.split('@')[0])
+                    password = secrets.token_urlsafe(16)
+                    audio_pass = database.suggest_audio_word()
+                    try:
+                        success_create, msg = database.create_user(name, current_user_email, password, secret_audio=audio_pass)
+                        if success_create:
+                            logger.info(f'Created missing user record for {current_user_email} during Gmail linking')
+                        else:
+                            logger.error(f'Failed to create user record for {current_user_email}: {msg}')
+                            # Still proceed - maybe user exists now due to race condition
+                    except Exception as e:
+                        logger.error(f'Exception creating user record for {current_user_email}: {e}')
+                        # Continue anyway - maybe user exists now
+                
                 token_json = json.dumps(token)
-                database.store_gmail_token(current_user_email, token_json)
+                success, message = database.store_gmail_token(current_user_email, token_json)
+                if success:
+                    logger.info(f'Gmail token linked successfully for {current_user_email}')
+                    # Show success toast
+                    try:
+                        from app.web import socketio
+                        socketio.emit('toast', {
+                            'message': '✅ Gmail linked successfully',
+                            'type': 'success',
+                            'duration': 3000
+                        }, room=current_user_email)
+                    except Exception:
+                        pass
+                else:
+                    logger.error(f'Failed to link Gmail token for {current_user_email}: {message}')
+                # Small delay to ensure database commit is visible
+                time.sleep(0.2)
                 database.log_activity(current_user_email, 'link_gmail', 'google_oauth')
                 return redirect('/setup-integrations?oauth=success')
 
@@ -193,7 +276,47 @@ def auth_google_callback():
 
         # Store Gmail API token
         token_json = json.dumps(token)
-        database.store_gmail_token(email, token_json)
+        success, message = database.store_gmail_token(email, token_json)
+        if success:
+            logger.info(f'Gmail token stored successfully for {email}')
+            # Verify token can be retrieved
+            creds = database.get_user_credentials(email)
+            if creds and creds.get('gmail_token'):
+                logger.info(f'Gmail token verified for {email}, length: {len(creds["gmail_token"])}')
+                # Show success toast
+                try:
+                    from app.web import socketio
+                    socketio.emit('toast', {
+                        'message': '✅ Gmail connected successfully',
+                        'type': 'success',
+                        'duration': 3000
+                    }, room=email)
+                except Exception:
+                    pass
+            else:
+                logger.error(f'Gmail token verification failed for {email} - token not retrievable')
+                # Show warning toast
+                try:
+                    from app.web import socketio
+                    socketio.emit('toast', {
+                        'message': '⚠️ Gmail token stored but verification failed',
+                        'type': 'warning',
+                        'duration': 5000
+                    }, room=email)
+                except Exception:
+                    pass
+        else:
+            logger.error(f'Failed to store Gmail token for {email}: {message}')
+            # Show error toast
+            try:
+                from app.web import socketio
+                socketio.emit('toast', {
+                    'message': f'⚠️ Failed to store Gmail token: {message[:100]}',
+                    'type': 'error',
+                    'duration': 5000
+                }, room=email)
+            except Exception:
+                pass
 
         # Log in the user
         session['user'] = {'name': user_record['name'], 'email': email, 'picture': user_info.get('picture')}
@@ -202,6 +325,9 @@ def auth_google_callback():
         apply_user_credentials(email)
         database.log_activity(email, 'register' if is_new_user else 'login', 'google_oauth')
 
+        # Small delay to ensure database commits are visible
+        time.sleep(0.3)
+        
         # Only redirect to setup-integrations for genuinely new users created in this OAuth callback
         if is_new_user:
             return redirect(url_for('auth.setup_integrations') + '?oauth=success')
@@ -286,4 +412,67 @@ def save_telegram_creds():
         session['pending_pins'] = session.get('pending_pins', {})
         session['pending_pins']['telegram_pin'] = tg_pin
         session['pending_pins']['email'] = email
+        
+        # Start Telegram thread now that credentials are saved
+        try:
+            apply_user_credentials(email)
+            # Notify user via toast
+            from app.web import socketio
+            socketio.emit('toast', {
+                'message': '✅ Telegram credentials saved. Starting integration...',
+                'type': 'success',
+                'duration': 3000
+            }, room=email)
+            logger.info(f"Started Telegram integration after credential save for {email}")
+        except Exception as e:
+            logger.error(f"Failed to start Telegram after credential save: {e}")
+            # Notify user of failure
+            try:
+                from app.web import socketio
+                socketio.emit('toast', {
+                    'message': f'⚠️ Failed to start Telegram: {str(e)[:100]}',
+                    'type': 'warning',
+                    'duration': 5000
+                }, room=email)
+            except:
+                pass
+    
     return jsonify({'status': 'ok' if ok else 'error'})
+
+
+@auth_bp.route('/debug/credentials')
+def debug_credentials():
+    """Debug endpoint for admins to check credential status."""
+    from flask import jsonify
+    from app.database import database
+    from app.core.config import settings
+    
+    # Only allow in development
+    if settings.FLASK_ENV == 'production':
+        return jsonify({'error': 'Not available in production'}), 403
+    
+    email = request.args.get('email')
+    if not email:
+        return jsonify({'error': 'Email parameter required'}), 400
+    
+    creds = database.get_user_credentials(email)
+    if not creds:
+        return jsonify({'error': 'User not found'}), 404
+    
+    # Mask sensitive data
+    masked_creds = {}
+    for key, value in creds.items():
+        if value and isinstance(value, str):
+            if key in ('gmail_token', 'tg_api_hash'):
+                masked_creds[key] = f'{value[:10]}...' if len(value) > 10 else value
+            else:
+                masked_creds[key] = value
+        else:
+            masked_creds[key] = value
+    
+    return jsonify({
+        'email': email,
+        'has_gmail_token': bool(creds.get('gmail_token')),
+        'has_telegram': bool(creds.get('tg_api_id') and creds.get('tg_api_hash')),
+        'credentials': masked_creds
+    })

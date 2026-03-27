@@ -2,11 +2,13 @@ import sqlite3
 import bcrypt
 import secrets
 import string
+import time
 from datetime import datetime
 from typing import Optional, List, Dict, Tuple
 
 from .utils import USER_DB_PATH, ADMIN_DB_PATH, suggest_audio_word
 from .admin import init_admin_db, log_activity, is_admin
+from app.core.logging import logger
 
 
 def init_db() -> None:
@@ -108,17 +110,57 @@ def store_pins(email: str, gmail_pin: str, telegram_pin: str = None) -> Tuple[bo
 
 def store_gmail_token(email: str, token_json: str) -> Tuple[bool, str]:
     try:
+        email_lower = email.strip().lower()
+        token_length = len(token_json) if token_json else 0
+        logger.info(f'[DB] Storing Gmail token for {email_lower}, token length: {token_length}')
+        
         with sqlite3.connect(USER_DB_PATH) as conn:
+            # Check if column exists
             existing = [row[1] for row in conn.execute("PRAGMA table_info(users)").fetchall()]
             if 'gmail_token' not in existing:
+                logger.info('[DB] Adding gmail_token column to users table')
                 conn.execute('ALTER TABLE users ADD COLUMN gmail_token TEXT')
                 conn.commit()
             
-            conn.execute('UPDATE users SET gmail_token = ? WHERE email = ?', (token_json, email.strip().lower()))
+            # Check if user exists
+            cursor = conn.execute('SELECT email FROM users WHERE email = ?', (email_lower,))
+            user_exists = cursor.fetchone() is not None
+            if not user_exists:
+                logger.error(f'[DB] User {email_lower} does not exist in users table')
+                return False, f'User {email_lower} not found'
+            
+            # Perform update and get row count
+            cursor = conn.execute('UPDATE users SET gmail_token = ? WHERE email = ?', (token_json, email_lower))
+            rows_affected = cursor.rowcount
             conn.commit()
-        return True, 'Gmail token stored.'
+            logger.info(f'[DB] UPDATE affected {rows_affected} rows for {email_lower}')
+            
+            if rows_affected == 0:
+                logger.error(f'[DB] UPDATE affected 0 rows for {email_lower}')
+                return False, 'No user found with that email'
+            
+            # Add small delay to ensure commit is visible
+            time.sleep(0.1)
+            
+            # Verify the token was stored
+            cursor = conn.execute('SELECT gmail_token FROM users WHERE email = ?', (email_lower,))
+            row = cursor.fetchone()
+            if row and row[0]:
+                stored_length = len(row[0])
+                logger.info(f'[DB] Gmail token stored successfully for {email_lower}, verified length: {stored_length}')
+                return True, 'Gmail token stored.'
+            else:
+                logger.error(f'[DB] Gmail token storage verification failed for {email_lower}')
+                # Try to see what's actually in the column
+                cursor2 = conn.execute('SELECT gmail_token IS NULL as is_null, length(gmail_token) as len FROM users WHERE email = ?', (email_lower,))
+                row2 = cursor2.fetchone()
+                if row2:
+                    logger.error(f'[DB] Column details: is_null={row2[0]}, length={row2[1]}')
+                return False, 'Token storage verification failed'
     except Exception as e:
-        print(f'[DB] store_gmail_token error: {e}')
+        logger.error(f'[DB] store_gmail_token error for {email}: {e}')
+        import traceback
+        logger.error(traceback.format_exc())
         return False, str(e)
 
 
@@ -351,30 +393,47 @@ def delete_user(email: str, password: str) -> Tuple[bool, str]:
 
 def save_telegram_creds(email: str, api_id: str, api_hash: str, phone: str) -> bool:
     try:
+        email_lower = email.strip().lower()
+        logger.info(f'[DB] Saving Telegram credentials for {email_lower}')
         with sqlite3.connect(USER_DB_PATH) as conn:
             conn.execute(
                 'UPDATE users SET tg_api_id = ?, tg_api_hash = ?, tg_phone = ? WHERE email = ?',
-                (api_id.strip(), api_hash.strip(), phone.strip(), email.strip().lower())
+                (api_id.strip(), api_hash.strip(), phone.strip(), email_lower)
             )
             conn.commit()
-        return True
+            
+            # Verify the credentials were stored
+            cursor = conn.execute(
+                'SELECT tg_api_id, tg_api_hash, tg_phone FROM users WHERE email = ?',
+                (email_lower,)
+            )
+            row = cursor.fetchone()
+            if row and row[0] and row[1]:
+                logger.info(f'[DB] Telegram credentials saved and verified for {email_lower}')
+                return True
+            else:
+                logger.error(f'[DB] Telegram credentials verification failed for {email_lower}')
+                return False
     except Exception as e:
-        print(f'[DB] save_telegram_creds error: {e}')
+        logger.error(f'[DB] save_telegram_creds error for {email}: {e}')
         return False
 
 
 def get_user_credentials(email: str) -> Optional[Dict]:
     try:
+        email_lower = email.strip().lower()
         with sqlite3.connect(USER_DB_PATH) as conn:
             cursor = conn.execute(
                 '''SELECT gmail_address, gmail_app_pass, tg_api_id, tg_api_hash, tg_phone, gmail_token
                    FROM users WHERE email = ?''',
-                (email.strip().lower(),)
+                (email_lower,)
             )
             row = cursor.fetchone()
         if not row:
+            logger.debug(f'[DB] No credentials found for {email_lower}')
             return None
-        return {
+        
+        creds = {
             'gmail_address': row[0] or '',
             'gmail_app_pass': row[1] or '',
             'tg_api_id': row[2] or '',
@@ -382,8 +441,14 @@ def get_user_credentials(email: str) -> Optional[Dict]:
             'tg_phone': row[4] or '',
             'gmail_token': row[5] or None,
         }
+        
+        # Log token presence
+        has_gmail_token = bool(row[5])
+        has_tg_api = bool(row[2] and row[3])
+        logger.debug(f'[DB] Credentials for {email_lower}: gmail_token={has_gmail_token}, telegram={has_tg_api}')
+        return creds
     except Exception as e:
-        print(f'[DB] get_user_credentials error: {e}')
+        logger.error(f'[DB] get_user_credentials error for {email}: {e}')
         return None
 
 
