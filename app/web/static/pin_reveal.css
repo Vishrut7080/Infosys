@@ -147,6 +147,20 @@ h1 {
     background: #f0fdf4;
 }
 
+.pin-card.password {
+    border-color: #fde68a;
+    background: #fffbeb;
+}
+
+.pin-card.password .pin-value {
+    font-size: 15px;
+    letter-spacing: 0.05em;
+    word-break: break-all;
+    white-space: normal;
+    text-align: left;
+    line-height: 1.6;
+}
+
 .service-icon {
     font-size: 28px;
     margin-bottom: 8px;
@@ -170,6 +184,10 @@ h1 {
     color: var(--text);
     margin-bottom: 8px;
     user-select: all;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 100%;
 }
 
 .pin-card.gmail .pin-value {
