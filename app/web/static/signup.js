@@ -25,11 +25,6 @@ const btnText = submitBtn.querySelector('.btn-text');
 const btnSpinner = document.getElementById('btnSpinner');
 const successScreen = document.getElementById('successScreen');
 const countdownEl = document.getElementById('countdown');
-const gmailAddressInput = document.getElementById('gmailAddress');
-const gmailAppPassInput = document.getElementById('gmailAppPass');
-const gmailError = document.getElementById('gmailError');
-const gmailAppError = document.getElementById('gmailAppError');
-
 // Error message elements
 const nameError = document.getElementById('nameError');
 const emailError = document.getElementById('emailError');
@@ -179,35 +174,6 @@ function validateAudio() {
     return true;
 }
 
-function validateGmail() {
-    const val = gmailAddressInput.value.trim();
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!val) {
-        clearError(gmailAddressInput, gmailError);
-        return true;
-    }
-    if (!emailRegex.test(val)) {
-        setError(gmailAddressInput, gmailError, 'Enter a valid Gmail address.');
-        return false;
-    }
-    clearError(gmailAddressInput, gmailError);
-    return true;
-}
-
-function validateGmailAppPass() {
-    const val = gmailAppPassInput.value.trim().replace(/\s/g, '');
-    if (!val) {
-        clearError(gmailAppPassInput, gmailAppError);
-        return true;
-    }
-    if (val.length < 16) {
-        setError(gmailAppPassInput, gmailAppError, 'App Password should be 16 characters.');
-        return false;
-    }
-    clearError(gmailAppPassInput, gmailAppError);
-    return true;
-}
-
 // ----------------------
 // Error / Clear Helpers
 // ----------------------
@@ -237,9 +203,6 @@ passwordInput.addEventListener('blur', validatePassword);
 confirmInput.addEventListener('blur', validateConfirm);
 audioInput.addEventListener('blur', validateAudio);
 
-gmailAddressInput.addEventListener('blur', validateGmail);
-gmailAppPassInput.addEventListener('blur', validateGmailAppPass);
-
 // ----------------------
 // Form Submission
 // ----------------------
@@ -248,16 +211,12 @@ form.addEventListener('submit', async function (e) {
     e.preventDefault();
 
     // Run all validators — only proceed if all pass
-    // Gmail fields are optional: only validate if user started filling them
-    const gmailStarted = gmailAddressInput.value.trim() || gmailAppPassInput.value.trim();
     const valid =
         validateName() &   // bitwise & so ALL run (not short-circuit)
         validateEmail() &
         validatePassword() &
         validateConfirm() &
-        validateAudio() &
-        (gmailStarted ? validateGmail() : true) &
-        (gmailStarted ? validateGmailAppPass() : true);
+        validateAudio();
 
     if (!valid) return;
 
@@ -274,8 +233,6 @@ form.addEventListener('submit', async function (e) {
                 email: emailInput.value.trim(),
                 password: passwordInput.value,
                 secret_audio: audioInput.value.trim().toLowerCase(),
-                gmail_address: gmailAddressInput.value.trim(),
-                gmail_app_pass: gmailAppPassInput.value.trim(),
                 tg_api_id: document.getElementById('tgApiId').value.trim(),
                 tg_api_hash: document.getElementById('tgApiHash').value.trim(),
                 tg_phone: document.getElementById('tgPhone').value.trim(),

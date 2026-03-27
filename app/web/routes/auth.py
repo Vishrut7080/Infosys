@@ -102,8 +102,7 @@ def register():
         success, message = database.create_user(
             name, email, password, 
             data.get('secret_audio', '').lower().strip(), 
-            data.get('gmail_address', '').strip(), 
-            data.get('gmail_app_pass', '').strip(), 
+            '', '',  # gmail_address, gmail_app_pass (now set via integrations page)
             data.get('tg_api_id', '').strip(), 
             data.get('tg_api_hash', '').strip(), 
             data.get('tg_phone', '').strip()
