@@ -361,6 +361,20 @@ def telegram_send_code():
         session['telegram_phone'] = phone
         return jsonify({'status': 'ok'})
     except Exception as e:
+        # Handle FloodWaitError specifically
+        try:
+            from telethon.errors import FloodWaitError
+            if isinstance(e, FloodWaitError):
+                wait_seconds = e.seconds
+                hours = wait_seconds // 3600
+                minutes = (wait_seconds % 3600) // 60
+                message = f"Too many attempts. Please wait {hours} hours {minutes} minutes before trying again."
+                logger.warning(f'[Telegram] FloodWaitError for {email}: wait {wait_seconds} seconds')
+                return jsonify({'status': 'error', 'message': message, 'wait_seconds': wait_seconds})
+        except ImportError:
+            pass
+        
+        # Generic error handling for other exceptions
         import traceback
         logger.error(f'[Telegram] send_code error for {email}: {e}')
         logger.error(traceback.format_exc())
@@ -380,6 +394,21 @@ def telegram_verify_otp():
         asyncio.run_coroutine_threadsafe(_clients[email].sign_in(phone, otp), _loops[email]).result(timeout=15)
         return jsonify({'status': 'ok'})
     except Exception as e:
+        # Handle FloodWaitError specifically
+        try:
+            from telethon.errors import FloodWaitError
+            if isinstance(e, FloodWaitError):
+                wait_seconds = e.seconds
+                hours = wait_seconds // 3600
+                minutes = (wait_seconds % 3600) // 60
+                message = f"Too many attempts. Please wait {hours} hours {minutes} minutes before trying again."
+                logger.warning(f'[Telegram] FloodWaitError during OTP verification for {email}: wait {wait_seconds} seconds')
+                return jsonify({'status': 'error', 'message': message, 'wait_seconds': wait_seconds})
+        except ImportError:
+            pass
+        
+        # Generic error handling
+        logger.error(f'[Telegram] OTP verification error for {email}: {e}')
         return jsonify({'status': 'error', 'message': str(e)})
 
 @assistant_bp.route('/telegram/status')
