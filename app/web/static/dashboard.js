@@ -157,6 +157,101 @@ window.addEventListener('DOMContentLoaded', () => {
     if (wf) wf.classList.add('active');
 });
 
+// ─── SERVICE STATUS POLLING ───────────────────────────────────
+let servicePollingInterval = null;
+let telegramCheckAttempts = 0;
+const MAX_TELEGRAM_CHECKS = 15; // Check for ~45 seconds max
+
+function updateServiceStatus(telegramReady, gmailConnected) {
+    const tgStatus = document.getElementById('telegram-status');
+    const tgBanner = document.getElementById('telegram-banner');
+    const gmailStatus = document.getElementById('gmail-status');
+    
+    // Update Telegram status
+    if (tgStatus) {
+        if (telegramReady) {
+            tgStatus.textContent = 'Connected';
+            tgStatus.style.color = '#4ade80';
+            if (tgBanner) tgBanner.style.display = 'none';
+        } else if (telegramCheckAttempts < MAX_TELEGRAM_CHECKS) {
+            tgStatus.textContent = 'Connecting...';
+            tgStatus.style.color = '#facc15';
+            if (tgBanner) tgBanner.style.display = 'none';
+        } else {
+            tgStatus.textContent = 'Not connected';
+            tgStatus.style.color = '#f87171';
+            if (tgBanner) tgBanner.style.display = 'block';
+        }
+    }
+    
+    // Update Gmail status if element exists
+    if (gmailStatus) {
+        gmailStatus.textContent = gmailConnected ? 'Connected' : 'Not connected';
+        gmailStatus.style.color = gmailConnected ? '#4ade80' : '#f87171';
+    }
+}
+
+async function checkServiceStatus() {
+    // Only check Telegram if we haven't given up yet
+    if (telegramCheckAttempts < MAX_TELEGRAM_CHECKS) {
+        telegramCheckAttempts++;
+        try {
+            // Check Telegram status
+            const tgRes = await fetch('/telegram/status');
+            const tgData = await tgRes.json();
+            const tgReady = tgData.ready === true;
+            
+            // Check Gmail status
+            let gmailConnected = false;
+            try {
+                const gmailRes = await fetch('/gmail/status');
+                const gmailData = await gmailRes.json();
+                gmailConnected = gmailData.ready === true;
+            } catch (e) {
+                // Gmail check failed, keep current status
+            }
+            
+            updateServiceStatus(tgReady, gmailConnected);
+            
+            // Stop polling if both services are connected
+            if (tgReady && gmailConnected) {
+                clearInterval(servicePollingInterval);
+                servicePollingInterval = null;
+            }
+        } catch (e) {
+            console.warn('[Service Status] Error checking status:', e);
+        }
+    } else {
+        // Max attempts reached, stop polling but still show banner
+        clearInterval(servicePollingInterval);
+        servicePollingInterval = null;
+        const tgBanner = document.getElementById('telegram-banner');
+        if (tgBanner) tgBanner.style.display = 'block';
+    }
+}
+
+function startServicePolling() {
+    if (servicePollingInterval) return;
+    telegramCheckAttempts = 0;
+    // Check immediately
+    checkServiceStatus();
+    // Then poll every 3 seconds
+    servicePollingInterval = setInterval(checkServiceStatus, 3000);
+}
+
+// Start polling on page load if we're on dashboard
+window.addEventListener('DOMContentLoaded', () => {
+    if (document.getElementById('telegram-status')) {
+        // Set initial state to "Connecting..." while we check
+        const tgStatus = document.getElementById('telegram-status');
+        if (tgStatus && tgStatus.textContent === 'Checking...') {
+            tgStatus.textContent = 'Connecting...';
+            tgStatus.style.color = '#facc15';
+        }
+        startServicePolling();
+    }
+});
+
 // ─────────────────────────────────────────────────────────────
 //  CONVERSATION FEED (driven by WebSocket events from assistant.js)
 // ─────────────────────────────────────────────────────────────

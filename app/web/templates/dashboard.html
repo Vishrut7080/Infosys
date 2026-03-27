@@ -164,15 +164,13 @@
             </div>
             {% endif %}
 
-            {% if not has_telegram %}
-            <!-- Telegram Connection Prompt -->
-            <div class="profile-card"
-                style="margin-bottom: 24px; border-left: 4px solid #6c63ff; background: #f5f3ff; padding: 16px; border-radius: 8px;">
+            <div id="telegram-banner" class="profile-card"
+                style="margin-bottom: 24px; border-left: 4px solid #6c63ff; background: #f5f3ff; padding: 16px; border-radius: 8px; display: none;">
                 <div style="display: flex; align-items: center; gap: 12px;">
                     <span style="font-size: 24px;">✈️</span>
                     <div style="flex: 1;">
-                        <div style="font-weight: 600; color: #4338ca;" data-en="Telegram not connected"
-                            data-hi="Telegram कनेक्ट नहीं है">
+                        <div style="font-weight: 600; color: #4338ca;" id="telegram-banner-title"
+                            data-en="Telegram not connected" data-hi="Telegram कनेक्ट नहीं है">
                             Telegram not connected
                         </div>
                         <div style="font-size: 13px; color: #4f46e5; margin-top: 2px;"
@@ -188,24 +186,25 @@
                     </a>
                 </div>
             </div>
-            {% endif %}
-
-                <div class="profile-card" style="margin-top: 16px;">
-                    <div class="profile-card-title">
-                        <span data-en="Connected Services" data-hi="कनेक्टेड सर्विसेस">Connected Services</span>
-                        <a href="/setup-integrations" class="btn btn-outline" style="float:right;padding:4px 12px;font-size:12px;" data-en="Manage" data-hi="मैनेज करें">Manage</a>
-                    </div>
-                    <div class="profile-field">
-                        <span style="font-size:16px;">📧</span>
-                        <span class="field-label" style="margin-left:8px;">Gmail</span>
-                        <span class="field-value" style="float:right;color:#4ade80;">{{ 'Connected' if has_gmail else 'Not connected' }}</span>
-                    </div>
-                    <div class="profile-field" style="margin-top:8px;">
-                        <span style="font-size:16px;">✈️</span>
-                        <span class="field-label" style="margin-left:8px;">Telegram</span>
-                        <span class="field-value" style="float:right;color:{{ '#4ade80' if has_telegram else '#f87171' }};">{{ 'Connected' if has_telegram else 'Not connected' }}</span>
-                    </div>
+            <div class="profile-card" style="margin-top: 16px;">
+                <div class="profile-card-title">
+                    <span data-en="Connected Services" data-hi="कनेक्टेड सर्विसेस">Connected Services</span>
+                    <a href="/setup-integrations" class="btn btn-outline"
+                        style="float:right;padding:4px 12px;font-size:12px;" data-en="Manage"
+                        data-hi="मैनेज करें">Manage</a>
                 </div>
+                <div class="profile-field">
+                    <span style="font-size:16px;">📧</span>
+                    <span class="field-label" style="margin-left:8px;">Gmail</span>
+                    <span id="gmail-status" class="field-value" style="float:right;color:#4ade80;">{{ 'Connected' if
+                        has_gmail else 'Not connected' }}</span>
+                </div>
+                <div class="profile-field" style="margin-top:8px;">
+                    <span style="font-size:16px;">✈️</span>
+                    <span class="field-label" style="margin-left:8px;">Telegram</span>
+                    <span id="telegram-status" class="field-value" style="float:right;color:#f87171;">Checking...</span>
+                </div>
+            </div>
 
             <!-- Voice Command Center — split layout -->
             <div class="voice-card voice-split">
@@ -487,11 +486,13 @@
                     <div class="profile-card-title">🔑 My PINs</div>
                     <div class="profile-field">
                         <div class="field-label">Gmail PIN</div>
-                        <div class="field-value" id="gmailPinValue" style="font-family:monospace;letter-spacing:0.2em;user-select:all;">—</div>
+                        <div class="field-value" id="gmailPinValue"
+                            style="font-family:monospace;letter-spacing:0.2em;user-select:all;">—</div>
                     </div>
                     <div class="profile-field" style="margin-top:8px;">
                         <div class="field-label">Telegram PIN</div>
-                        <div class="field-value" id="telegramPinValue" style="font-family:monospace;letter-spacing:0.2em;user-select:all;">—</div>
+                        <div class="field-value" id="telegramPinValue"
+                            style="font-family:monospace;letter-spacing:0.2em;user-select:all;">—</div>
                     </div>
                 </div>
 

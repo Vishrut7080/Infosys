@@ -389,6 +389,14 @@ def telegram_status_route():
     email = session['user'].get('email')
     return jsonify({'ready': telegram_is_ready(email)})
 
+@assistant_bp.route('/gmail/status')
+@login_required
+def gmail_status_route():
+    email = session['user'].get('email')
+    creds = database.get_user_credentials(email) if email else None
+    has_gmail = bool(creds and creds.get('gmail_token'))
+    return jsonify({'ready': has_gmail})
+
 @assistant_bp.route('/voice-logout', methods=['POST'])
 @login_required
 def voice_logout():
