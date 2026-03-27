@@ -133,7 +133,7 @@ def register():
             apply_user_credentials(email)
             database.log_activity(email, 'register', 'keyboard')
             
-            return jsonify({'status': 'success', 'message': 'Registration successful!'})
+            return jsonify({'status': 'success', 'message': 'Registration successful!', 'redirect': '/pin-reveal'})
         return jsonify({'status': 'error', 'message': message})
     except Exception as e:
         return jsonify({'status': 'error', 'message': str(e)})
@@ -151,6 +151,9 @@ def auth_google():
 @auth_bp.route('/auth/google/callback')
 def auth_google_callback():
     try:
+        # Clear any stale pending_pins from a keyboard signup that leaked into this OAuth flow
+        session.pop('pending_pins', None)
+
         token = oauth.google.authorize_access_token()
         user_info = token.get('userinfo') or oauth.google.get('https://openidconnect.googleapis.com/v1/userinfo').json()
         
@@ -175,9 +178,7 @@ def auth_google_callback():
 
         if not user_record:
             is_new_user = True
-            # Use voice-friendly audio password
             audio_pass = database.suggest_audio_word()
-            # Ensure the password/audio_pass is also set for text-based logins
             random_pass = secrets.token_urlsafe(16)
             
             database.create_user(name, email, random_pass, secret_audio=audio_pass)
@@ -206,7 +207,8 @@ def auth_google_callback():
         apply_user_credentials(email)
         database.log_activity(email, 'register' if is_new_user else 'login', 'google_oauth')
 
-        if session.get('pending_pins'):
+        # Only redirect to pin_reveal for genuinely new users created in this OAuth callback
+        if is_new_user:
             return redirect(url_for('auth.pin_reveal'))
 
         return redirect('/admin' if database.is_admin(email) else '/dashboard')
@@ -227,13 +229,20 @@ def check_session():
 @auth_bp.route('/pin-reveal')
 def pin_reveal():
     pins = session.get('pending_pins')
-    print(f"DEBUG: pin-reveal pins={pins}")
+    current_email = session.get('user', {}).get('email')
+    if pins and pins.get('email') and pins.get('email') != current_email:
+        session.pop('pending_pins', None)
+        return redirect('/dashboard')
     if not pins: return redirect('/dashboard')
     return render_template('pin_reveal.html', pins=pins)
 
 @auth_bp.route('/setup-integrations')
 def setup_integrations():
     pins = session.get('pending_pins')
+    current_email = session.get('user', {}).get('email')
+    if pins and pins.get('email') and pins.get('email') != current_email:
+        session.pop('pending_pins', None)
+        return redirect('/dashboard')
     if not pins: return redirect('/dashboard')
     
     email = pins.get('email')
@@ -244,9 +253,25 @@ def setup_integrations():
     return render_template('setup_integrations.html', 
                            email=email, 
                            has_gmail=has_gmail, 
-                           tg_phone=tg_phone)
+                           tg_phone=tg_phone,
+                           telegram_pin=pins.get('telegram_pin', ''))
 
 @auth_bp.route('/finish-signup', methods=['POST'])
 def finish_signup():
     session.pop('pending_pins', None)
     return jsonify({'status': 'ok'})
+
+
+@auth_bp.route('/save-telegram-creds', methods=['POST'])
+def save_telegram_creds():
+    email = session.get('user', {}).get('email')
+    if not email:
+        return jsonify({'status': 'error', 'message': 'Not logged in'})
+    data = request.get_json()
+    ok = database.save_telegram_creds(
+        email,
+        data.get('tg_api_id', ''),
+        data.get('tg_api_hash', ''),
+        data.get('tg_phone', '')
+    )
+    return jsonify({'status': 'ok' if ok else 'error'})

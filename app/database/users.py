@@ -343,6 +343,20 @@ def delete_user(email: str, password: str) -> Tuple[bool, str]:
         return False, f'Error: {str(e)}'
 
 
+def save_telegram_creds(email: str, api_id: str, api_hash: str, phone: str) -> bool:
+    try:
+        with sqlite3.connect(USER_DB_PATH) as conn:
+            conn.execute(
+                'UPDATE users SET tg_api_id = ?, tg_api_hash = ?, tg_phone = ? WHERE email = ?',
+                (api_id.strip(), api_hash.strip(), phone.strip(), email.strip().lower())
+            )
+            conn.commit()
+        return True
+    except Exception as e:
+        print(f'[DB] save_telegram_creds error: {e}')
+        return False
+
+
 def get_user_credentials(email: str) -> Optional[Dict]:
     try:
         with sqlite3.connect(USER_DB_PATH) as conn:

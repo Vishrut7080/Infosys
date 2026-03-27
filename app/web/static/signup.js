@@ -287,8 +287,7 @@ form.addEventListener('submit', async function (e) {
         const result = await response.json();
 
         if (result.status === 'success') {
-            // Hide the form card, show success screen, start countdown
-            showSuccessScreen();
+            showSuccessScreen(result.redirect || '/pin-reveal');
         } else {
             // Show server-side error inline (e.g. email already exists)
             setLoading(false);
@@ -320,7 +319,7 @@ function setLoading(isLoading) {
 // Shows the success overlay and counts down 3 seconds before
 // redirecting to the login page.
 
-function showSuccessScreen() {
+function showSuccessScreen(redirectUrl = '/pin-reveal') {
     // Reveal the success screen (CSS animation handles fade-in)
     successScreen.hidden = false;
 
@@ -334,7 +333,7 @@ function showSuccessScreen() {
         if (seconds <= 0) {
             clearInterval(interval);
             navigator.sendBeacon('/signup-closed');   // signal JUST before redirect
-            window.location.href = '/pin-reveal';
+            window.location.href = redirectUrl;
         }
     }, 1000);
 }

@@ -159,7 +159,8 @@
 
             if (data.status === 'ok') {
                 document.getElementById('msg').style.color = '#4ade80';
-                document.getElementById('msg').innerText = 'Telegram connected! You can close this window.';
+                document.getElementById('msg').innerText = 'Telegram connected! Redirecting to dashboard…';
+                setTimeout(() => { window.location.href = '/dashboard'; }, 1200);
             } else {
                 document.getElementById('msg').style.color = '#f87171';
                 document.getElementById('msg').innerText = data.message || 'Invalid OTP.';

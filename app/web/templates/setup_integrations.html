@@ -106,6 +106,17 @@
             text-align: center;
             text-decoration: none;
         }
+        .advanced-toggle {
+            font-size: 12px;
+            color: #7f7f99;
+            cursor: pointer;
+            text-align: center;
+            margin-top: 8px;
+            user-select: none;
+        }
+        .advanced-toggle:hover { color: #ededf0; }
+        .advanced-section { display: none; margin-top: 12px; }
+        .advanced-section.open { display: block; }
         .modal-overlay {
             position: fixed;
             inset: 0;
@@ -131,6 +142,90 @@
             color: white;
             margin: 12px 0;
         }
+        .tg-card {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.05);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 16px;
+        }
+        .tg-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 16px;
+        }
+        .tg-pin-banner {
+            background: rgba(108,99,255,0.12);
+            border: 1px solid rgba(108,99,255,0.3);
+            border-radius: 8px;
+            padding: 10px 14px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+        .tg-pin-label {
+            font-size: 12px;
+            color: #7f7f99;
+        }
+        .tg-pin-value {
+            font-family: 'Space Mono', monospace;
+            font-size: 20px;
+            font-weight: 700;
+            letter-spacing: 0.25em;
+            color: #a5b4fc;
+            user-select: all;
+        }
+        .tg-hint {
+            font-size: 12px;
+            color: #7f7f99;
+            margin: 0 0 12px;
+        }
+        .tg-hint a { color: #6c63ff; }
+        .tg-card input {
+            width: 100%;
+            background: #0f0f13;
+            border: 1px solid rgba(255,255,255,0.1);
+            padding: 10px 12px;
+            border-radius: 6px;
+            color: #ededf0;
+            font-size: 14px;
+            box-sizing: border-box;
+            margin-bottom: 10px;
+        }
+        .tg-card input:focus { border-color: #6c63ff; outline: none; }
+        .tg-msg {
+            font-size: 12px;
+            text-align: center;
+            margin: 8px 0 0;
+            min-height: 16px;
+        }
+        .tg-done-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+            color: #4ade80;
+            margin-bottom: 6px;
+        }
+        .tg-back-btn {
+            background: none;
+            border: none;
+            color: #7f7f99;
+            font-size: 12px;
+            cursor: pointer;
+            padding: 4px 0;
+            margin-top: 8px;
+            display: block;
+            width: 100%;
+            text-align: center;
+        }
+        .tg-back-btn:hover { color: #ededf0; }
+        #tg-header-btn .btn-connect.connected {
+            background: rgba(74,222,128,0.1);
+            color: #4ade80;
+        }
     </style>
 </head>
 <body>
@@ -138,6 +233,7 @@
         <h1>Connect Integrations</h1>
         <p class="subtitle">Grant permission to access your Gmail and Telegram so Assistant can help you.</p>
 
+        <!-- Gmail -->
         <div class="integration-item">
             <div class="integration-info">
                 <div class="icon">G</div>
@@ -153,15 +249,61 @@
             {% endif %}
         </div>
 
-        <div class="integration-item">
-            <div class="integration-info">
-                <div class="icon">T</div>
-                <div>
-                    <div class="name">Telegram</div>
-                    <div class="status" id="tg-status">Not connected</div>
+        <!-- Telegram — unified card with all steps -->
+        <div class="tg-card">
+            <div class="tg-header">
+                <div class="integration-info">
+                    <div class="icon">T</div>
+                    <div>
+                        <div class="name">Telegram</div>
+                        <div class="status" id="tg-status">Not connected</div>
+                    </div>
+                </div>
+                <div id="tg-header-btn">
+                    <button class="btn-connect" id="tg-btn" onclick="showTgSetup()">Setup</button>
                 </div>
             </div>
-            <button class="btn-connect" id="tg-btn" onclick="showTgModal()">Connect</button>
+
+            {% if telegram_pin %}
+            <div class="tg-pin-banner" id="tg-pin-banner">
+                <span class="tg-pin-label">Your Telegram PIN:</span>
+                <span class="tg-pin-value" id="tg-pin-value">{{ telegram_pin }}</span>
+            </div>
+            {% endif %}
+
+            <!-- Step 1: API Credentials -->
+            <div id="tg-step-api">
+                <p class="tg-hint">
+                    Get your credentials from <a href="https://my.telegram.org" target="_blank">my.telegram.org</a>
+                    → API development tools.
+                </p>
+                <input type="text" id="tg-api-id" placeholder="API ID (e.g. 123456)" autocomplete="off">
+                <input type="text" id="tg-api-hash" placeholder="API Hash" autocomplete="off">
+                <input type="tel" id="tg-phone" placeholder="Phone number (e.g. +919876543210)" value="{{ tg_phone or '' }}" autocomplete="off">
+                <button class="btn-connect" id="tg-save-btn" onclick="tgSaveAndSend()">Save &amp; Send OTP</button>
+                <p id="tg-api-msg" class="tg-msg"></p>
+            </div>
+
+            <!-- Step 2: OTP -->
+            <div id="tg-step-otp" style="display:none">
+                <p class="tg-hint">OTP sent to <span id="tg-otp-phone"></span>. Enter it below.</p>
+                <input type="text" id="tg-otp-input" placeholder="Enter OTP code" autocomplete="off">
+                <button class="btn-connect" id="tg-verify-btn" onclick="tgVerifyOtp()">Verify OTP</button>
+                <p id="tg-otp-msg" class="tg-msg"></p>
+                <button class="tg-back-btn" onclick="tgBackToApi()">← Back to API settings</button>
+            </div>
+
+            <!-- Step 3: Connected -->
+            <div id="tg-step-done" style="display:none">
+                <div class="tg-done-row">
+                    <span>✓</span>
+                    <span>API credentials saved</span>
+                </div>
+                <div class="tg-done-row">
+                    <span>✓</span>
+                    <span>Phone verified</span>
+                </div>
+            </div>
         </div>
 
         <div class="actions">
@@ -169,72 +311,123 @@
         </div>
     </div>
 
-    <!-- Telegram Modal -->
-    <div class="modal-overlay" id="tg-modal">
-        <div class="modal">
-            <h3 id="tg-title">Telegram Login</h3>
-            <p id="tg-desc" style="font-size:13px; color:#7f7f99; margin:8px 0 16px;">Enter your phone number</p>
-            
-            <div id="step-phone">
-                <input type="tel" id="tg-phone-input" value="{{ tg_phone or '' }}" placeholder="+1234567890">
-                <button class="btn-connect" style="width:100%" onclick="sendTgCode()">Send Code</button>
-            </div>
-            
-            <div id="step-code" style="display:none">
-                <input type="text" id="tg-code-input" placeholder="Enter OTP code">
-                <button class="btn-connect" style="width:100%" onclick="verifyTgCode()">Verify</button>
-            </div>
-            
-            <p id="tg-msg" style="font-size:12px; margin-top:12px; text-align:center"></p>
-            <button onclick="hideTgModal()" style="background:none; border:none; color:#7f7f99; font-size:12px; margin-top:12px; width:100%; cursor:pointer">Cancel</button>
-        </div>
-    </div>
-
     <script>
-        function showTgModal() { document.getElementById('tg-modal').style.display = 'flex'; }
-        function hideTgModal() { document.getElementById('tg-modal').style.display = 'none'; }
+        // ── Unified Telegram Setup ────────────────────────────────────
+        let _tgSavedPhone = '';
 
-        async function sendTgCode() {
-            const phone = document.getElementById('tg-phone-input').value.trim();
-            const msg = document.getElementById('tg-msg');
-            msg.innerText = 'Sending...';
-            const res = await fetch('/telegram/send-code', {
+        function showTgSetup() {
+            document.getElementById('tg-step-api').style.display = 'block';
+            document.getElementById('tg-step-otp').style.display = 'none';
+            document.getElementById('tg-step-done').style.display = 'none';
+        }
+
+        async function tgSaveAndSend() {
+            const apiId = document.getElementById('tg-api-id').value.trim();
+            const apiHash = document.getElementById('tg-api-hash').value.trim();
+            const phone = document.getElementById('tg-phone').value.trim();
+            const msg = document.getElementById('tg-api-msg');
+            const btn = document.getElementById('tg-save-btn');
+
+            if (!apiId || !apiHash) {
+                msg.style.color = '#f87171';
+                msg.innerText = 'API ID and Hash are required.';
+                return;
+            }
+            if (!phone) {
+                msg.style.color = '#f87171';
+                msg.innerText = 'Phone number is required.';
+                return;
+            }
+
+            btn.disabled = true;
+            btn.innerText = 'Saving…';
+            msg.style.color = '#94a3b8';
+            msg.innerText = 'Saving API credentials…';
+
+            // 1. Save credentials
+            const saveRes = await fetch('/save-telegram-creds', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ tg_api_id: apiId, tg_api_hash: apiHash, tg_phone: phone })
+            });
+            const saveData = await saveRes.json();
+            if (saveData.status !== 'ok') {
+                msg.style.color = '#f87171';
+                msg.innerText = 'Failed to save credentials.';
+                btn.disabled = false;
+                btn.innerText = 'Save & Send OTP';
+                return;
+            }
+
+            // 2. Send OTP
+            msg.innerText = 'Sending OTP…';
+            const otpRes = await fetch('/telegram/send-code', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({ phone })
             });
-            const data = await res.json();
-            if(data.status === 'ok') {
-                document.getElementById('step-phone').style.display = 'none';
-                document.getElementById('step-code').style.display = 'block';
-                msg.innerText = 'Code sent to your Telegram app.';
+            const otpData = await otpRes.json();
+            btn.disabled = false;
+            btn.innerText = 'Save & Send OTP';
+
+            if (otpData.status === 'ok') {
+                _tgSavedPhone = phone;
+                msg.style.color = '#4ade80';
+                msg.innerText = 'OTP sent! Check your Telegram app.';
+                document.getElementById('tg-step-api').style.display = 'none';
+                document.getElementById('tg-step-otp').style.display = 'block';
+                document.getElementById('tg-otp-phone').innerText = phone;
+                document.getElementById('tg-otp-input').value = '';
+                document.getElementById('tg-otp-msg').innerText = '';
             } else {
-                msg.innerText = data.message || 'Error';
+                msg.style.color = '#f87171';
+                msg.innerText = otpData.message || 'Failed to send OTP.';
             }
         }
 
-        async function verifyTgCode() {
-            const phone = document.getElementById('tg-phone-input').value.trim();
-            const otp = document.getElementById('tg-code-input').value.trim();
-            const msg = document.getElementById('tg-msg');
-            msg.innerText = 'Verifying...';
+        async function tgVerifyOtp() {
+            const otp = document.getElementById('tg-otp-input').value.trim();
+            const msg = document.getElementById('tg-otp-msg');
+            const btn = document.getElementById('tg-verify-btn');
+            if (!otp) {
+                msg.style.color = '#f87171';
+                msg.innerText = 'Please enter the OTP.';
+                return;
+            }
+
+            btn.disabled = true;
+            btn.innerText = 'Verifying…';
+            msg.style.color = '#94a3b8';
+            msg.innerText = 'Verifying…';
+
             const res = await fetch('/telegram/verify-otp', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ phone, otp })
+                body: JSON.stringify({ phone: _tgSavedPhone, otp })
             });
             const data = await res.json();
-            if(data.status === 'ok') {
+            btn.disabled = false;
+            btn.innerText = 'Verify OTP';
+
+            if (data.status === 'ok') {
                 msg.style.color = '#4ade80';
-                msg.innerText = 'Connected!';
+                msg.innerText = 'Telegram connected!';
+                document.getElementById('tg-step-otp').style.display = 'none';
+                document.getElementById('tg-step-done').style.display = 'block';
                 document.getElementById('tg-status').innerText = 'Connected';
-                document.getElementById('tg-btn').className = 'btn-connect connected';
-                document.getElementById('tg-btn').innerText = '✓';
-                document.getElementById('tg-btn').onclick = null;
-                setTimeout(hideTgModal, 1500);
+                const headerBtn = document.getElementById('tg-header-btn');
+                headerBtn.innerHTML = '<div class="btn-connect connected">✓</div>';
             } else {
-                msg.innerText = data.message || 'Error';
+                msg.style.color = '#f87171';
+                msg.innerText = data.message || 'Invalid OTP.';
             }
+        }
+
+        function tgBackToApi() {
+            document.getElementById('tg-step-otp').style.display = 'none';
+            document.getElementById('tg-step-api').style.display = 'block';
+            document.getElementById('tg-api-msg').innerText = '';
+            document.getElementById('tg-api-msg').style.color = '';
         }
 
         async function finishSetup() {
