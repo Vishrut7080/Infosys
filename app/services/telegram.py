@@ -308,11 +308,10 @@ def start_telegram_in_thread(email: str):
                                     await c.run_until_disconnected()
 
                     except (AuthKeyUnregisteredError, Exception) as e:
-                        # Treat AuthKeyUnregisteredError or specific Telethon restart errors as session invalidation
                         is_unregistered = isinstance(e, AuthKeyUnregisteredError) or 'AuthRestartError' in str(e)
                         
                         if is_unregistered:
-                            logger.warning(f'[Telegram] Session invalid for {email}: {e} — clearing session and retrying')
+                            logger.warning(f'[Telegram] Session invalid for {email}: {e}')
                         else:
                             logger.error(f'[Telegram] Client error for {email}: {e}')
 
@@ -322,7 +321,24 @@ def start_telegram_in_thread(email: str):
                         except Exception:
                             pass
                         
-                        if is_unregistered and retries < 2:
+                        # Retry logic: try multiple times before giving up
+                        if retries < 2:
+                            logger.info(f'[Telegram] Retrying connection for {email} (attempt {retries + 1}/3)')
+                            await asyncio.sleep(2)  # Brief delay before retry
+                            
+                            try:
+                                # Try with fresh client (without deleting session file first)
+                                new_client = await _init_client(email, loop=loop)
+                                if new_client:
+                                    _clients[email] = new_client
+                                    await run_client(new_client, retries + 1)
+                                    return  # Successfully reconnected, exit this handler
+                            except Exception as e2:
+                                logger.warning(f'[Telegram] Retry {retries + 1} failed for {email}: {e2}')
+                        
+                        # All retries exhausted - only now delete session and notify user
+                        if is_unregistered:
+                            logger.warning(f'[Telegram] All retries exhausted for {email} — clearing session')
                             session_path = _get_session_path(email)
                             for ext in ('', '.session', '.session-journal', '.session.lock'):
                                 p = session_path + ext
@@ -344,20 +360,9 @@ def start_telegram_in_thread(email: str):
                                 })
                             except Exception:
                                 pass
-
-                            # Try again
-                            try:
-                                new_client = await _init_client(email, loop=loop)
-                                if new_client:
-                                    _clients[email] = new_client
-                                    await run_client(new_client, retries + 1)
-                            except Exception as e2:
-                                logger.error(f'[Telegram] Retry failed for {email}: {e2}')
-                                loop.stop()
-                        else:
-                            if is_unregistered:
-                                logger.error(f'[Telegram] Persistent session invalidation for {email}. Stopping.')
-                            loop.stop()
+                        
+                        logger.error(f'[Telegram] Giving up for {email} after {retries + 1} attempts')
+                        loop.stop()
                 
                 await run_client(client)
             except (asyncio.CancelledError, GeneratorExit):
