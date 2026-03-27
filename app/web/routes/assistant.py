@@ -179,13 +179,13 @@ def get_inbox():
         return jsonify({'messages': []})
 
     # Check Gmail credentials
-    if creds.get('gmail_address') and creds.get('gmail_app_pass'):
+    if creds.get('gmail_token'):
         try:
             if settings.mock_email:
                 from app.services.mocks.mock_email import MockEmailService as EmailService
             else:
                 from app.services.email import EmailService
-            service = EmailService(creds['gmail_address'], creds['gmail_app_pass'])
+            service = EmailService(creds['gmail_token'])
             for e in service.get_emails(count=5):
                 if isinstance(e, dict) and 'error' not in e:
                     messages.append({
