@@ -278,7 +278,11 @@ def save_telegram_creds():
     if ok:
         pins = database.generate_pins(tg_included=True)
         tg_pin = pins['telegram_pin']
-        database.store_pins(email, '0000', tg_pin)
+        
+        existing_pins = database.get_user_pins(email)
+        gmail_pin = existing_pins.get('gmail_pin', '0000') if existing_pins else '0000'
+        
+        database.store_pins(email, gmail_pin, tg_pin)
         session['pending_pins'] = session.get('pending_pins', {})
         session['pending_pins']['telegram_pin'] = tg_pin
         session['pending_pins']['email'] = email
