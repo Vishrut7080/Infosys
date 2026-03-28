@@ -71,11 +71,13 @@
 
             // Page-specific handlers (prefer in-page functions when available)
             if (page === 'admin') {
+                if (/\b(overview|home|dashboard)\b/.test(t) && typeof showPanel === 'function') { showPanel('overview', document.querySelectorAll('.nav-item')[0]); return; }
                 if (/\b(users?)\b/.test(t) && typeof showPanel === 'function') { showPanel('users', document.querySelectorAll('.nav-item')[1]); return; }
                 if (/\b(activity|logs?)\b/.test(t) && typeof showPanel === 'function') { showPanel('activity', document.querySelectorAll('.nav-item')[2]); return; }
                 if (/\b(api|usage)\b/.test(t) && typeof showPanel === 'function') { showPanel('api', document.querySelectorAll('.nav-item')[3]); return; }
                 if (/\b(errors?)\b/.test(t) && typeof showPanel === 'function') { showPanel('errors', document.querySelectorAll('.nav-item')[4]); return; }
-                if (/\b(status)\b/.test(t) && typeof showPanel === 'function') { showPanel('status', document.querySelectorAll('.nav-item')[0]); return; }
+                if (/\b(status)\b/.test(t) && typeof showPanel === 'function') { showPanel('status', document.querySelectorAll('.nav-item')[5]); return; }
+                if (/\b(profile|account)\b/.test(t) && typeof showPanel === 'function') { showPanel('profile', document.querySelectorAll('.nav-item')[6]); return; }
             }
 
             if (page === 'dashboard') {
@@ -103,9 +105,6 @@
             // Common fallbacks
             if (/\b(settings|profile)\b/.test(t)) { window.location.href = '/dashboard'; return; }
             if (/\b(admin)\b/.test(t)) { window.location.href = '/admin'; return; }
-
-            // Final fallback: pathify the phrase
-            try { window.location.href = '/' + t.replace(/\s+/g, '-'); } catch (e) { }
         }
     };
 })();
