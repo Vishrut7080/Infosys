@@ -15,7 +15,6 @@ def emit_stats():
         'total_logins': database.get_activity_count_global('login'), 
         'emails_sent': database.get_activity_count_global('email_sent'), 
         'tg_sent': database.get_activity_count_global('telegram_sent'), 
-        'wa_sent': database.get_activity_count_global('whatsapp_sent')
     })
 
 @admin_bp.route('/admin')
@@ -104,7 +103,7 @@ def admin_delete_account():
 def admin_api_usage():
     actions = [
         'login', 'logout', 'voice_command', 'email_read', 'email_sent',
-        'telegram_sent', 'telegram_received', 'pin_failed', 'whatsapp_sent',
+        'telegram_sent', 'telegram_received', 'pin_failed',
     ]
     usage = {}
     for action in actions:
@@ -126,7 +125,6 @@ def admin_stats():
         'total_logins': database.get_activity_count_global('login'),
         'emails_sent': database.get_activity_count_global('email_sent'),
         'tg_sent': database.get_activity_count_global('telegram_sent'),
-        'wa_sent': database.get_activity_count_global('whatsapp_sent'),
         'pin_fails': database.get_activity_count_global('pin_failed'),
     })
 

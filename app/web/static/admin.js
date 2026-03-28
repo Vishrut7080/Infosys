@@ -41,7 +41,6 @@ async function loadStats() {
         document.getElementById('sTotalLogins').textContent = data.total_logins ?? '—';
         document.getElementById('sEmailsSent').textContent = data.emails_sent ?? '—';
         document.getElementById('sTgSent').textContent = data.tg_sent ?? '—';
-        document.getElementById('sWaSent').textContent = data.wa_sent ?? '—';
 
         // PIN fails
         const pf = data.pin_fails ?? 0;

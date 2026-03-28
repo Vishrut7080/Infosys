@@ -650,11 +650,6 @@ body.chat-sidebar-open .lang-toggle-btn {
     white-space: nowrap;
 }
 
-.badge-whatsapp {
-    background: rgba(37, 211, 102, 0.12);
-    color: #25d366;
-}
-
 .badge-telegram {
     background: rgba(91, 140, 255, 0.12);
     color: var(--accent2);
