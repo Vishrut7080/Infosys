@@ -107,6 +107,30 @@ def tell_joke_handler(user_email=None):
     return random.choice(jokes)
 
 
+def logout_handler(user_email=None):
+    """Logout the current user via voice command."""
+    try:
+        # Call the voice-logout endpoint
+        import requests
+        from flask import session
+        from app.core.config import settings
+        
+        # Get current user email from session
+        email = session.get('user', {}).get('email')
+        if not email:
+            return "Error: No user logged in."
+        
+        # Make a POST request to the voice-logout endpoint
+        base_url = f"http://localhost:{settings.FLASK_PORT}"
+        response = requests.post(f"{base_url}/voice-logout", json={}, timeout=5)
+        
+        if response.status_code == 204:
+            return "You have been logged out successfully."
+        else:
+            return "Error: Failed to logout."
+    except Exception as e:
+        return f"Error during logout: {str(e)}"
+
 # --- Register all system tools ---
 
 registry.register(
@@ -218,4 +242,11 @@ registry.register(
         "required": ["language"],
     },
     handler=switch_language_handler,
+)
+
+registry.register(
+    name="logout",
+    description="Logout the current user from the voice assistant.",
+    schema={"type": "object", "properties": {}},
+    handler=logout_handler,
 )
