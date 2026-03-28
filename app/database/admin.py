@@ -8,6 +8,8 @@ from .utils import ADMIN_DB_PATH
 def init_admin_db() -> None:
     """Initialize admin DB with activity_log and admin_users tables."""
     with sqlite3.connect(ADMIN_DB_PATH) as conn:
+        conn.execute('PRAGMA journal_mode=WAL')
+        conn.execute('PRAGMA busy_timeout = 5000')
         conn.execute('''
             CREATE TABLE IF NOT EXISTS activity_log (
                 id         INTEGER PRIMARY KEY AUTOINCREMENT,

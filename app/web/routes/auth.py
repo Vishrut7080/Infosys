@@ -115,8 +115,9 @@ def logout_user(email):
         
         # Clear Gmail verification status
         try:
-            from app.tools.email_tools import _gmail_verified
-            _gmail_verified.discard(email)
+            from app.tools.email_tools import _gmail_verified, _gmail_lock
+            with _gmail_lock:
+                _gmail_verified.discard(email)
         except Exception:
             pass
         
@@ -270,8 +271,6 @@ def auth_google_callback():
                         pass
                 else:
                     logger.error(f'Failed to link Gmail token for {current_user_email}: {message}')
-                # Small delay to ensure database commit is visible
-                time.sleep(0.2)
                 database.log_activity(current_user_email, 'link_gmail', 'google_oauth')
                 return redirect('/setup-integrations?oauth=success')
 
@@ -351,9 +350,6 @@ def auth_google_callback():
         apply_user_credentials(email)
         database.log_activity(email, 'register' if is_new_user else 'login', 'google_oauth')
 
-        # Small delay to ensure database commits are visible
-        time.sleep(0.3)
-        
         # Only redirect to setup-integrations for genuinely new users created in this OAuth callback
         if is_new_user:
             return redirect(url_for('auth.setup_integrations') + '?oauth=success')

@@ -20,8 +20,9 @@ from app.database import database
 # Global state
 # ----------------------
 _clients                = {}   # email -> TelegramClient
-_loops                  = {}   # email -> EventLoop
-_startup_lock           = threading.Lock()
+_loops                  = {}   # email -> asyncio.AbstractEventLoop
+_state_lock             = threading.Lock()
+_starting: set[str]     = set()  # emails currently being initialized
 
 def _get_session_path(email: str):
     """Returns a unique session file path for each user email."""
@@ -247,7 +248,7 @@ async def _start_listener(email: str, client: TelegramClient):
 
 def _run_async(email, coro):
     loop = _loops.get(email)
-    if loop is None:
+    if loop is None or not isinstance(loop, asyncio.AbstractEventLoop):
         # If the loop is not initialized, we cannot run the coroutine safely
         # because the client object is tied to that specific loop.
         raise TelegramError(f'Telegram loop not started for {email}. User might need to re-login.')
@@ -337,40 +338,24 @@ def telegram_is_ready(email: Optional[str] = None) -> bool:
 def start_telegram_in_thread(email: str):
     if not email: return
     
-    # Avoid starting multiple threads for the same email
-    with _startup_lock:
-        if email in _loops:
-            try:
-                loop_val = _loops[email]
-                if loop_val == "starting":
-                    # Already starting, wait a bit for initialization to complete
-                    import time
-                    start_time = time.time()
-                    while time.time() - start_time < 10:  # Wait up to 10 seconds
-                        if email in _clients:
-                            logger.debug(f'[Telegram] Client already initialized for {email}')
-                            return
-                        time.sleep(0.5)
-                        loop_val = _loops.get(email)
-                        if loop_val != "starting":
-                            break
-                    # If still "starting" after timeout, something went wrong, continue with new thread
-                    logger.warning(f'[Telegram] Previous startup for {email} timed out, starting new thread')
-                elif hasattr(loop_val, 'is_running') and loop_val.is_running():
-                    logger.debug(f'[Telegram] Loop already running for {email}')
-                    return
-                # If it's in _loops but not running, it's cleaning up. We should wait or just let it finish.
-            except Exception as e:
-                logger.debug(f'[Telegram] Error checking loop status for {email}: {e}')
-        # Place a placeholder to claim the startup process synchronously
-        _loops[email] = "starting"
+    # Avoid starting multiple threads for the same email — never sleep under lock
+    with _state_lock:
+        if email in _starting:
+            logger.debug(f'[Telegram] Already starting for {email}')
+            return
+        loop_val = _loops.get(email)
+        if isinstance(loop_val, asyncio.AbstractEventLoop) and loop_val.is_running():
+            logger.debug(f'[Telegram] Loop already running for {email}')
+            return
+        _starting.add(email)
 
     def run():
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
         
-        with _startup_lock:
+        with _state_lock:
             _loops[email] = loop
+            _starting.discard(email)
         
         async def main_task():
             logger.info(f'[Telegram] Main task starting for {email}')
@@ -505,10 +490,10 @@ def start_telegram_in_thread(email: str):
             except:
                 pass
             
-            with _startup_lock:
+            with _state_lock:
                 _loops.pop(email, None)
                 _clients.pop(email, None)
-            
+                _starting.discard(email)            
             loop.close()
                 
     threading.Thread(target=run, daemon=True).start()
@@ -517,7 +502,7 @@ def start_telegram_in_thread(email: str):
 def stop_telegram_in_thread(email: str):
     """Signals the Telegram background thread to stop."""
     if not email: return
-    with _startup_lock:
+    with _state_lock:
         # Don't pop yet, let the thread's finally block do it
         client = _clients.get(email)
         loop = _loops.get(email)

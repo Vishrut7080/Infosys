@@ -2,6 +2,7 @@ from app.tools.registry import registry
 from app.services.auth import auth_service
 from app.core.config import settings
 from app.database import database
+import threading as _threading
 
 if settings.mock_email:
     from app.services.mocks.mock_email import MockEmailService as EmailService
@@ -9,6 +10,7 @@ else:
     from app.services.email import EmailService
 
 # Track which users have verified their Gmail PIN this session
+_gmail_lock = _threading.Lock()
 _gmail_verified: set[str] = set()
 
 
@@ -18,13 +20,16 @@ def verify_gmail_pin_handler(user_email, pin):
         return "Error: Please provide your 4-digit Gmail PIN."
     verified = auth_service.verify_pin(user_email, 'gmail', pin.strip())
     if verified:
-        _gmail_verified.add(user_email)
+        with _gmail_lock:
+            _gmail_verified.add(user_email)
         return "Gmail PIN verified successfully. You can now send emails."
     return "Error: Incorrect Gmail PIN. Please try again."
 
 
 def send_email_handler(user_email, to, subject, body):
-    if user_email not in _gmail_verified:
+    with _gmail_lock:
+        is_verified = user_email in _gmail_verified
+    if not is_verified:
         return "Error: Gmail PIN not verified. Please ask the user for their 4-digit Gmail PIN and call verify_gmail_pin first."
     creds = auth_service.get_credentials(user_email)
     if not creds or not creds.get('gmail_token'): 

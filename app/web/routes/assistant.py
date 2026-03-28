@@ -41,26 +41,29 @@ from app.services.mocks.mock_agent import MockAgent
 if not settings.mock_llm:
     from app.agent.core import OpenRouterAgent, GroqAgent, LLMUnavailableError
 import concurrent.futures
+import threading as _threading
 
 # Executor for running agent.chat with a timeout to avoid blocking request threads
 _agent_executor = concurrent.futures.ThreadPoolExecutor(max_workers=4)
 
 assistant_bp = Blueprint('assistant', __name__)
 
+_agents_lock = _threading.Lock()
 agents = {}
 
 
 def get_agent(email: str):
-    if email not in agents:
-        if settings.mock_llm:
-            agents[email] = MockAgent(email)
-        elif settings.GROQ_API_KEY:
-            agents[email] = GroqAgent(settings.GROQ_API_KEY, email)
-            logger.info(f"Using GroqAgent for {email} (model={settings.GROQ_MODEL})")
-        else:
-            agents[email] = OpenRouterAgent(settings.OPEN_ROUTER_API_key, email)
-            logger.info(f"Using OpenRouterAgent for {email} (model={settings.OPENROUTER_MODEL})")
-    return agents[email]
+    with _agents_lock:
+        if email not in agents:
+            if settings.mock_llm:
+                agents[email] = MockAgent(email)
+            elif settings.GROQ_API_KEY:
+                agents[email] = GroqAgent(settings.GROQ_API_KEY, email)
+                logger.info(f"Using GroqAgent for {email} (model={settings.GROQ_MODEL})")
+            else:
+                agents[email] = OpenRouterAgent(settings.OPEN_ROUTER_API_key, email)
+                logger.info(f"Using OpenRouterAgent for {email} (model={settings.OPENROUTER_MODEL})")
+        return agents[email]
 
 @assistant_bp.route('/dashboard')
 @login_required

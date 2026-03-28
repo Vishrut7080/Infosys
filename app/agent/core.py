@@ -143,36 +143,36 @@ class _BaseAgent:
             timeout_val = getattr(settings, 'OPENROUTER_TIMEOUT', None)
             http_timeout = None if timeout_val is None else float(timeout_val)
 
-            with httpx.Client() as client:
+            with httpx.Client() as http_client:
                 logger.info(f"{self.__class__.__name__} HTTP POST → {self._api_url} http_timeout={http_timeout}")
                 t0 = _time.monotonic()
-                res = client.post(self._api_url, headers=headers, json=payload, timeout=http_timeout)
+                res = http_client.post(self._api_url, headers=headers, json=payload, timeout=http_timeout)
                 elapsed = _time.monotonic() - t0
                 logger.info(f"{self.__class__.__name__} response in {elapsed:.2f}s status={res.status_code}")
 
-            print(f"[DEBUG] {self.__class__.__name__} status={res.status_code} body={res.text[:1000]}", flush=True)
+                print(f"[DEBUG] {self.__class__.__name__} status={res.status_code} body={res.text[:1000]}", flush=True)
 
-            if res.status_code == 429:
-                logger.warning(f"{self.__class__.__name__} rate-limited (429) for user={self.user_email} — will retry in 30s")
-                # Notify the user's client that we're rate-limited and will retry
-                try:
-                    socketio.emit('toast', {'message': '⚠️ Rate limit reached — retrying in 30s', 'type': 'warning'}, room=self.user_email)
-                    # Also speak and push a short feed update so the client hears/see the status
-                    socketio.emit('tts', {'text': 'Rate limit reached, retrying in 30 seconds', 'lang': 'en'}, room=self.user_email)
-                    socketio.emit('feed_update', {'text': 'Rate limit reached — retrying in 30 seconds', 'time': datetime.now().strftime('%H:%M:%S'), 'lang': 'en'}, room=self.user_email)
-                except Exception:
-                    logger.exception("Failed to emit rate-limit notifications")
-                # Wait and retry once
-                _time.sleep(30)
-                logger.info(f"Retrying LLM request for user={self.user_email} after rate-limit wait")
-                try:
-                    res = client.post(self._api_url, headers=headers, json=payload, timeout=http_timeout)
-                except Exception as e:
-                    logger.error(f"{self.__class__.__name__} retry request error: {e}")
-                    return None
                 if res.status_code == 429:
-                    logger.warning(f"{self.__class__.__name__} still rate-limited after retry for user={self.user_email}")
-                    return None
+                    logger.warning(f"{self.__class__.__name__} rate-limited (429) for user={self.user_email} — will retry in 30s")
+                    # Notify the user's client that we're rate-limited and will retry
+                    try:
+                        socketio.emit('toast', {'message': '⚠️ Rate limit reached — retrying in 30s', 'type': 'warning'}, room=self.user_email)
+                        # Also speak and push a short feed update so the client hears/see the status
+                        socketio.emit('tts', {'text': 'Rate limit reached, retrying in 30 seconds', 'lang': 'en'}, room=self.user_email)
+                        socketio.emit('feed_update', {'text': 'Rate limit reached — retrying in 30 seconds', 'time': datetime.datetime.now().strftime('%H:%M:%S'), 'lang': 'en'}, room=self.user_email)
+                    except Exception:
+                        logger.exception("Failed to emit rate-limit notifications")
+                    # Wait and retry once
+                    _time.sleep(30)
+                    logger.info(f"Retrying LLM request for user={self.user_email} after rate-limit wait")
+                    try:
+                        res = http_client.post(self._api_url, headers=headers, json=payload, timeout=http_timeout)
+                    except Exception as e:
+                        logger.error(f"{self.__class__.__name__} retry request error: {e}")
+                        return None
+                    if res.status_code == 429:
+                        logger.warning(f"{self.__class__.__name__} still rate-limited after retry for user={self.user_email}")
+                        return None
             if res.status_code != 200:
                 logger.error(f"{self.__class__.__name__} API error {res.status_code}: {res.text}")
                 return None

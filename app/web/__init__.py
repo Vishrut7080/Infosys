@@ -4,7 +4,7 @@ from authlib.integrations.flask_client import OAuth
 from werkzeug.middleware.proxy_fix import ProxyFix
 from app.core.config import settings
 
-socketio = SocketIO()
+socketio = SocketIO(async_mode='threading')
 oauth = OAuth()
 
 

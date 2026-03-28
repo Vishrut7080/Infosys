@@ -8,6 +8,8 @@ from .utils import USER_DB_PATH
 def init_tasks_db():
     """Create the tasks table if it does not already exist."""
     con = sqlite3.connect(USER_DB_PATH)
+    con.execute('PRAGMA journal_mode=WAL')
+    con.execute('PRAGMA busy_timeout = 5000')
     con.execute("""
         CREATE TABLE IF NOT EXISTS tasks (
             id          INTEGER PRIMARY KEY AUTOINCREMENT,

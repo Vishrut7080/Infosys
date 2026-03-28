@@ -42,6 +42,7 @@ ENV PYTHONUNBUFFERED=1
 # Expose port
 EXPOSE 5000
 
-# Run Gunicorn in production
-# CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--worker-class", "eventlet", "-w", "1", "main:app"]
-CMD ["flask", "--app", "main:app", "run", "--host=127.0.0.1", "--port=5000", "--debug"]
+# Production: threading mode (no eventlet/gevent monkey-patching needed)
+CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--threads", "4", "--workers", "1", "main:app"]
+# Development:
+# CMD ["flask", "--app", "main:app", "run", "--host=127.0.0.1", "--port=5000", "--debug"]

@@ -14,6 +14,8 @@ from app.core.logging import logger
 def init_db() -> None:
     """Create users and sessions tables and run lightweight migrations."""
     with sqlite3.connect(USER_DB_PATH) as conn:
+        conn.execute('PRAGMA journal_mode=WAL')
+        conn.execute('PRAGMA busy_timeout = 5000')
         conn.execute('''
             CREATE TABLE IF NOT EXISTS users (
                 id              INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -138,9 +140,6 @@ def store_gmail_token(email: str, token_json: str) -> Tuple[bool, str]:
             if rows_affected == 0:
                 logger.error(f'[DB] UPDATE affected 0 rows for {email_lower}')
                 return False, 'No user found with that email'
-            
-            # Add small delay to ensure commit is visible
-            time.sleep(0.1)
             
             # Verify the token was stored
             cursor = conn.execute('SELECT gmail_token FROM users WHERE email = ?', (email_lower,))
