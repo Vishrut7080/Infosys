@@ -8,6 +8,7 @@ let socket;
 let fillerTimeout = null;
 let isSpeaking = false;
 let _fillerEls = [];
+let _speechResumeTimer = null;
 
 // Localized filler/status phrases. Keep entries short and conversational.
 const I18N = {
@@ -297,6 +298,7 @@ function hideActionIndicator() {
 
 // ─── INTERRUPT ──────────────────────────────────────────────
 function interruptSpeech() {
+    _stopSpeechKeepAlive();
     if (window.speechSynthesis) {
         window.speechSynthesis.cancel();
     }
@@ -420,6 +422,22 @@ function sendChat(text) {
         });
 }
 
+// ─── Chrome speechSynthesis keepalive ────────────────────────
+// Chrome silently pauses long utterances after ~15 s.
+// Calling resume() on a short interval prevents this.
+function _startSpeechKeepAlive() {
+    _stopSpeechKeepAlive();
+    _speechResumeTimer = setInterval(() => {
+        if (window.speechSynthesis && window.speechSynthesis.speaking) {
+            window.speechSynthesis.pause();
+            window.speechSynthesis.resume();
+        }
+    }, 5000);
+}
+function _stopSpeechKeepAlive() {
+    if (_speechResumeTimer) { clearInterval(_speechResumeTimer); _speechResumeTimer = null; }
+}
+
 // ─── SPEAK FILLER (brief, interruptible) ────────────────────
 function speakFiller(text) {
     if (!window.speechSynthesis) return;
@@ -430,8 +448,9 @@ function speakFiller(text) {
     }
     utterance.rate = 1.1; // slightly faster for fillers
     isSpeaking = true;
-    utterance.onend = () => { isSpeaking = false; };
-    utterance.onerror = () => { isSpeaking = false; };
+    _startSpeechKeepAlive();
+    utterance.onend = () => { isSpeaking = false; _stopSpeechKeepAlive(); };
+    utterance.onerror = () => { isSpeaking = false; _stopSpeechKeepAlive(); };
     window.speechSynthesis.speak(utterance);
     // Show an ephemeral chat bubble for the filler phrase
     try { showFillerBubble(text); } catch (e) { }
@@ -444,39 +463,49 @@ function speakText(text, lang) {
     autoRestart = false;
     try { if (recognition && isListening) recognition.stop(); } catch (e) { }
 
+    _stopSpeechKeepAlive();
     window.speechSynthesis.cancel(); // clear any queued/stuck utterances
 
-    const utterance = new SpeechSynthesisUtterance(text);
-    if (!availableVoices.length) availableVoices = window.speechSynthesis.getVoices();
+    // Small delay after cancel() — Chrome sometimes swallows the next
+    // utterance if speak() is called synchronously after cancel().
+    setTimeout(() => {
+        const utterance = new SpeechSynthesisUtterance(text);
+        if (!availableVoices.length) availableVoices = window.speechSynthesis.getVoices();
 
-    const langCode = (lang || 'en').split('-')[0];
-    let voice = null;
-    if (selectedVoiceURI) {
-        voice = availableVoices.find(v => v.voiceURI === selectedVoiceURI) || null;
-    }
-    if (!voice && langCode === 'hi') {
-        voice = availableVoices.find(v =>
-            v.lang.startsWith('hi') ||
-            v.name.toLowerCase().includes('hindi')
-        ) || null;
-        if (!voice) {
-            Toast.show('No Hindi voice found on this device', 'warning', 4000);
+        const langCode = (lang || 'en').split('-')[0];
+        let voice = null;
+        if (selectedVoiceURI) {
+            voice = availableVoices.find(v => v.voiceURI === selectedVoiceURI) || null;
         }
-    }
-    utterance.voice = voice;
+        if (!voice && langCode === 'hi') {
+            voice = availableVoices.find(v =>
+                v.lang.startsWith('hi') ||
+                v.name.toLowerCase().includes('hindi')
+            ) || null;
+            if (!voice) {
+                Toast.show('No Hindi voice found on this device', 'warning', 4000);
+            }
+        }
+        utterance.voice = voice;
 
-    isSpeaking = true;
-    utterance.onend = () => {
-        isSpeaking = false;
-        autoRestart = true;
-        startListening();
-    };
-    utterance.onerror = () => {
-        isSpeaking = false;
-        autoRestart = true;
-        startListening();
-    };
-    window.speechSynthesis.speak(utterance);
+        isSpeaking = true;
+        _startSpeechKeepAlive();
+        utterance.onend = () => {
+            isSpeaking = false;
+            _stopSpeechKeepAlive();
+            autoRestart = true;
+            startListening();
+        };
+        utterance.onerror = (e) => {
+            // "interrupted" is expected when we call cancel() — don't treat as failure
+            if (e.error === 'interrupted') return;
+            isSpeaking = false;
+            _stopSpeechKeepAlive();
+            autoRestart = true;
+            startListening();
+        };
+        window.speechSynthesis.speak(utterance);
+    }, 50);
 }
 
 function showFillerBubble(text) {
