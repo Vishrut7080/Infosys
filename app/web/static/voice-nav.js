@@ -2,6 +2,9 @@
 (function () {
     window.VoiceNav = {
         _inited: false,
+        _navigationHandled: false,
+        _navigationResetTimeout: null,
+        
         // Starts an always-on local SpeechRecognition on pages that don't have
         // assistant.js (signup, pin_reveal, etc.) so voice nav can still work.
         _startLocalRecognition() {
@@ -24,6 +27,27 @@
             r.onend = () => { try { r.start(); } catch (e) { } };
             try { r.start(); } catch (e) { }
         },
+        
+        // Check if a spoken text is a navigation command that should be handled locally
+        shouldHandleNavigation(spoken) {
+            const navPatterns = [
+                /\b(go to|open|take me to|show me)\b\s*(the )?([a-z0-9 \-]+)\b/,
+                /\b(cancel|go back|return)\b/,
+                /\b(log ?out|sign out|sign ?me out|log ?me out|logout)\b/
+            ];
+            return navPatterns.some(pattern => pattern.test(spoken));
+        },
+        
+        // Reset navigation flag after delay
+        _resetNavigationFlag() {
+            if (this._navigationResetTimeout) {
+                clearTimeout(this._navigationResetTimeout);
+            }
+            this._navigationResetTimeout = setTimeout(() => {
+                this._navigationHandled = false;
+            }, 1500);
+        },
+        
         init(page) {
             if (this._inited) return;
             this._inited = true;
@@ -38,29 +62,37 @@
                 if (!/^\[user\]/i.test(text)) return;
                 const spoken = text.replace(/^\[user\]:\s*/i, '').toLowerCase();
 
-                // Cancel / back
-                if (/\b(cancel|go back|return)\b/.test(spoken)) {
-                    if (typeof handleCancel === 'function') handleCancel(new Event('click'));
-                    return;
-                }
+                // Check if this is a navigation command we should handle locally
+                if (this.shouldHandleNavigation(spoken)) {
+                    this._navigationHandled = true;
+                    
+                    // Cancel / back
+                    if (/\b(cancel|go back|return)\b/.test(spoken)) {
+                        if (typeof handleCancel === 'function') handleCancel(new Event('click'));
+                        this._resetNavigationFlag();
+                        return;
+                    }
 
-                // Logout
-                if (/\b(log ?out|sign out|sign ?me out|log ?me out|logout)\b/.test(spoken)) {
-                    try {
-                        // Prefer the POST voice-logout endpoint; fallback to GET /logout if unavailable
-                        fetch('/voice-logout', { method: 'POST', headers: { 'Content-Type': 'application/json' } }).catch(() => {
-                            try { fetch('/logout'); } catch (e) { }
-                        });
-                    } catch (e) { }
-                    window.location.href = '/';
-                    return;
-                }
+                    // Logout
+                    if (/\b(log ?out|sign out|sign ?me out|log ?me out|logout)\b/.test(spoken)) {
+                        try {
+                            // Prefer the POST voice-logout endpoint; fallback to GET /logout if unavailable
+                            fetch('/voice-logout', { method: 'POST', headers: { 'Content-Type': 'application/json' } }).catch(() => {
+                                try { fetch('/logout'); } catch (e) { }
+                            });
+                        } catch (e) { }
+                        window.location.href = '/';
+                        return;
+                    }
 
-                // Generic navigation match
-                const navMatch = spoken.match(/\b(go to|open|take me to|show me)\b\s*(the )?([a-z0-9 \-]+)\b/);
-                if (navMatch) {
-                    const target = navMatch[3].trim();
-                    this.navigate(page, target);
+                    // Generic navigation match
+                    const navMatch = spoken.match(/\b(go to|open|take me to|show me)\b\s*(the )?([a-z0-9 \-]+)\b/);
+                    if (navMatch) {
+                        const target = navMatch[3].trim();
+                        this.navigate(page, target);
+                        this._resetNavigationFlag();
+                        return;
+                    }
                 }
             });
         },
