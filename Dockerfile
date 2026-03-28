@@ -43,4 +43,5 @@ ENV PYTHONUNBUFFERED=1
 EXPOSE 5000
 
 # Run Gunicorn in production
-CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--worker-class", "eventlet", "-w", "1", "main:app"]
+# CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--worker-class", "eventlet", "-w", "1", "main:app"]
+CMD ["flask", "--app", "main:app", "run", "--host=127.0.0.1", "--port=5000", "--debug"]
