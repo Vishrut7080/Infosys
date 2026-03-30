@@ -22,6 +22,8 @@ test_tts.py
 # Variables
 .env
 *.session-journal
+*.db-shm
+*.db-wal
 
 *.db
 step.txt

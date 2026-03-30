@@ -371,6 +371,30 @@ def update_audio(email: str, new_audio: str) -> Tuple[bool, str]:
         return False, f'Error: {str(e)}'
 
 
+def force_reset_password(email: str, new_password: str) -> Tuple[bool, str]:
+    """Reset password without requiring the old one (for OAuth-created accounts)."""
+    try:
+        hashed = bcrypt.hashpw(new_password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+        with sqlite3.connect(USER_DB_PATH) as conn:
+            conn.execute('UPDATE users SET password = ? WHERE email = ?', (hashed, email.strip().lower()))
+            conn.commit()
+        return True, 'Password reset successfully.'
+    except Exception as e:
+        return False, f'Error: {str(e)}'
+
+
+def force_reset_audio(email: str, new_audio: str) -> Tuple[bool, str]:
+    """Reset audio password without verification (for OAuth-created accounts)."""
+    try:
+        hashed = bcrypt.hashpw(new_audio.strip().lower().encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+        with sqlite3.connect(USER_DB_PATH) as conn:
+            conn.execute('UPDATE users SET secret_audio = ? WHERE email = ?', (hashed, email.strip().lower()))
+            conn.commit()
+        return True, 'Audio password reset successfully.'
+    except Exception as e:
+        return False, f'Error: {str(e)}'
+
+
 def delete_user(email: str, password: str) -> Tuple[bool, str]:
     try:
         success, _ = verify_user(email, password)

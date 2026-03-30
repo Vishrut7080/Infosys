@@ -257,7 +257,8 @@ def auth_google_callback():
                     if telegram_pin:
                         pending_pins['telegram_pin'] = telegram_pin
                     session['pending_pins'] = pending_pins
-                    logger.debug(f'Updated pending_pins with Gmail PIN for {current_user_email}')
+                    session.modified = True
+                    logger.debug(f'[Gmail linking] Updated pending_pins with keys: {list(pending_pins.keys())}, has_password: {bool(pending_pins.get("password"))}')
                     
                     # Show success toast
                     try:
@@ -297,6 +298,8 @@ def auth_google_callback():
             database.store_pins(email, gmail_pin, telegram_pin)
             
             session['pending_pins'] = pins
+            session.modified = True
+            logger.debug(f'[OAuth new user] Set pending_pins with keys: {list(pins.keys())}, has_password: {bool(pins.get("password"))}')
             user_record = database.get_user_by_email(email)
 
         # Store Gmail API token
@@ -373,10 +376,34 @@ def check_session():
 def pin_reveal():
     pins = session.get('pending_pins')
     current_email = session.get('user', {}).get('email')
+    logger.debug(f'[pin-reveal] pending_pins keys: {list(pins.keys()) if pins else None}, has_password: {bool(pins and pins.get("password"))}')
     if pins and pins.get('email') and pins.get('email') != current_email:
         session.pop('pending_pins', None)
         return redirect('/setup-integrations')
     if not pins: return redirect('/setup-integrations')
+
+    # For Google OAuth users: regenerate temp password / audio password if missing
+    if not pins.get('password') and current_email:
+        creds = database.get_user_credentials(current_email)
+        if creds and creds.get('gmail_token'):
+            new_pass = secrets.token_urlsafe(16)
+            database.force_reset_password(current_email, new_pass)
+            pins['password'] = new_pass
+            logger.info(f'[pin-reveal] Regenerated temp password for OAuth user {current_email}')
+
+    if not pins.get('audio_password') and current_email:
+        creds = database.get_user_credentials(current_email)
+        if creds and creds.get('gmail_token'):
+            from app.database.utils import suggest_audio_word
+            audio_pass = suggest_audio_word()
+            database.force_reset_audio(current_email, audio_pass)
+            pins['audio_password'] = audio_pass
+            logger.info(f'[pin-reveal] Regenerated audio password for OAuth user {current_email}')
+
+    if pins.get('password') or pins.get('audio_password'):
+        session['pending_pins'] = pins
+        session.modified = True
+
     return render_template('pin_reveal.html', pins=pins)
 
 @auth_bp.route('/setup-integrations')
@@ -404,6 +431,7 @@ def api_has_pending_pins():
     email = session.get('user', {}).get('email')
     pins = session.get('pending_pins', {})
     has_pins = bool(pins and pins.get('email') == email and (pins.get('gmail_pin') or pins.get('telegram_pin')))
+    logger.debug(f'[api-has-pending-pins] email={email}, pins_keys={list(pins.keys()) if pins else None}, has_pins={has_pins}')
     return jsonify({'has_pending_pins': has_pins})
 
 
@@ -431,9 +459,16 @@ def save_telegram_creds():
         gmail_pin = existing_pins.get('gmail_pin', '0000') if existing_pins else '0000'
         
         database.store_pins(email, gmail_pin, tg_pin)
-        session['pending_pins'] = session.get('pending_pins', {})
-        session['pending_pins']['telegram_pin'] = tg_pin
-        session['pending_pins']['email'] = email
+        pending = dict(session.get('pending_pins') or {})
+        pending['telegram_pin'] = tg_pin
+        pending['email'] = email
+        if not pending.get('name'):
+            pending['name'] = session.get('user', {}).get('name', email.split('@')[0])
+        if not pending.get('gmail_pin'):
+            pending['gmail_pin'] = gmail_pin
+        session['pending_pins'] = pending
+        session.modified = True
+        logger.debug(f'[save-telegram-creds] Updated pending_pins with keys: {list(session["pending_pins"].keys())}, has_password: {bool(session["pending_pins"].get("password"))}')
         
         # Start Telegram thread now that credentials are saved
         try:
