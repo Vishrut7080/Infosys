@@ -165,17 +165,17 @@ All Telegram operations hit the mock service.
 
 ## 8. Task Management
 
-Tasks are stored in the real SQLite database even in mock mode.
+Tasks are stored in the real SQLite database even in mock mode. Tasks have three priority levels: `normal`, `high`, and `urgent`.
 
-| Voice command                     | Expected result                   |
-| --------------------------------- | --------------------------------- |
-| "Add a task: buy groceries"       | "Task added: Buy groceries"       |
-| "Add a task: review pull request" | "Task added: Review pull request" |
-| "Show my tasks"                   | Lists all pending tasks with IDs  |
-| "Show all tasks"                  | Lists pending + completed tasks   |
-| "Complete task 1"                 | "Task 1 marked as done."          |
-| "Delete task 2"                   | "Task 2 deleted."                 |
-| "Show pending tasks"              | Lists only incomplete tasks       |
+| Voice command                     | Expected result                                       |
+| --------------------------------- | ----------------------------------------------------- |
+| "Add a task: buy groceries"       | "Task created (#1): "Buy groceries" — priority: normal" |
+| "Add a task: review pull request" | "Task created (#2): "Review pull request" — priority: normal" |
+| "Show my tasks"                   | Lists all pending tasks with IDs and priority          |
+| "Show all tasks"                  | Lists pending + completed tasks with priority          |
+| "Complete task 1"                 | "Task #1 marked as completed."                        |
+| "Delete task 2"                   | "Task #2 deleted."                                    |
+| "Show pending tasks"              | Lists only incomplete tasks                           |
 
 You can also use the **Tasks** page in the dashboard directly — add tasks via the text box, tick to complete, click × to delete.
 

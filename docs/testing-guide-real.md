@@ -171,14 +171,14 @@ Check your Telegram app to confirm delivery.
 
 ## 8. Task Management
 
-Tasks use the local SQLite database regardless of `MOCK_EMAIL`/`MOCK_TELEGRAM` settings.
+Tasks use the local SQLite database regardless of `MOCK_EMAIL`/`MOCK_TELEGRAM` settings. Tasks have three priority levels: `normal`, `high`, and `urgent`.
 
-| Voice command                        | Expected result                      |
-| ------------------------------------ | ------------------------------------ |
-| "Add a task: review pull request 42" | "Task added: Review pull request 42" |
-| "List my tasks"                      | All pending tasks with IDs           |
-| "Complete task 1"                    | "Task 1 marked as done."             |
-| "Delete task 2"                      | "Task 2 deleted."                    |
+| Voice command                        | Expected result                                              |
+| ------------------------------------ | ------------------------------------------------------------ |
+| "Add a task: review pull request 42" | "Task created (#1): "Review pull request 42" — priority: normal" |
+| "List my tasks"                      | All pending tasks with IDs and priority                      |
+| "Complete task 1"                    | "Task #1 marked as completed."                               |
+| "Delete task 2"                      | "Task #2 deleted."                                           |
 
 ---
 

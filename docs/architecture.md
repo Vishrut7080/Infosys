@@ -20,11 +20,22 @@ This project is a modular, agent-based Voice Assistant designed for personal use
 ## Client-Server Communication
 
 ### WebSocket Events (server → client)
-| Event          | Payload                          | Purpose                          |
-| :------------- | :------------------------------- | :------------------------------- |
-| `feed_update`  | `{ text, time }`                 | New conversation entry           |
-| `tts`          | `{ text, lang }`                 | Trigger browser speech synthesis |
-| `stats_update` | `{ users, active, api_calls … }` | Admin dashboard metrics refresh  |
+| Event          | Payload                                          | Purpose                                              |
+| :------------- | :----------------------------------------------- | :--------------------------------------------------- |
+| `feed_update`  | `{ text, time, lang }`                           | New conversation entry                               |
+| `tts`          | `{ text, lang }`                                 | Trigger browser speech synthesis                     |
+| `stats_update` | `{ total_users, active_users, total_admins … }`  | Admin dashboard metrics refresh                      |
+| `toast`        | `{ message, type, duration? }`                   | Real-time UI notification (success/warning/error/info)|
+| `lang_update`  | `{ lang }`                                       | Frontend language switch (hi/en)                     |
+| `redirect`     | `{ url }`                                        | Client-side navigation                               |
+
+### Toast Types
+| Type      | Usage                                      |
+| :-------- | :----------------------------------------- |
+| `success` | Task completed, email sent, PIN verified   |
+| `warning` | Rate limit, unverified service, timeout    |
+| `error`   | API failure, authentication error          |
+| `info`    | Data fetched, navigation, status update    |
 
 ### Browser CustomEvents (client-side bridging)
 | Event             | Source         | Listeners                      | Purpose                                                                                                |
@@ -34,12 +45,16 @@ This project is a modular, agent-based Voice Assistant designed for personal use
 
 ### REST Endpoints (one-shot requests)
 REST is used only for actions that are inherently request/response:
-- **Auth**: `/login`, `/register`, `/voice-logout`, `/check-session`, Google OAuth
+- **Auth**: `/login`, `/register`, `/voice-logout`, `/check-session`, `/voice-login`, Google OAuth
 - **Chat**: `POST /api/chat` (sends user message; agent reply arrives via `feed_update`)
-- **Data fetches**: `/get-stats`, `/get-user-info`, `/get-services`, `/get-inbox`
-- **Form actions**: `/update-profile-name`, `/update-profile-password`, `/select-services`
-- **Signals**: `POST /typing` (fire-and-forget), `POST /signup-closed` (beacon)
-- **Admin CRUD**: `/admin/users`, `/admin/active-users`, `/admin/activity`, `/admin/stats`, etc.
+- **Data fetches**: `/get-stats`, `/get-user-info`, `/get-services`, `/get-inbox`, `/suggest-audio`, `/api/my-pins`
+- **Tasks API**: `GET/POST /api/tasks`, `POST /api/tasks/<id>/complete`, `DELETE /api/tasks/<id>`
+- **Profile**: `/update-profile-name`, `/update-profile-password`, `/update-profile-audio`, `/delete-profile-account`
+- **Telegram**: `/telegram-auth`, `/telegram/send-code`, `/telegram/verify-otp`, `/telegram/status`, `/telegram/contacts`
+- **Gmail**: `/gmail/status`, `/setup-integrations`, `/save-telegram-creds`
+- **Signals**: `POST /typing` (fire-and-forget), `POST /signup-closed` (beacon), `POST /log-activity`
+- **Translation**: `POST /translate`
+- **Admin CRUD**: `/admin/users`, `/admin/active-users`, `/admin/activity`, `/admin/stats`, `/admin/error-logs`, etc.
 
 ### What the Frontend Never Does
 - **No polling for the conversation feed.** Feed entries arrive via `feed_update` WebSocket events.

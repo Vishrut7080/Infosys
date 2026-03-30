@@ -12,10 +12,32 @@ All tools are registered automatically when the app starts. The LLM decides whic
 | `get_system_info`  | Returns OS, Python version, and machine architecture | —                                                                                                                     |
 | `random_number`    | Generates a random integer in a range                | `min_val` (int, default 1), `max_val` (int, default 100)                                                              |
 | `calculate`        | Evaluates a basic arithmetic expression safely       | `expression` (string, **required**)                                                                                   |
-| `navigate`         | Navigates the user to an app page                    | `page` (string, **required**) — one of: dashboard, inbox, settings, profile, commands, admin, login, signup, telegram |
+| `navigate`         | Navigates the user to an app page                    | `page` (string, **required**) — see Navigation Targets below                                                          |
 | `get_user_profile` | Returns the logged-in user's name, email, and role   | —                                                                                                                     |
 | `set_reminder`     | Acknowledges a reminder (not yet persisted)          | `message` (string, **required**), `minutes` (int, default 5)                                                          |
 | `tell_joke`        | Returns a random clean programmer joke               | —                                                                                                                     |
+| `switch_language`  | Switches UI and TTS language                         | `language` (string, **required**) — `hi` for Hindi, `en` for English                                                  |
+| `logout`           | Logs out the current user via voice command           | —                                                                                                                     |
+
+### Navigation Targets
+
+| Target            | Destination          |
+| ----------------- | -------------------- |
+| `dashboard`       | `/dashboard`         |
+| `inbox`           | `/dashboard#inbox`   |
+| `profile`         | `/dashboard#profile` |
+| `tasks`           | `/dashboard#tasks`   |
+| `admin`           | `/admin`             |
+| `admin_overview`  | `/admin#overview`    |
+| `admin_users`     | `/admin#users`       |
+| `admin_activity`  | `/admin#activity`    |
+| `admin_api`       | `/admin#api`         |
+| `admin_errors`    | `/admin#errors`      |
+| `admin_status`    | `/admin#status`      |
+| `admin_profile`   | `/admin#profile`     |
+| `login`           | `/`                  |
+| `signup`          | `/signup`            |
+| `telegram`        | `/telegram-auth`     |
 
 ## Email Tools
 
@@ -40,12 +62,12 @@ All tools are registered automatically when the app starts. The LLM decides whic
 
 ## Task Tools
 
-| Tool            | Description                                 | Parameters                                                                           |
-| --------------- | ------------------------------------------- | ------------------------------------------------------------------------------------ |
-| `add_task`      | Creates a new task for the logged-in user   | `title` (string, **required**), `priority` (string: low/medium/high, default medium) |
-| `list_tasks`    | Returns the user's tasks filtered by status | `status` (string: pending/done/all, default pending)                                 |
-| `complete_task` | Marks a task as completed by its ID         | `task_id` (int, **required**)                                                        |
-| `delete_task`   | Permanently deletes a task by its ID        | `task_id` (int, **required**)                                                        |
+| Tool            | Description                                 | Parameters                                                                                                  |
+| --------------- | ------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| `add_task`      | Creates a new task for the logged-in user   | `title` (string, **required**), `description` (string, optional), `priority` (string: normal/high/urgent, default normal) |
+| `list_tasks`    | Returns the user's tasks filtered by status | `status` (string: pending/done/all, default pending)                                                        |
+| `complete_task` | Marks a task as completed by its ID         | `task_id` (int, **required**)                                                                               |
+| `delete_task`   | Permanently deletes a task by its ID        | `task_id` (int, **required**)                                                                               |
 
 ## Gmail PIN Flow
 
@@ -57,18 +79,29 @@ All tools are registered automatically when the app starts. The LLM decides whic
 
 The system prompt instructs the LLM about this requirement (rule #7).
 
+## Language Switching
+
+The `switch_language` tool allows changing the UI and TTS language between Hindi and English. When switching to Hindi, the agent responds in Devanagari script while keeping technical content (emails, PINs, URLs) in original form.
+
+| Language | Value | Output |
+|----------|-------|--------|
+| Hindi    | `hi`  | Devanagari script UI and TTS |
+| English  | `en`  | English UI and TTS |
+
 ## Navigation
 
-When the `navigate` tool is called, the backend returns the URL in the API response. The frontend JavaScript detects this and either:
+When the `navigate` tool is called, the backend returns the URL prefixed with `NAVIGATE:` (e.g., `NAVIGATE:/dashboard#inbox`). The frontend JavaScript detects this and either:
 - Switches the in-page tab (for hash-based pages like `#inbox`, `#profile`)
 - Redirects to a different page (for `/admin`, `/login`, etc.)
 
 ## Cancellation / Interrupts
 
 The user can cancel an in-progress action by:
-- Saying "cancel", "stop", or "never mind" — the LLM is instructed (rule #8) to acknowledge and not proceed.
+- Saying "cancel", "stop", "never mind", or "abort" — the LLM is instructed (rule #9 in system prompt) to acknowledge and not proceed.
 - Clicking the waveform area to interrupt TTS mid-speech.
 - Speaking during TTS playback to auto-interrupt and send the new command.
+
+The `logout` tool allows voice-based logout without clicking any buttons. It calls the `/voice-logout` endpoint internally.
 
 ## Adding a New Tool
 

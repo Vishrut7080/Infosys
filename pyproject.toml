@@ -25,3 +25,8 @@ dependencies = [
 
 [project.optional-dependencies]
 test = ["pytest>=8.0", "pytest-mock>=3.14"]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.2",
+]

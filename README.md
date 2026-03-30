@@ -8,7 +8,7 @@ A modular, agent-based voice assistant that manages Gmail and Telegram through n
 - **Voice-controlled email** — Send, read, search, and summarise Gmail emails by voice
 - **Telegram integration** — Send, receive, and browse Telegram conversations by voice
 - **Task management** — Add, list, complete, and delete personal tasks by voice or via the Tasks dashboard page
-- **LLM-powered agent** — Natural language understanding via OpenRouter (tool-calling architecture)
+- **LLM-powered agent** — Natural language understanding via OpenRouter or Groq (tool-calling architecture)
 - **Agent explains capabilities** — Ask "what can you do?" and the agent describes all available features
 - **WebSocket-first** — All real-time data (conversation feed, TTS, session events) is pushed over Flask-SocketIO; no polling
 - **Multi-language** — English and Hindi UI support
@@ -114,6 +114,8 @@ See [docs/testing-guide-mock.md](docs/testing-guide-mock.md) for a step-by-step 
 | `get_user_profile`          | Logged-in user's name, email, role      |        No         |
 | `set_reminder`              | Acknowledges a reminder (in-memory)     |        No         |
 | `tell_joke`                 | Random clean programmer joke            |        No         |
+| `switch_language`           | Switch UI language (Hindi/English)      |        No         |
+| `logout`                    | Logout via voice command                |        No         |
 | `add_task`                  | Add a new personal task                 |        No         |
 | `list_tasks`                | List tasks by status                    |        No         |
 | `complete_task`             | Mark a task as done                     |        No         |
