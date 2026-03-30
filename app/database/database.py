@@ -17,7 +17,7 @@ from .users import (
     get_user_credentials, generate_pins, store_pins, store_gmail_token, verify_pin,
     get_all_users, get_active_users, log_session, update_name,
     update_password, update_audio, force_reset_password, force_reset_audio,
-    delete_user, save_telegram_creds, get_user_pins
+    delete_user, save_telegram_creds, get_user_pins, is_created_via_oauth
 )
 from .admin import (
     init_admin_db, log_activity, is_admin, add_admin, remove_admin,
@@ -37,6 +37,7 @@ __all__ = [
     'admin_delete_user', 'USER_DB_PATH', 'ADMIN_DB_PATH',
     'generate_pins', 'store_pins', 'store_gmail_token', 'verify_pin', 'get_activity_count',
     'get_activity_count_global', 'get_user_pins', 'force_reset_password', 'force_reset_audio',
+        'is_created_via_oauth',
     'add_task', 'list_tasks', 'complete_task', 'delete_task', 'get_task',
     'save_telegram_creds',
 ]

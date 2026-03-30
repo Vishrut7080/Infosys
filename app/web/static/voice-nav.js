@@ -4,7 +4,7 @@
         _inited: false,
         _navigationHandled: false,
         _navigationResetTimeout: null,
-        
+
         // Starts an always-on local SpeechRecognition on pages that don't have
         // assistant.js (signup, pin_reveal, etc.) so voice nav can still work.
         _startLocalRecognition() {
@@ -27,7 +27,7 @@
             r.onend = () => { try { r.start(); } catch (e) { } };
             try { r.start(); } catch (e) { }
         },
-        
+
         // Check if a spoken text is a navigation command that should be handled locally
         shouldHandleNavigation(spoken) {
             const navPatterns = [
@@ -37,7 +37,7 @@
             ];
             return navPatterns.some(pattern => pattern.test(spoken));
         },
-        
+
         // Reset navigation flag after delay
         _resetNavigationFlag() {
             if (this._navigationResetTimeout) {
@@ -47,7 +47,7 @@
                 this._navigationHandled = false;
             }, 1500);
         },
-        
+
         init(page) {
             if (this._inited) return;
             this._inited = true;
@@ -65,7 +65,7 @@
                 // Check if this is a navigation command we should handle locally
                 if (this.shouldHandleNavigation(spoken)) {
                     this._navigationHandled = true;
-                    
+
                     // Cancel / back
                     if (/\b(cancel|go back|return)\b/.test(spoken)) {
                         if (typeof handleCancel === 'function') handleCancel(new Event('click'));

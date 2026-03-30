@@ -219,7 +219,7 @@ def auth_google_callback():
                     password = secrets.token_urlsafe(16)
                     audio_pass = database.suggest_audio_word()
                     try:
-                        success_create, msg = database.create_user(name, current_user_email, password, secret_audio=audio_pass)
+                        success_create, msg = database.create_user(name, current_user_email, password, secret_audio=audio_pass, created_via_oauth=False)
                         if success_create:
                             logger.info(f'Created missing user record for {current_user_email} during Gmail linking')
                         else:
@@ -284,7 +284,7 @@ def auth_google_callback():
             audio_pass = database.suggest_audio_word()
             random_pass = secrets.token_urlsafe(16)
             
-            database.create_user(name, email, random_pass, secret_audio=audio_pass)
+            database.create_user(name, email, random_pass, secret_audio=audio_pass, created_via_oauth=True)
             
             pins = database.generate_pins(tg_included=True)
             pins.update({
@@ -384,21 +384,25 @@ def pin_reveal():
 
     # For Google OAuth users: regenerate temp password / audio password if missing
     if not pins.get('password') and current_email:
-        creds = database.get_user_credentials(current_email)
-        if creds and creds.get('gmail_token'):
-            new_pass = secrets.token_urlsafe(16)
-            database.force_reset_password(current_email, new_pass)
-            pins['password'] = new_pass
-            logger.info(f'[pin-reveal] Regenerated temp password for OAuth user {current_email}')
+        # Only regenerate a temp password for accounts created via OAuth
+        if database.is_created_via_oauth(current_email):
+            creds = database.get_user_credentials(current_email)
+            if creds and creds.get('gmail_token'):
+                new_pass = secrets.token_urlsafe(16)
+                database.force_reset_password(current_email, new_pass)
+                pins['password'] = new_pass
+                logger.info(f'[pin-reveal] Regenerated temp password for OAuth user {current_email}')
 
     if not pins.get('audio_password') and current_email:
-        creds = database.get_user_credentials(current_email)
-        if creds and creds.get('gmail_token'):
-            from app.database.utils import suggest_audio_word
-            audio_pass = suggest_audio_word()
-            database.force_reset_audio(current_email, audio_pass)
-            pins['audio_password'] = audio_pass
-            logger.info(f'[pin-reveal] Regenerated audio password for OAuth user {current_email}')
+        # Only regenerate audio password for accounts created via OAuth
+        if database.is_created_via_oauth(current_email):
+            creds = database.get_user_credentials(current_email)
+            if creds and creds.get('gmail_token'):
+                from app.database.utils import suggest_audio_word
+                audio_pass = suggest_audio_word()
+                database.force_reset_audio(current_email, audio_pass)
+                pins['audio_password'] = audio_pass
+                logger.info(f'[pin-reveal] Regenerated audio password for OAuth user {current_email}')
 
     if pins.get('password') or pins.get('audio_password'):
         session['pending_pins'] = pins

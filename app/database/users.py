@@ -55,6 +55,7 @@ def init_db() -> None:
             ('telegram_pin',   'TEXT'),
             ('gmail_pin_plain', 'TEXT'),
             ('telegram_pin_plain', 'TEXT'),
+            ('created_via_oauth', 'INTEGER NOT NULL DEFAULT 0'),
         ]:
             if col not in existing:
                 try:
@@ -242,7 +243,7 @@ def log_session(email: str, force_insert: bool = False) -> None:
 
 def create_user(name: str, email: str, password: str, secret_audio: str = '',
                 gmail_address: str = '', gmail_app_pass: str = '',
-                tg_api_id: str = '', tg_api_hash: str = '', tg_phone: str = '') -> Tuple[bool, str]:
+                tg_api_id: str = '', tg_api_hash: str = '', tg_phone: str = '', created_via_oauth: bool = False) -> Tuple[bool, str]:
     try:
         hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
 
@@ -265,6 +266,18 @@ def create_user(name: str, email: str, password: str, secret_audio: str = '',
                  created_at)
             )
             conn.commit()
+            # If requested, mark this user as created via OAuth
+            if created_via_oauth:
+                try:
+                    existing = [row[1] for row in conn.execute("PRAGMA table_info(users)").fetchall()]
+                    if 'created_via_oauth' not in existing:
+                        conn.execute('ALTER TABLE users ADD COLUMN created_via_oauth INTEGER NOT NULL DEFAULT 0')
+                        conn.commit()
+                    conn.execute('UPDATE users SET created_via_oauth = 1 WHERE email = ?', (email.strip().lower(),))
+                    conn.commit()
+                except Exception:
+                    # Non-fatal: if we cannot set the flag, continue
+                    pass
 
         print(f"[DB] New user registered: {email}")
         return True, 'Registration successful!'
@@ -334,6 +347,22 @@ def get_user_by_email(email: str) -> Optional[Dict]:
     except Exception as e:
         print(f"[DB] get_user_by_email error: {e}")
         return None
+
+
+def is_created_via_oauth(email: str) -> bool:
+    try:
+        with sqlite3.connect(USER_DB_PATH) as conn:
+            existing = [row[1] for row in conn.execute("PRAGMA table_info(users)").fetchall()]
+            if 'created_via_oauth' not in existing:
+                return False
+            cursor = conn.execute('SELECT created_via_oauth FROM users WHERE email = ?', (email.strip().lower(),))
+            row = cursor.fetchone()
+            if not row:
+                return False
+            return bool(row[0])
+    except Exception as e:
+        print(f'[DB] is_created_via_oauth error: {e}')
+        return False
 
 
 def update_name(email: str, new_name: str) -> Tuple[bool, str]:
