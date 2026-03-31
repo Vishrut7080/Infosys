@@ -109,3 +109,114 @@ registry.register(
     },
     handler=get_telegram_conversation_handler
 )
+
+
+def get_telegram_contacts_handler(user_email: str, limit: int = 20):
+    """Return a list of recent Telegram contacts/dialogs for the given user."""
+    if settings.mock_telegram:
+        from app.services.mocks.mock_telegram import MockTelegramState
+        if user_email not in MockTelegramState._connected_emails:
+            return []
+        return [
+            {'name': 'Mock-Alice', 'unread': 1, 'last_message': 'Hey there!', 'date': '18 Mar 10:00'},
+            {'name': 'Mock-Bob', 'unread': 0, 'last_message': 'See you later', 'date': '18 Mar 09:30'},
+        ]
+    try:
+        from app.services.telegram import _run_async, _clients, _loops, _get_name
+        if user_email not in _loops or user_email not in _clients:
+            return []
+        client = _clients[user_email]
+
+        async def _get_contacts():
+            contacts = []
+            async for dialog in client.iter_dialogs(limit=limit):
+                contacts.append({
+                    'name': _get_name(dialog.entity),
+                    'unread': dialog.unread_count,
+                    'last_message': dialog.message.message[:50] if dialog.message and dialog.message.message else '',
+                    'date': dialog.message.date.strftime("%d %b %H:%M") if dialog.message and dialog.message.date else ''
+                })
+            print (contacts)
+            return contacts
+
+        return _run_async(user_email, _get_contacts())
+    except Exception:
+        return []
+
+
+def get_telegram_contact_list_handler(user_email: str):
+    """Return the user's saved Telegram contacts (address book) when available.
+
+    Falls back to dialog list if direct contact list is not available.
+    """
+    if settings.mock_telegram:
+        from app.services.mocks.mock_telegram import MockTelegramState
+        if user_email not in MockTelegramState._connected_emails:
+            return []
+        # Mock returns a simplified address-book-like list
+        return [
+            {'name': 'Mock-Alice', 'phone': '+10000000001'},
+            {'name': 'Mock-Bob', 'phone': '+10000000002'},
+        ]
+    try:
+        from app.services.telegram import _run_async, _clients, _loops
+        if user_email not in _loops or user_email not in _clients:
+            return []
+        client = _clients[user_email]
+
+        async def _get_address_book():
+            # Try to use a dedicated get_contacts if available, otherwise fall back
+            if hasattr(client, 'get_contacts'):
+                try:
+                    contacts = await client.get_contacts()
+                    result = []
+                    for c in contacts:
+                        name = getattr(c, 'first_name', None) or getattr(c, 'username', None) or ''
+                        phone = getattr(c, 'phone', '')
+                        result.append({'name': name, 'phone': phone})
+                    return result
+                except Exception:
+                    pass
+
+            # Fallback: use dialogs to build a simple contact list
+            result = []
+            async for dialog in client.iter_dialogs(limit=200):
+                name = dialog.name if hasattr(dialog, 'name') else None
+                if not name:
+                    # try to derive a friendly name
+                    e = dialog.entity
+                    try:
+                        name = e.title if hasattr(e, 'title') else (getattr(e, 'first_name', None) or getattr(e, 'username', None) or '')
+                    except Exception:
+                        name = ''
+                result.append({'name': name, 'id': getattr(dialog.entity, 'id', None)})
+            print (result)
+            return result
+
+        return _run_async(user_email, _get_address_book())
+    except Exception:
+        return []
+
+registry.register(
+    name="get_telegram_contacts",
+    description="Return recent Telegram contacts/dialogs for the authenticated user.",
+    schema={
+        "type": "object",
+        "properties": {
+            "limit": {"type": "integer", "description": "Maximum number of contacts to return (default 20)"}
+        },
+        "required": []
+    },
+    handler=get_telegram_contacts_handler
+)
+
+registry.register(
+    name="get_telegram_contact_list",
+    description="Return the user's saved Telegram contacts (address book) when available.",
+    schema={
+        "type": "object",
+        "properties": {},
+        "required": []
+    },
+    handler=get_telegram_contact_list_handler
+)
