@@ -82,9 +82,13 @@
 
         <div class="sidebar-model-switch" style="margin:12px 12px 0;">
             <label for="modelSelect" style="font-size:12px;opacity:0.85;margin-bottom:6px;display:block;" data-en="AI Model" data-hi="एआई मॉडल">AI Model</label>
-            <select id="modelSelect" class="action-input" aria-label="AI Model selector">
-                <option>Loading...</option>
-            </select>
+            <div class="model-select-wrapper" style="position:relative;">
+                <input type="text" id="modelSearch" class="action-input" placeholder="Search models..." style="width:100%;margin-bottom:4px;font-size:12px;padding:6px 8px;box-sizing:border-box;" data-en="Search models..." data-hi="मॉडल खोजें...">
+                <select id="modelSelect" class="action-input" aria-label="AI Model selector" style="width:100%;">
+                    <option>Loading...</option>
+                </select>
+                <div id="modelDesc" style="font-size:10px;opacity:0.7;margin-top:4px;min-height:14px;"></div>
+            </div>
         </div>
 
         <div class="sidebar-footer">
@@ -94,10 +98,6 @@
                     <span data-en="Admin Panel" data-hi="एडमिन पैनल">Admin Panel</span>
                 </a>
             </div>
-            <a href="/logout" class="logout-btn" id="logoutBtn">
-                <span>🔴</span>
-                <span data-en="Logout" data-hi="लॉगआउट">Logout</span>
-            </a>
         </div>
     </aside>
 
@@ -114,9 +114,15 @@
                         Welcome back — your assistant is ready.
                     </div>
                 </div>
-                <div class="listen-badge" id="listenBadge">
-                    <span class="listen-dot"></span>
-                    <span id="listenLabel" data-en="Listening" data-hi="सुन रहा है">Listening</span>
+                <div style="display:flex;align-items:center;gap:16px;">
+                    <div class="listen-badge" id="listenBadge">
+                        <span class="listen-dot"></span>
+                        <span id="listenLabel" data-en="Listening" data-hi="सुन रहा है">Listening</span>
+                    </div>
+                    <a href="/logout" class="logout-btn" id="logoutBtn" style="font-size:13px;padding:8px 12px;">
+                        <span>🔴</span>
+                        <span data-en="Logout" data-hi="लॉगआउट">Logout</span>
+                    </a>
                 </div>
             </div>
 

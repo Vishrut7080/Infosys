@@ -152,6 +152,8 @@ refreshUserAndRole();
 setTimeout(refreshUserAndRole, 2000);
 
 // LLM Model Selector: load options and handle changes
+let allModels = []; // Store all models for filtering
+
 async function loadLLMOptions() {
     const sel = document.getElementById('modelSelect');
     if (!sel) return;
@@ -161,25 +163,48 @@ async function loadLLMOptions() {
         if (!res.ok) throw new Error('Failed to fetch model options');
         const data = await res.json();
         sel.innerHTML = '';
+        allModels = [];
         const providers = data.providers || [];
         const current = data.current || {};
+        
+        // Group by category within each provider
         for (const p of providers) {
-            const optgroup = document.createElement('optgroup');
-            optgroup.label = p.label + (p.available ? '' : ' (unavailable)');
-            if (!p.available) optgroup.disabled = true;
+            if (!p.available && p.id !== 'mock') continue;
+            
+            // Group models by category
+            const categories = {};
             for (const m of (p.models || [])) {
-                const opt = document.createElement('option');
-                opt.value = `${p.id}|${m.id}`;
-                opt.textContent = m.label;
-                if (current.provider === p.id && current.model === m.id) opt.selected = true;
-                optgroup.appendChild(opt);
+                const cat = m.category || 'other';
+                if (!categories[cat]) categories[cat] = [];
+                categories[cat].push(m);
             }
-            sel.appendChild(optgroup);
+            
+            // Create optgroups by category
+            const catOrder = ['free', 'fast', 'reasoning', 'vision', 'default', 'mock', 'other'];
+            for (const cat of catOrder) {
+                if (!categories[cat]) continue;
+                const optgroup = document.createElement('optgroup');
+                const catLabels = { free: 'Free', fast: 'Fast', reasoning: 'Reasoning', vision: 'Vision', default: 'Default', mock: 'Offline', other: 'Other' };
+                optgroup.label = catLabels[cat] || cat;
+                for (const m of categories[cat]) {
+                    const opt = document.createElement('option');
+                    opt.value = `${p.id}|${m.id}`;
+                    opt.textContent = m.label;
+                    opt.dataset.desc = m.description || '';
+                    opt.dataset.context = m.context || '';
+                    if (current.provider === p.id && current.model === m.id) opt.selected = true;
+                    optgroup.appendChild(opt);
+                    allModels.push({ provider: p.id, ...m });
+                }
+                sel.appendChild(optgroup);
+            }
         }
         if (!sel.value && providers.length) {
-            const p = providers[0];
-            if (p.models && p.models.length) sel.value = `${p.id}|${p.models[0].id}`;
+            const p = providers.find(pp => pp.available || pp.id === 'mock');
+            if (p && p.models && p.models.length) sel.value = `${p.id}|${p.models[0].id}`;
         }
+        // Show description for selected
+        updateModelDescription(sel);
     } catch (e) {
         sel.innerHTML = '<option>Error loading models</option>';
     } finally {
@@ -187,8 +212,53 @@ async function loadLLMOptions() {
     }
 }
 
+function updateModelDescription(sel) {
+    const descEl = document.getElementById('modelDesc');
+    if (!descEl || !sel.selectedOptions[0]) return;
+    const opt = sel.selectedOptions[0];
+    const desc = opt.dataset.desc || '';
+    const ctx = opt.dataset.context || '';
+    descEl.textContent = desc ? `${desc}${ctx ? ' • ' + ctx + ' context' : ''}` : '';
+}
+
+// Model search filter
 document.addEventListener('DOMContentLoaded', () => {
-    setTimeout(loadLLMOptions, 200);
+    const searchInput = document.getElementById('modelSearch');
+    const modelSelect = document.getElementById('modelSelect');
+    
+    if (searchInput && modelSelect) {
+        searchInput.addEventListener('input', (e) => {
+            const query = e.target.value.toLowerCase();
+            const selectedValue = modelSelect.value;
+            
+            // Hide all options first
+            Array.from(modelSelect.options).forEach(opt => {
+                if (opt.value === '') return; // Skip placeholder
+                const label = opt.textContent.toLowerCase();
+                const desc = (opt.dataset.desc || '').toLowerCase();
+                opt.style.display = (label.includes(query) || desc.includes(query)) ? '' : 'none';
+            });
+            
+            // Show all optgroups that have visible options
+            Array.from(modelSelect.optgroups).forEach(og => {
+                const visibleOptions = Array.from(og.options).filter(opt => opt.style.display !== 'none');
+                og.hidden = visibleOptions.length === 0;
+            });
+        });
+        
+        // Clear search on selection
+        modelSelect.addEventListener('change', () => {
+            if (searchInput.value) {
+                searchInput.value = '';
+                // Reset display of all options
+                Array.from(modelSelect.options).forEach(opt => opt.style.display = '');
+                Array.from(modelSelect.optgroups).forEach(og => og.hidden = false);
+            }
+            updateModelDescription(modelSelect);
+        });
+    }
+    
+    // Model selector change handler
     const sel = document.getElementById('modelSelect');
     if (sel) {
         sel.addEventListener('change', async (ev) => {
@@ -213,6 +283,11 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     }
+});
+
+// Initialize model loading on DOM ready
+document.addEventListener('DOMContentLoaded', () => {
+    setTimeout(loadLLMOptions, 200);
 });
 
 // ─── WAVEFORM — always animated ───────────────────────────────

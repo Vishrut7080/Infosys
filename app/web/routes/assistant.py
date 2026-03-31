@@ -549,28 +549,56 @@ def get_services():
 
 
 def _available_llm_providers():
-    """Return provider entries with basic model lists derived from settings."""
+    """Return provider entries with model lists for OpenRouter, Groq, and Mock."""
     providers = []
+
+    # OpenRouter - Free models with tool calling
+    openrouter_models = [
+        # Free models - auto-routes to best available
+        {'id': 'openrouter/free', 'label': 'Free Router', 'category': 'free', 'context': '200K', 'description': 'Auto-routes to best available free model'},
+        # Free models with tool calling
+        {'id': 'stepfun/step-3.5-flash:free', 'label': 'StepFun 3.5 Flash (Free)', 'category': 'free', 'context': '256K', 'description': 'Fast, free, tool calling capable'},
+        {'id': 'nvidia/nemotron-3-super-120b-a12b:free', 'label': 'NVIDIA Nemotron 3 (Free)', 'category': 'free', 'context': '1M', 'description': 'Powerful free model, 1M context'},
+        {'id': 'qwen/qwen3.6-plus-preview:free', 'label': 'Qwen 3.6 Plus (Free)', 'category': 'free', 'context': '1M', 'description': 'Strong reasoning, free'},
+        {'id': 'z-ai/glm-4.5-air:free', 'label': 'GLM 4.5 Air (Free)', 'category': 'free', 'context': '203K', 'description': 'Fast inference, agent-optimized'},
+        {'id': 'minimax/minimax-m2.5:free', 'label': 'MiniMax M2.5 (Free)', 'category': 'free', 'context': '197K', 'description': 'Strong on coding and agent tasks'},
+        {'id': 'qwen/qwen3-coder:free', 'label': 'Qwen3 Coder (Free)', 'category': 'free', 'context': '32K', 'description': 'Coding-focused model'},
+        {'id': 'openai/gpt-oss-120b:free', 'label': 'GPT-OSS 120B (Free)', 'category': 'free', 'context': '131K', 'description': 'Open weight, strong reasoning'},
+        # Default from settings
+        {'id': settings.OPENROUTER_MODEL, 'label': f'{settings.OPENROUTER_MODEL} (Default)', 'category': 'default', 'context': 'varies', 'description': 'Your configured default model'},
+    ]
+    # Deduplicate by id
+    seen = set()
+    unique_models = []
+    for m in openrouter_models:
+        if m['id'] not in seen:
+            seen.add(m['id'])
+            unique_models.append(m)
+
     providers.append({
         'id': 'openrouter',
         'label': 'OpenRouter',
         'available': bool(settings.OPEN_ROUTER_API_key),
         'default_model': settings.OPENROUTER_MODEL,
-        'models': [{'id': settings.OPENROUTER_MODEL, 'label': settings.OPENROUTER_MODEL}]
+        'models': unique_models
     })
+
+    # Groq
     providers.append({
         'id': 'groq',
         'label': 'Groq',
         'available': bool(settings.GROQ_API_KEY),
         'default_model': settings.GROQ_MODEL,
-        'models': ([{'id': settings.GROQ_MODEL, 'label': settings.GROQ_MODEL}] if settings.GROQ_API_KEY else [])
+        'models': ([{'id': settings.GROQ_MODEL, 'label': settings.GROQ_MODEL, 'category': 'default', 'context': 'varies', 'description': 'Your configured Groq model'}] if settings.GROQ_API_KEY else [])
     })
+
+    # Mock
     providers.append({
         'id': 'mock',
         'label': 'Offline (Mock)',
         'available': True,
         'default_model': 'mock',
-        'models': [{'id': 'mock', 'label': 'Offline (Mock Agent)'}]
+        'models': [{'id': 'mock', 'label': 'Offline (Mock Agent)', 'category': 'mock', 'context': 'N/A', 'description': 'No API calls, pattern-matched responses'}]
     })
     return providers
 

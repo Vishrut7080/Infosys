@@ -7,6 +7,7 @@ let selectedVoiceURI = localStorage.getItem('assistantVoiceURI') || '';
 let socket;
 let fillerTimeout = null;
 let isSpeaking = false;
+let speechBlocked = false;  // Block auto-speech after escape key
 let _fillerEls = [];
 let _speechResumeTimer = null;
 
@@ -189,6 +190,41 @@ function initAssistant() {
             if (isSpeaking) interruptSpeech();
         });
         waveform.title = 'Click to interrupt speech';
+    }
+
+    // Pause/Resume speech synthesis on Escape key
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && window.speechSynthesis) {
+            e.preventDefault();  // Prevent default browser behavior
+            
+            if (window.speechSynthesis.paused) {
+                // Currently paused → resume
+                window.speechSynthesis.resume();
+                isSpeaking = true;
+                speechBlocked = false;
+            } else if (window.speechSynthesis.speaking) {
+                // Currently speaking → pause
+                window.speechSynthesis.pause();
+                isSpeaking = false;
+            }
+            // If not speaking and not paused, do nothing
+        }
+    });
+    
+    // Reset speechBlocked when user speaks (via input or mic) - not needed with pause/resume
+    // Keeping for voice input reset but not blocking
+    const resetSpeechBlock = () => { speechBlocked = false; };
+    const chatInputEl = document.getElementById('chatInput');
+    if (chatInputEl) {
+        chatInputEl.addEventListener('input', resetSpeechBlock);
+        chatInputEl.addEventListener('keydown', resetSpeechBlock);
+    }
+    if (typeof startListening === 'function') {
+        const originalStartListening = startListening;
+        startListening = function() {
+            resetSpeechBlock();
+            return originalStartListening.apply(this, arguments);
+        };
     }
 
     // Allow sending messages via Enter key in the text input
