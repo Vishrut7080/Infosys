@@ -107,11 +107,17 @@
         <!-- ══ DASHBOARD PAGE ══ -->
         <div class="page active" id="page-dashboard">
             <div class="page-header">
-                <div>
-                    <div class="page-title" data-en="Dashboard" data-hi="डैशबोर्ड">Dashboard</div>
-                    <div class="page-sub" data-en="Welcome back — your assistant is ready."
-                        data-hi="वापस स्वागत है — आपका असिस्टेंट तैयार है।">
-                        Welcome back — your assistant is ready.
+                <div style="display:flex;align-items:center;gap:16px;flex:1;">
+                    <a href="/logout" class="logout-btn" id="logoutBtn" style="font-size:13px;padding:8px 12px;">
+                        <span>🔴</span>
+                        <span data-en="Logout" data-hi="लॉगआउट">Logout</span>
+                    </a>
+                    <div>
+                        <div class="page-title" data-en="Dashboard" data-hi="डैशबोर्ड">Dashboard</div>
+                        <div class="page-sub" data-en="Welcome back — your assistant is ready."
+                            data-hi="वापस स्वागत है — आपका असिस्टेंट तैयार है।">
+                            Welcome back — your assistant is ready.
+                        </div>
                     </div>
                 </div>
                 <div style="display:flex;align-items:center;gap:16px;">
@@ -119,10 +125,6 @@
                         <span class="listen-dot"></span>
                         <span id="listenLabel" data-en="Listening" data-hi="सुन रहा है">Listening</span>
                     </div>
-                    <a href="/logout" class="logout-btn" id="logoutBtn" style="font-size:13px;padding:8px 12px;">
-                        <span>🔴</span>
-                        <span data-en="Logout" data-hi="लॉगआउट">Logout</span>
-                    </a>
                 </div>
             </div>
 

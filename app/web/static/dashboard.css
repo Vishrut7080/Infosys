@@ -910,6 +910,46 @@ body.chat-sidebar-open .lang-toggle-btn {
     flex-shrink: 0;
 }
 
+/* Speaking state - green/orange indicator */
+.listen-badge.speaking {
+    border-color: rgba(255, 180, 0, 0.4);
+    background: rgba(255, 180, 0, 0.1);
+    color: #ffb400;
+}
+.listen-badge.speaking .listen-dot {
+    background: #ffb400;
+    animation: speak-pulse 0.8s ease-in-out infinite;
+}
+
+/* Paused state - gray indicator */
+.listen-badge.paused {
+    border-color: rgba(150, 150, 150, 0.3);
+    background: rgba(150, 150, 150, 0.1);
+    color: #999;
+}
+.listen-badge.paused .listen-dot {
+    background: #999;
+    animation: none;
+    transform: scale(0.8);
+}
+
+/* Ready state - when not listening */
+.listen-badge.ready {
+    border-color: rgba(100, 200, 100, 0.3);
+    background: rgba(100, 200, 100, 0.07);
+    color: #64c864;
+}
+.listen-badge.ready .listen-dot {
+    background: #64c864;
+    animation: none;
+    opacity: 0.5;
+}
+
+@keyframes speak-pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.7; transform: scale(1.2); }
+}
+
 @keyframes listen-pulse {
 
     0%,

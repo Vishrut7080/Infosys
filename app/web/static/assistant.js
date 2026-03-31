@@ -8,6 +8,7 @@ let socket;
 let fillerTimeout = null;
 let isSpeaking = false;
 let speechBlocked = false;  // Block auto-speech after escape key
+let userPaused = false;    // Track if user intentionally paused (vs auto-pause)
 let _fillerEls = [];
 let _speechResumeTimer = null;
 
@@ -192,37 +193,51 @@ function initAssistant() {
         waveform.title = 'Click to interrupt speech';
     }
 
-    // Pause/Resume speech synthesis on Escape key
+    // Pause/Resume speech synthesis on Escape key - Speech recognition stays active
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape' && window.speechSynthesis) {
             e.preventDefault();  // Prevent default browser behavior
             
-            if (window.speechSynthesis.paused) {
-                // Currently paused → resume
+            if (userPaused) {
+                // Currently paused (by user) → resume
                 window.speechSynthesis.resume();
                 isSpeaking = true;
-                speechBlocked = false;
+                userPaused = false;
+                _startSpeechKeepAlive();  // Restart keep-alive
+                // Restart speech recognition if it stopped
+                if (!isListening && typeof startListening === 'function') {
+                    setTimeout(startListening, 300);
+                }
+                updateVoiceStatusIndicators();
             } else if (window.speechSynthesis.speaking) {
-                // Currently speaking → pause
+                // Currently speaking → pause and STOP keep-alive (intentional pause)
                 window.speechSynthesis.pause();
                 isSpeaking = false;
+                userPaused = true;  // Mark as user-intentional pause
+                _stopSpeechKeepAlive();  // Stop auto-restart mechanism
+                // Keep speech recognition active - don't restart it, just keep it
+                updateVoiceStatusIndicators();
+            } else {
+                // Not speaking and not paused → cancel any pending speech
+                window.speechSynthesis.cancel();
+                userPaused = false;
+                // Keep recognition running if it was running
+                updateVoiceStatusIndicators();
             }
-            // If not speaking and not paused, do nothing
         }
     });
     
-    // Reset speechBlocked when user speaks (via input or mic) - not needed with pause/resume
-    // Keeping for voice input reset but not blocking
-    const resetSpeechBlock = () => { speechBlocked = false; };
+    // Reset userPaused when user starts speaking (via mic or input)
+    const resetUserPaused = () => { userPaused = false; };
     const chatInputEl = document.getElementById('chatInput');
     if (chatInputEl) {
-        chatInputEl.addEventListener('input', resetSpeechBlock);
-        chatInputEl.addEventListener('keydown', resetSpeechBlock);
+        chatInputEl.addEventListener('input', resetUserPaused);
+        chatInputEl.addEventListener('keydown', resetUserPaused);
     }
     if (typeof startListening === 'function') {
         const originalStartListening = startListening;
         startListening = function() {
-            resetSpeechBlock();
+            resetUserPaused();
             return originalStartListening.apply(this, arguments);
         };
     }
@@ -298,6 +313,48 @@ function updateUIStatus(text, state) {
     const badge = document.getElementById('listenBadge');
     if (label) label.textContent = text;
     if (badge) badge.className = 'listen-badge ' + state;
+}
+
+// Update voice status indicators - shows both STT and TTS state
+function updateVoiceStatusIndicators() {
+    const label = document.getElementById('listenLabel');
+    const badge = document.getElementById('listenBadge');
+    
+    if (!label || !badge) return;
+    
+    // Determine STT status
+    let sttStatus = isListening ? 'listening' : 'not-listening';
+    
+    // Determine TTS status
+    let ttsStatus = '';
+    if (window.speechSynthesis) {
+        if (window.speechSynthesis.speaking) {
+            ttsStatus = 'speaking';
+        } else if (window.speechSynthesis.paused) {
+            ttsStatus = 'paused';
+        }
+    }
+    
+    // Build combined status text
+    let statusText = '';
+    let stateClass = sttStatus;
+    
+    if (ttsStatus === 'speaking') {
+        statusText = '🔊 Speaking';
+        stateClass = 'speaking';
+    } else if (ttsStatus === 'paused') {
+        statusText = '⏸ Paused';
+        stateClass = 'paused';
+    } else if (isListening) {
+        statusText = '🎤 Listening';
+        stateClass = 'listening';
+    } else {
+        statusText = '🎤 Ready';
+        stateClass = 'ready';
+    }
+    
+    label.textContent = statusText;
+    badge.className = 'listen-badge ' + stateClass;
 }
 
 function startListening() {
@@ -500,8 +557,13 @@ function speakText(text, lang) {
     try { if (recognition && isListening) recognition.stop(); } catch (e) { }
 
     _stopSpeechKeepAlive();
-    window.speechSynthesis.cancel(); // clear any queued/stuck utterances
-
+    
+    // If user had intentionally paused, cancel to start fresh (not resume old speech)
+    if (userPaused) {
+        window.speechSynthesis.cancel();
+        userPaused = false;  // Reset - we're starting new
+    }
+    
     // Small delay after cancel() — Chrome sometimes swallows the next
     // utterance if speak() is called synchronously after cancel().
     setTimeout(() => {
