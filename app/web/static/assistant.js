@@ -305,7 +305,7 @@ function interruptSpeech() {
     isSpeaking = false;
     clearTimeout(fillerTimeout);
     hideActionIndicator();
-    
+
     // Explicitly stop and reset the restart loop
     autoRestart = true;
     try {
@@ -333,13 +333,13 @@ function sendChat(text) {
     // Check if voice-nav should handle this navigation locally
     const trimmed = text.trim().toLowerCase();
     const isNavCommand = /^(go to|open|take me to|show me|cancel|go back|return|log\s?out|sign out|sign\s?me\s?out|log\s?me\s?out|logout)\b/i.test(trimmed);
-    
+
     if (isNavCommand && window.VoiceNav && window.VoiceNav._navigationHandled) {
         // Voice-nav already handled this navigation, skip backend processing
         console.log('[Assistant] Skipping navigation - handled by VoiceNav');
         return;
     }
-    
+
     const _userEntry = { text: "[User]: " + text, time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) };
     window.dispatchEvent(new CustomEvent('feed-update', { detail: _userEntry }));
     if (typeof appendFeedMessage === 'function') {
@@ -389,7 +389,7 @@ function sendChat(text) {
                 if (targetPath === currentPath || (targetPath === '/dashboard' && currentPath === '/dashboard') || (targetPath === '/admin' && currentPath === '/admin')) {
                     // In-page navigation (already on the base page)
                     const hash = url.includes('#') ? url.split('#')[1] : null;
-                    
+
                     if (currentPath === '/admin' && typeof showPanel === 'function') {
                         showPanel(hash || 'overview');
                     } else if (typeof showPage === 'function') {

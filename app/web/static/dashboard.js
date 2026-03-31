@@ -9,7 +9,7 @@ function showPage(id, el) {
     const chatPanel = document.getElementById('chatPanel');
     const voiceRightSlot = document.getElementById('voiceRightSlot');
     const chatSidebarSlot = document.getElementById('chatSidebarSlot');
-    
+
     const targetPage = document.getElementById('page-' + id);
     if (!targetPage) {
         console.warn(`[showPage] Target page "page-${id}" not found.`);
@@ -91,7 +91,7 @@ async function loadMyPins() {
         const tgPinEl = document.getElementById('telegramPinValue');
         if (gmailPinEl) gmailPinEl.textContent = data.gmail_pin || '—';
         if (tgPinEl) tgPinEl.textContent = data.telegram_pin || '—';
-    } catch {}
+    } catch { }
 }
 loadMyPins();
 
@@ -222,7 +222,7 @@ window.addEventListener('DOMContentLoaded', () => {
         window.location.replace(window.location.pathname);
         return;
     }
-    
+
     const wf = document.getElementById('waveform');
     if (wf) wf.classList.add('active');
 });
@@ -238,7 +238,7 @@ function updateServiceStatus(telegramReady, gmailConnected) {
     const tgBanner = document.getElementById('telegram-banner');
     const gmailStatus = document.getElementById('gmail-status');
     const gmailBanner = document.getElementById('gmail-banner');
-    
+
     // Update Telegram status
     if (tgStatus) {
         if (telegramReady) {
@@ -255,7 +255,7 @@ function updateServiceStatus(telegramReady, gmailConnected) {
             if (tgBanner) tgBanner.style.display = 'block';
         }
     }
-    
+
     // Update Gmail status - remember if it was ever connected
     if (gmailStatus && gmailConnected) {
         gmailAlreadyConnected = true;
@@ -286,7 +286,7 @@ async function checkServiceStatus() {
             const tgRes = await fetch('/telegram/status');
             const tgData = await tgRes.json();
             const tgReady = tgData.ready === true;
-            
+
             // Check Gmail status
             let gmailConnected = false;
             try {
@@ -296,9 +296,9 @@ async function checkServiceStatus() {
             } catch (e) {
                 // Gmail check failed, keep current status
             }
-            
+
             updateServiceStatus(tgReady, gmailConnected);
-            
+
             // Stop polling if Telegram is connected (Gmail status stays visible)
             if (tgReady) {
                 clearInterval(servicePollingInterval);
