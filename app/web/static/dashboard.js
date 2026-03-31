@@ -151,6 +151,70 @@ async function refreshUserAndRole() {
 refreshUserAndRole();
 setTimeout(refreshUserAndRole, 2000);
 
+// LLM Model Selector: load options and handle changes
+async function loadLLMOptions() {
+    const sel = document.getElementById('modelSelect');
+    if (!sel) return;
+    sel.disabled = true;
+    try {
+        const res = await fetch('/api/llm-options');
+        if (!res.ok) throw new Error('Failed to fetch model options');
+        const data = await res.json();
+        sel.innerHTML = '';
+        const providers = data.providers || [];
+        const current = data.current || {};
+        for (const p of providers) {
+            const optgroup = document.createElement('optgroup');
+            optgroup.label = p.label + (p.available ? '' : ' (unavailable)');
+            if (!p.available) optgroup.disabled = true;
+            for (const m of (p.models || [])) {
+                const opt = document.createElement('option');
+                opt.value = `${p.id}|${m.id}`;
+                opt.textContent = m.label;
+                if (current.provider === p.id && current.model === m.id) opt.selected = true;
+                optgroup.appendChild(opt);
+            }
+            sel.appendChild(optgroup);
+        }
+        if (!sel.value && providers.length) {
+            const p = providers[0];
+            if (p.models && p.models.length) sel.value = `${p.id}|${p.models[0].id}`;
+        }
+    } catch (e) {
+        sel.innerHTML = '<option>Error loading models</option>';
+    } finally {
+        sel.disabled = false;
+    }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    setTimeout(loadLLMOptions, 200);
+    const sel = document.getElementById('modelSelect');
+    if (sel) {
+        sel.addEventListener('change', async (ev) => {
+            const val = ev.target.value;
+            if (!val) return;
+            const [provider, model] = val.split('|');
+            try {
+                const res = await fetch('/api/switch-llm', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ provider, model })
+                });
+                const j = await res.json();
+                if (!res.ok) {
+                    if (window.Toast) Toast.show(j.message || 'Failed to switch model', 'error');
+                    loadLLMOptions();
+                    return;
+                }
+                if (window.Toast) Toast.show(`AI switched to ${provider} — ${model}`);
+            } catch (e) {
+                if (window.Toast) Toast.show('Failed to switch model', 'error');
+                loadLLMOptions();
+            }
+        });
+    }
+});
+
 // ─── WAVEFORM — always animated ───────────────────────────────
 window.addEventListener('DOMContentLoaded', () => {
     // Handle OAuth redirect - reload to get fresh session state

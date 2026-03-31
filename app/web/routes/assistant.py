@@ -53,16 +53,91 @@ agents = {}
 
 
 def get_agent(email: str):
+    """Return or create a per-user agent, honoring a session override stored in session['llm_choice']."""
     with _agents_lock:
+        # Safely read session choice
+        try:
+            sess_choice = session.get('llm_choice') if session is not None else None
+        except Exception:
+            sess_choice = None
+
+        # Helper to build agent from a choice dict
+        def _create_agent_from_choice(choice: dict):
+            if not choice:
+                return None
+            provider = choice.get('provider')
+            model = choice.get('model')
+            if provider == 'mock':
+                return MockAgent(email)
+            if provider == 'groq':
+                # If Groq isn't available this will raise; caller should guard availability
+                agent = GroqAgent(settings.GROQ_API_KEY, email)
+                if model:
+                    agent.model = model
+                logger.info(f"Using GroqAgent for {email} (model={agent.model})")
+                return agent
+            # default to OpenRouter
+            agent = OpenRouterAgent(settings.OPEN_ROUTER_API_key, email)
+            if model:
+                agent.model = model
+            logger.info(f"Using OpenRouterAgent for {email} (model={agent.model})")
+            return agent
+
+        existing = agents.get(email)
+        # If existing agent present and session choice exists, ensure it matches; otherwise recreate
+        if existing and sess_choice:
+            cls_name = existing.__class__.__name__.lower()
+            choice_provider = sess_choice.get('provider') if isinstance(sess_choice, dict) else None
+            provider_mismatch = False
+            if choice_provider == 'mock' and 'mock' not in cls_name:
+                provider_mismatch = True
+            if choice_provider == 'groq' and 'groq' not in cls_name:
+                provider_mismatch = True
+            if choice_provider == 'openrouter' and ('openrouter' not in cls_name and 'groq' not in cls_name):
+                # treat non-mock/non-groq as openrouter
+                if 'mock' in cls_name or 'groq' in cls_name:
+                    provider_mismatch = True
+            model_mismatch = False
+            try:
+                if isinstance(sess_choice, dict) and sess_choice.get('model'):
+                    if getattr(existing, 'model', None) != sess_choice.get('model'):
+                        model_mismatch = True
+            except Exception:
+                model_mismatch = False
+
+            if provider_mismatch or model_mismatch:
+                try:
+                    agents[email] = _create_agent_from_choice(sess_choice)
+                except Exception:
+                    logger.exception(f"Failed to recreate agent for {email} from session choice")
+                return agents[email]
+
+        # If no existing agent, create one honoring session choice when present
         if email not in agents:
-            if settings.mock_llm:
-                agents[email] = MockAgent(email)
-            elif settings.GROQ_API_KEY:
-                agents[email] = GroqAgent(settings.GROQ_API_KEY, email)
-                logger.info(f"Using GroqAgent for {email} (model={settings.GROQ_MODEL})")
+            if sess_choice:
+                try:
+                    agents[email] = _create_agent_from_choice(sess_choice)
+                except Exception:
+                    logger.exception(f"Failed to create agent for {email} from session choice; falling back")
+                    # Fallback to previous behaviour
+                    if settings.mock_llm:
+                        agents[email] = MockAgent(email)
+                    elif settings.GROQ_API_KEY:
+                        agents[email] = GroqAgent(settings.GROQ_API_KEY, email)
+                        logger.info(f"Using GroqAgent for {email} (model={settings.GROQ_MODEL})")
+                    else:
+                        agents[email] = OpenRouterAgent(settings.OPEN_ROUTER_API_key, email)
+                        logger.info(f"Using OpenRouterAgent for {email} (model={settings.OPENROUTER_MODEL})")
             else:
-                agents[email] = OpenRouterAgent(settings.OPEN_ROUTER_API_key, email)
-                logger.info(f"Using OpenRouterAgent for {email} (model={settings.OPENROUTER_MODEL})")
+                # No session override: previous priority logic
+                if settings.mock_llm:
+                    agents[email] = MockAgent(email)
+                elif settings.GROQ_API_KEY:
+                    agents[email] = GroqAgent(settings.GROQ_API_KEY, email)
+                    logger.info(f"Using GroqAgent for {email} (model={settings.GROQ_MODEL})")
+                else:
+                    agents[email] = OpenRouterAgent(settings.OPENROUTER_API_key, email)
+                    logger.info(f"Using OpenRouterAgent for {email} (model={settings.OPENROUTER_MODEL})")
         return agents[email]
 
 @assistant_bp.route('/dashboard')
@@ -471,6 +546,102 @@ def get_services():
     if creds and creds.get('tg_api_id') and creds.get('tg_api_hash'):
         services.append('telegram')
     return jsonify({'services': services})
+
+
+def _available_llm_providers():
+    """Return provider entries with basic model lists derived from settings."""
+    providers = []
+    providers.append({
+        'id': 'openrouter',
+        'label': 'OpenRouter',
+        'available': bool(settings.OPEN_ROUTER_API_key),
+        'default_model': settings.OPENROUTER_MODEL,
+        'models': [{'id': settings.OPENROUTER_MODEL, 'label': settings.OPENROUTER_MODEL}]
+    })
+    providers.append({
+        'id': 'groq',
+        'label': 'Groq',
+        'available': bool(settings.GROQ_API_KEY),
+        'default_model': settings.GROQ_MODEL,
+        'models': ([{'id': settings.GROQ_MODEL, 'label': settings.GROQ_MODEL}] if settings.GROQ_API_KEY else [])
+    })
+    providers.append({
+        'id': 'mock',
+        'label': 'Offline (Mock)',
+        'available': True,
+        'default_model': 'mock',
+        'models': [{'id': 'mock', 'label': 'Offline (Mock Agent)'}]
+    })
+    return providers
+
+
+@assistant_bp.route('/api/llm-options')
+@login_required
+def api_llm_options():
+    providers = _available_llm_providers()
+    # determine current
+    try:
+        current = session.get('llm_choice') or None
+    except Exception:
+        current = None
+    if not current:
+        # infer from agents or fallback
+        email = session.get('user', {}).get('email')
+        ag = agents.get(email)
+        if ag:
+            cls_name = ag.__class__.__name__.lower()
+            if 'mock' in cls_name:
+                current = {'provider': 'mock', 'model': 'mock'}
+            elif 'groq' in cls_name:
+                current = {'provider': 'groq', 'model': getattr(ag, 'model', settings.GROQ_MODEL)}
+            else:
+                current = {'provider': 'openrouter', 'model': getattr(ag, 'model', settings.OPENROUTER_MODEL)}
+        else:
+            if settings.mock_llm:
+                current = {'provider': 'mock', 'model': 'mock'}
+            elif settings.GROQ_API_KEY:
+                current = {'provider': 'groq', 'model': settings.GROQ_MODEL}
+            else:
+                current = {'provider': 'openrouter', 'model': settings.OPENROUTER_MODEL}
+    return jsonify({'providers': providers, 'current': current})
+
+
+@assistant_bp.route('/api/switch-llm', methods=['POST'])
+@login_required
+def api_switch_llm():
+    data = request.get_json() or {}
+    provider = data.get('provider')
+    model = data.get('model')
+    if not provider:
+        return jsonify({'status': 'error', 'message': 'provider required'}), 400
+    providers = {p['id']: p for p in _available_llm_providers()}
+    if provider not in providers:
+        return jsonify({'status': 'error', 'message': 'unknown provider'}), 400
+    if not providers[provider]['available']:
+        return jsonify({'status': 'error', 'message': f"Provider {provider} not available"}), 400
+    if not model:
+        model = providers[provider].get('default_model')
+
+    choice = {'provider': provider, 'model': model}
+    email = session.get('user', {}).get('email')
+    with _agents_lock:
+        try:
+            if provider == 'mock':
+                agents[email] = MockAgent(email)
+            elif provider == 'groq':
+                agents[email] = GroqAgent(settings.GROQ_API_KEY, email)
+                agents[email].model = model
+            else:
+                agents[email] = OpenRouterAgent(settings.OPEN_ROUTER_API_key, email)
+                agents[email].model = model
+            try:
+                session['llm_choice'] = choice
+            except Exception:
+                logger.exception('Failed to write llm_choice to session')
+        except Exception as e:
+            logger.exception(f"Failed to switch agent for {email}: {e}")
+            return jsonify({'status': 'error', 'message': 'Failed to create agent'}), 500
+    return jsonify({'status': 'ok', 'current': choice})
 
 
 @assistant_bp.route('/select-services', methods=['POST'])
