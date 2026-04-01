@@ -84,6 +84,14 @@ def get_agent(email: str):
             return agent
 
         existing = agents.get(email)
+
+        # Force MockAgent if session says 'mock' - ensures it works even if existing agent exists
+        if sess_choice and sess_choice.get('provider') == 'mock':
+            if not existing or existing.__class__.__name__ != 'MockAgent':
+                agents[email] = MockAgent(email)
+                logger.info(f"Forcing MockAgent for {email} from session choice")
+            return agents[email]
+
         # If existing agent present and session choice exists, ensure it matches; otherwise recreate
         if existing and sess_choice:
             cls_name = existing.__class__.__name__.lower()
@@ -203,6 +211,10 @@ def api_chat():
         # ── Tier 2: offline fallback ──────────────────────────────────────
         socketio.emit('toast', {'message': '⚠️ AI unavailable — using offline mode', 'type': 'warning'})
         fallback = MockAgent(email)
+        # Preserve conversation state only from MockAgent (real agents don't have state)
+        if active_agent and active_agent.__class__.__name__ == 'MockAgent':
+            fallback.state = active_agent.state
+            fallback.pending_data = active_agent.pending_data.copy()
         active_agent = fallback
         response = fallback.chat(text, lang_hint)
     database.log_activity(email, 'voice_command', response[:200])

@@ -16,6 +16,48 @@ from app.tools.registry import registry
 from app.core.logging import logger
 
 
+EMAIL_REGEX = re.compile(r'^[\w\.-]+@[\w\.-]+\.\w+$')
+
+
+def extract_and_clean_contact(text: str) -> dict:
+    """Extract and clean email/phone/contact from user input.
+    
+    Returns: {
+        'type': 'email' | 'phone' | 'contact_number' | 'contact_name',
+        'value': str | int,
+        'raw': str
+    }
+    """
+    original = text.strip()
+    
+    # 1. Email detection - contains @
+    if '@' in original:
+        cleaned = re.sub(r'\s+', '', original)
+        cleaned = re.sub(r'@+', '@', cleaned)
+        cleaned = re.sub(r'\.+', '.', cleaned)
+        if re.match(r'^[\w\.-]+@[\w\.-]+\.\w+$', cleaned):
+            return {'type': 'email', 'value': cleaned, 'raw': original}
+    
+    # 2. Phone number - starts with + or digits, min 10 chars
+    phone_match = re.search(r'(\+?\d[\d\s\-]{8,})', original)
+    if phone_match:
+        digits = re.sub(r'[^\d]', '', phone_match.group(1))
+        if phone_match.group(1).startswith('+'):
+            digits = '+' + digits
+        if len(digits) >= 10:
+            return {'type': 'phone', 'value': digits, 'raw': original}
+    
+    # 3. Contact number - "contact 3", "3rd contact", "number 3"
+    contact_idx = re.search(r'contact\s*#?(\d+)|#?(\d+)(?:st|nd|rd|th)?\s*contact|number\s*(\d+)', original.lower(), re.IGNORECASE)
+    if contact_idx:
+        for g in contact_idx.groups():
+            if g:
+                return {'type': 'contact_number', 'value': int(g) - 1, 'raw': original}
+    
+    # 4. Default: contact name
+    return {'type': 'contact_name', 'value': original.strip(), 'raw': original}
+
+
 class MockAgent:
     """Drop-in replacement for ``OpenRouterAgent`` that needs no API key."""
 
@@ -96,33 +138,52 @@ class MockAgent:
         return "Something went wrong. Let's start over."
 
     def _handle_email_collecting(self, text: str, text_hi: str) -> str:
-        """Handle email collection flow - collects recipient, subject, body then asks for PIN."""
+        """Handle email collection flow - collects recipient (with cleaning), subject, body then asks for PIN."""
         # Check for cancel
         if self._is_cancel(text, text_hi):
             self._reset_state()
             return self._respond("Email send cancelled.", "ईमेल भेजना रद्द कर दिया गया।")
 
-        # If we have recipient but not subject
-        if "recipient" in self.pending_data and "subject" not in self.pending_data:
-            # User might be providing subject
-            if "@" in text:
-                self.pending_data["recipient"] = text.strip()
+        # Step 1: Collect recipient with extraction+cleaning
+        if "recipient" not in self.pending_data:
+            result = extract_and_clean_contact(text)
+            
+            if result['type'] == 'email':
+                self.pending_data['recipient'] = result['value']
                 return self._respond(
                     "What is the subject? (or 'skip' if no subject)",
                     "Subject क्या है? (या 'skip' लिखें यदि कोई subject नहीं है)"
                 )
-            # Extract subject from input
-            self.pending_data["subject"] = text.strip() if text.strip() else "No Subject"
-            return self._respond("What is the email body? Write the full message.", "ईमेल का body क्या है? पूरा message लिखें।")
+            elif result['type'] == 'phone':
+                return self._respond(
+                    "That looks like a phone number. For email, please provide an email address (e.g., abcd@gmail.com).",
+                    "यह phone number है। Email के लिए email address दें (जैसे, abcd@gmail.com)।"
+                )
+            else:
+                return self._respond(
+                    "Please provide a valid email address (e.g., abcd@gmail.com).",
+                    "कृपया valid email address दें (जैसे, abcd@gmail.com)।"
+                )
 
-        # If we have recipient and subject but not body
-        if "recipient" in self.pending_data and "subject" in self.pending_data and "body" not in self.pending_data:
-            if text == "skip" or text == "छोड़ें" or text == "skip करें":
+        # Step 2: Collect subject
+        if "subject" not in self.pending_data:
+            if text.strip().lower() == "skip" or text.strip().lower() == "छोड़ें":
+                self.pending_data["subject"] = "No Subject"
+            else:
+                self.pending_data["subject"] = text.strip() if text.strip() else "No Subject"
+            return self._respond(
+                "What is the email body? Write the full message.",
+                "ईमेल का body क्या है? पूरा message लिखें।"
+            )
+
+        # Step 3: Collect body then ask for PIN
+        if "body" not in self.pending_data:
+            if text.strip().lower() == "skip" or text.strip().lower() == "छोड़ें":
                 self.pending_data["body"] = ""
             else:
                 self.pending_data["body"] = text.strip()
             
-            # Instead of sending, ask for PIN
+            # Now ask for PIN
             self.state = self.STATE_VERIFYING_EMAIL_PIN
             recipient = self.pending_data.get("recipient", "")
             subject = self.pending_data.get("subject", "No Subject")
@@ -133,14 +194,7 @@ class MockAgent:
                 f"Ready to send email {preview}{'...' if body_preview else ''}. कृपया अपना 4-digit Gmail PIN दें।"
             )
 
-        # First step: collect recipient
-        if "recipient" not in self.pending_data:
-            if "@" in text:
-                self.pending_data["recipient"] = text.strip()
-                return self._respond("What is the subject?", "Subject क्या है?")
-            return self._respond("Please provide the recipient email address.", "कृपया recipient email address दें।")
-        
-        return ""  # Should never reach here
+        return ""
 
     def _handle_verifying_email_pin(self, text: str, text_hi: str) -> str:
         """Handle PIN verification after email content is collected."""
@@ -159,7 +213,7 @@ class MockAgent:
         if result and ("success" in result.lower() or "verified" in result.lower()):
             # PIN verified, send the email
             send_result = self._call_tool("send_email", {
-                "recipient": self.pending_data.get("recipient", ""),
+                "to": self.pending_data.get("recipient", ""),
                 "subject": self.pending_data.get("subject", "No Subject"),
                 "body": self.pending_data.get("body", "")
             })
@@ -172,16 +226,75 @@ class MockAgent:
         return self._respond("PIN verification failed. Please try again.", "PIN verification failed. फिर से PIN दें।")
 
     def _handle_telegram_collecting(self, text: str, text_hi: str) -> str:
-        """Handle telegram collection flow - collects recipient, message then asks for PIN."""
+        """Handle telegram collection flow - extracts contact, message then PIN."""
         # Check for cancel
         if self._is_cancel(text, text_hi):
             self._reset_state()
             return self._respond("Telegram send cancelled.", "टेलीग्राम भेजना रद्द कर दिया गया।")
 
-        # If we have recipient but not message
-        if "recipient" in self.pending_data and "message" not in self.pending_data:
+        # Step 1: Collect recipient using unified extraction
+        if "recipient" not in self.pending_data:
+            result = extract_and_clean_contact(text)
+            
+            if result['type'] == 'email':
+                # Treat email as contact name
+                self.pending_data['recipient'] = result['value']
+                return self._respond(
+                    f"What is the message you want to send to {result['value']}?",
+                    f"{result['value']} को क्या message भेजना है?"
+                )
+            elif result['type'] == 'phone':
+                # Use phone number as recipient
+                self.pending_data['recipient'] = result['value']
+                return self._respond(
+                    f"What is the message you want to send to {result['value']}?",
+                    f"{result['value']} को क्या message भेजना है?"
+                )
+            elif result['type'] == 'contact_number':
+                # Fetch messages and resolve index to sender name
+                msgs = self._call_tool("get_telegram_messages", {"count": 10})
+                if msgs and isinstance(msgs, str) and "error" not in msgs.lower():
+                    lines = [line.strip() for line in msgs.split('\n') if line.strip()]
+                    senders = []
+                    for line in lines:
+                        if line.startswith("From:"):
+                            parts = line.split("|")[0]
+                            sender = parts.replace("From:", "").strip()
+                            if sender and sender not in senders:
+                                senders.append(sender)
+                    
+                    idx = result['value']
+                    if 0 <= idx < len(senders):
+                        self.pending_data['recipient'] = senders[idx]
+                        return self._respond(
+                            f"What is the message you want to send to {senders[idx]}?",
+                            f"{senders[idx]} को क्या message भेजना है?"
+                        )
+                    else:
+                        return self._respond(
+                            f"Contact {idx + 1} not found. You have {len(senders)} contacts.",
+                            f"Contact {idx + 1} नहीं मिला। आपके पास {len(senders)} contacts हैं।"
+                        )
+                return self._respond(
+                    "Could not fetch contacts. Please provide a contact name.",
+                    "Contacts नहीं ले सका। कृपया contact का नाम दें।"
+                )
+            else:
+                # Contact name
+                if result['value']:
+                    self.pending_data['recipient'] = result['value']
+                    return self._respond(
+                        "What is the message you want to send?",
+                        "Message क्या है जो भेजना है?"
+                    )
+                return self._respond(
+                    "Please provide the recipient name or number (e.g., 'Alice' or 'contact 3').",
+                    "कृपया recipient का नाम या number दें (जैसे, 'Alice' या 'contact 3')।"
+                )
+
+        # Step 2: Collect message then ask for PIN
+        if "message" not in self.pending_data:
             self.pending_data["message"] = text.strip()
-            # Instead of sending, ask for PIN
             self.state = self.STATE_VERIFYING_TELEGRAM_PIN
             recipient = self.pending_data.get("recipient", "")
             msg_preview = self.pending_data.get("message", "")[:30]
@@ -190,14 +303,7 @@ class MockAgent:
                 f"Ready to send message to {recipient}{'...' if msg_preview else ''}. कृपया अपना 4-digit Telegram PIN दें।"
             )
 
-        # First step: collect recipient
-        if "recipient" not in self.pending_data:
-            if text.strip():
-                self.pending_data["recipient"] = text.strip()
-                return self._respond("What is the message you want to send?", "Message क्या है जो भेजना है?")
-            return self._respond("Please provide the recipient name or username.", "कृपया recipient का नाम या username दें।")
-        
-        return ""  # Should never reach here
+        return ""
 
     def _handle_verifying_telegram_pin(self, text: str, text_hi: str) -> str:
         """Handle PIN verification after telegram message is collected."""
@@ -216,7 +322,7 @@ class MockAgent:
         if result and ("success" in result.lower() or "verified" in result.lower()):
             # PIN verified, send the telegram
             send_result = self._call_tool("send_telegram", {
-                "recipient": self.pending_data.get("recipient", ""),
+                "contact": self.pending_data.get("recipient", ""),
                 "message": self.pending_data.get("message", "")
             })
             self._reset_state()
@@ -444,11 +550,14 @@ class MockAgent:
 
     def _handle_email_commands(self, text: str, original: str) -> str | None:
         """Handle all email-related commands."""
-        # Send email
-        if "send email" in text or "send an email" in text or "ईमेल भेजो" in text:
+        # Send email - expanded patterns
+        if re.search(r"(send|compose|write).*(email|mail|ईमेल)", text) or "mail to" in text:
             self.state = self.STATE_COLLECTING_EMAIL
             self.pending_data = {}
-            return "ईमेल भेजने के लिए पहले अपना 4-digit Gmail PIN दें।"
+            return self._respond(
+                "Who is the recipient? Please provide the email address (e.g., abcd@gmail.com).",
+                "किसको भेजना है? कृपया email address दें (जैसे, abcd@gmail.com)।"
+            )
 
         # Read emails / inbox
         if re.search(r"(check|read|get|fetch|पढ़ो|दिखाओ).*(email|inbox|mail|इनबॉक्स|मेल)", text):
@@ -492,11 +601,14 @@ class MockAgent:
 
     def _handle_telegram_commands(self, text: str, original: str) -> str | None:
         """Handle all Telegram-related commands."""
-        # Send telegram
-        if "send telegram" in text or "send a telegram" in text or "टेलीग्राम भेजो" in text:
+        # Send telegram - expanded patterns
+        if re.search(r"(send|compose|write).*(telegram|टेलीग्राम)", text) or re.search(r"(telegram|टेलीग्राम).*message", text) or re.search(r"message.*(telegram|टेलीग्राम)", text):
             self.state = self.STATE_COLLECTING_TELEGRAM
             self.pending_data = {}
-            return "टेलीग्राम भेजने के लिए पहले अपना 4-digit Telegram PIN दें।"
+            return self._respond(
+                "Who do you want to send to? Provide the contact name or number (e.g., 'Alice' or 'contact 3').",
+                "किसको भेजना है? Contact का नाम या number दें (जैसे, 'Alice' या 'contact 3')।"
+            )
 
         # Read telegram messages
         if re.search(r"(check|read|get|fetch|पढ़ो|दिखाओ).*(telegram|tg|टेलीग्राम|टीजी)", text):
