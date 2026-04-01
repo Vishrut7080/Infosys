@@ -236,9 +236,7 @@ async def _start_listener(email: str, client: TelegramClient):
         sender_name = _get_name(sender)
         text = event.raw_text
         
-        # Emit notification directly via socketio
-        from app.web import socketio
-        socketio.emit('tts', {'text': f"New Telegram from {sender_name}: {text}", 'lang': 'en'})
+        # Log incoming message to activity (removed live TTS announcement)
         from app.database import database
         database.log_activity(email, 'telegram_received', f"From {sender_name}")
             
@@ -380,8 +378,7 @@ def start_telegram_in_thread(email: str):
                                     sender = await event.get_sender()
                                     sender_name = _get_name(sender)
                                     text = event.raw_text
-                                    from app.web import socketio
-                                    socketio.emit('tts', {'text': f"New Telegram from {sender_name}: {text}", 'lang': 'en'})
+                                    # Log incoming message (removed live TTS announcement)
                                     from app.database import database
                                     database.log_activity(email, 'telegram_received', f"From {sender_name}")
                                 except Exception as e:
