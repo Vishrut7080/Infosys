@@ -43,6 +43,7 @@ ENV PYTHONUNBUFFERED=1
 EXPOSE 5000
 
 # Production: threading mode (no eventlet/gevent monkey-patching needed)
-CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--threads", "4", "--workers", "1", "main:app"]
+CMD ["sh", "-c", "gunicorn --bind 0.0.0.0:$PORT --threads 4 --workers 1 main:app"]
+# CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--threads", "4", "--workers", "1", "main:app"]
 # Development:
 # CMD ["flask", "--app", "main:app", "run", "--host=127.0.0.1", "--port=5000", "--debug"]
