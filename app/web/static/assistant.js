@@ -197,7 +197,7 @@ function initAssistant() {
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape' && window.speechSynthesis) {
             e.preventDefault();  // Prevent default browser behavior
-            
+
             if (userPaused) {
                 // Currently paused (by user) → resume
                 window.speechSynthesis.resume();
@@ -226,7 +226,7 @@ function initAssistant() {
             }
         }
     });
-    
+
     // Reset userPaused when user starts speaking (via mic or input)
     const resetUserPaused = () => { userPaused = false; };
     const chatInputEl = document.getElementById('chatInput');
@@ -236,7 +236,7 @@ function initAssistant() {
     }
     if (typeof startListening === 'function') {
         const originalStartListening = startListening;
-        startListening = function() {
+        startListening = function () {
             resetUserPaused();
             return originalStartListening.apply(this, arguments);
         };
@@ -319,12 +319,12 @@ function updateUIStatus(text, state) {
 function updateVoiceStatusIndicators() {
     const label = document.getElementById('listenLabel');
     const badge = document.getElementById('listenBadge');
-    
+
     if (!label || !badge) return;
-    
+
     // Determine STT status
     let sttStatus = isListening ? 'listening' : 'not-listening';
-    
+
     // Determine TTS status
     let ttsStatus = '';
     if (window.speechSynthesis) {
@@ -334,11 +334,11 @@ function updateVoiceStatusIndicators() {
             ttsStatus = 'paused';
         }
     }
-    
+
     // Build combined status text
     let statusText = '';
     let stateClass = sttStatus;
-    
+
     if (ttsStatus === 'speaking') {
         statusText = '🔊 Speaking';
         stateClass = 'speaking';
@@ -352,7 +352,7 @@ function updateVoiceStatusIndicators() {
         statusText = '🎤 Ready';
         stateClass = 'ready';
     }
-    
+
     label.textContent = statusText;
     badge.className = 'listen-badge ' + stateClass;
 }
@@ -557,13 +557,13 @@ function speakText(text, lang) {
     try { if (recognition && isListening) recognition.stop(); } catch (e) { }
 
     _stopSpeechKeepAlive();
-    
+
     // If user had intentionally paused, cancel to start fresh (not resume old speech)
     if (userPaused) {
         window.speechSynthesis.cancel();
         userPaused = false;  // Reset - we're starting new
     }
-    
+
     // Small delay after cancel() — Chrome sometimes swallows the next
     // utterance if speak() is called synchronously after cancel().
     setTimeout(() => {
