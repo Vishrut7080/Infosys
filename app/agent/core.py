@@ -209,3 +209,11 @@ class GroqAgent(_BaseAgent):
 
     def __init__(self, api_key: str | None, user_email: str):
         super().__init__(api_key, user_email, model=settings.GROQ_MODEL)
+
+
+class GeminiAgent(_BaseAgent):
+    _api_url = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions"
+    _extra_headers = {}
+
+    def __init__(self, api_key: str | None, user_email: str):
+        super().__init__(api_key, user_email, model=settings.GEMINI_MODEL)

@@ -31,6 +31,10 @@ class Settings(BaseSettings):
     GROQ_API_KEY: str = ""
     GROQ_MODEL: str = "llama-3.3-70b-versatile"
 
+    # Gemini (Google AI Studio OpenAI Compatible API)
+    GEMINI_API_KEY: str = ""
+    GEMINI_MODEL: str = "gemini-2.5-flash"
+
     model_config = SettingsConfigDict(env_file=".env", extra='ignore')
 
     # ── Computed helpers (MOCK_SERVICES acts as a universal override) ──────

@@ -38,8 +38,7 @@ TOOL_TOASTS: dict[str, tuple[str, str]] = {
 }
 
 from app.services.mocks.mock_agent import MockAgent
-if not settings.mock_llm:
-    from app.agent.core import OpenRouterAgent, GroqAgent, LLMUnavailableError
+from app.agent.core import OpenRouterAgent, GroqAgent, GeminiAgent, LLMUnavailableError
 import concurrent.futures
 import threading as _threading
 
@@ -76,6 +75,12 @@ def get_agent(email: str):
                     agent.model = model
                 logger.info(f"Using GroqAgent for {email} (model={agent.model})")
                 return agent
+            if provider == 'gemini':
+                agent = GeminiAgent(settings.GEMINI_API_KEY, email)
+                if model:
+                    agent.model = model
+                logger.info(f"Using GeminiAgent for {email} (model={agent.model})")
+                return agent
             # default to OpenRouter
             agent = OpenRouterAgent(settings.OPEN_ROUTER_API_key, email)
             if model:
@@ -101,9 +106,11 @@ def get_agent(email: str):
                 provider_mismatch = True
             if choice_provider == 'groq' and 'groq' not in cls_name:
                 provider_mismatch = True
-            if choice_provider == 'openrouter' and ('openrouter' not in cls_name and 'groq' not in cls_name):
-                # treat non-mock/non-groq as openrouter
-                if 'mock' in cls_name or 'groq' in cls_name:
+            if choice_provider == 'gemini' and 'gemini' not in cls_name:
+                provider_mismatch = True
+            if choice_provider == 'openrouter' and ('openrouter' not in cls_name and 'groq' not in cls_name and 'gemini' not in cls_name):
+                # treat non-mock/non-groq/non-gemini as openrouter
+                if 'mock' in cls_name or 'groq' in cls_name or 'gemini' in cls_name:
                     provider_mismatch = True
             model_mismatch = False
             try:
@@ -133,6 +140,9 @@ def get_agent(email: str):
                     elif settings.GROQ_API_KEY:
                         agents[email] = GroqAgent(settings.GROQ_API_KEY, email)
                         logger.info(f"Using GroqAgent for {email} (model={settings.GROQ_MODEL})")
+                    elif settings.GEMINI_API_KEY:
+                        agents[email] = GeminiAgent(settings.GEMINI_API_KEY, email)
+                        logger.info(f"Using GeminiAgent for {email} (model={settings.GEMINI_MODEL})")
                     else:
                         agents[email] = OpenRouterAgent(settings.OPEN_ROUTER_API_key, email)
                         logger.info(f"Using OpenRouterAgent for {email} (model={settings.OPENROUTER_MODEL})")
@@ -143,8 +153,11 @@ def get_agent(email: str):
                 elif settings.GROQ_API_KEY:
                     agents[email] = GroqAgent(settings.GROQ_API_KEY, email)
                     logger.info(f"Using GroqAgent for {email} (model={settings.GROQ_MODEL})")
+                elif settings.GEMINI_API_KEY:
+                    agents[email] = GeminiAgent(settings.GEMINI_API_KEY, email)
+                    logger.info(f"Using GeminiAgent for {email} (model={settings.GEMINI_MODEL})")
                 else:
-                    agents[email] = OpenRouterAgent(settings.OPENROUTER_API_key, email)
+                    agents[email] = OpenRouterAgent(settings.OPEN_ROUTER_API_key, email)
                     logger.info(f"Using OpenRouterAgent for {email} (model={settings.OPENROUTER_MODEL})")
         return agents[email]
 
@@ -604,6 +617,20 @@ def _available_llm_providers():
         'models': ([{'id': settings.GROQ_MODEL, 'label': settings.GROQ_MODEL, 'category': 'default', 'context': 'varies', 'description': 'Your configured Groq model'}] if settings.GROQ_API_KEY else [])
     })
 
+    # Gemini
+    providers.append({
+        'id': 'gemini',
+        'label': 'Gemini (Google)',
+        'available': bool(settings.GEMINI_API_KEY),
+        'default_model': settings.GEMINI_MODEL,
+        'models': ([
+            {'id': 'gemini-2.5-flash', 'label': 'Gemini 2.5 Flash', 'category': 'free', 'context': '1M', 'description': 'Advanced reasoning, fast free-tier'},
+            {'id': 'gemini-3-flash-preview', 'label': 'Gemini 3 Flash Preview', 'category': 'free', 'context': '1M', 'description': 'Latest high-performance agentic model'},
+            {'id': 'gemini-3.1-flash-lite-preview', 'label': 'Gemini 3.1 Flash Lite Preview', 'category': 'free', 'context': '1M', 'description': 'Lightweight fast experimental model'},
+            {'id': 'gemini-2.5-pro', 'label': 'Gemini 2.5 Pro', 'category': 'pro', 'context': '2M', 'description': 'Most intelligent model, large context'},
+        ] if settings.GEMINI_API_KEY else [])
+    })
+
     # Mock
     providers.append({
         'id': 'mock',
@@ -634,6 +661,8 @@ def api_llm_options():
                 current = {'provider': 'mock', 'model': 'mock'}
             elif 'groq' in cls_name:
                 current = {'provider': 'groq', 'model': getattr(ag, 'model', settings.GROQ_MODEL)}
+            elif 'gemini' in cls_name:
+                current = {'provider': 'gemini', 'model': getattr(ag, 'model', settings.GEMINI_MODEL)}
             else:
                 current = {'provider': 'openrouter', 'model': getattr(ag, 'model', settings.OPENROUTER_MODEL)}
         else:
@@ -641,6 +670,8 @@ def api_llm_options():
                 current = {'provider': 'mock', 'model': 'mock'}
             elif settings.GROQ_API_KEY:
                 current = {'provider': 'groq', 'model': settings.GROQ_MODEL}
+            elif settings.GEMINI_API_KEY:
+                current = {'provider': 'gemini', 'model': settings.GEMINI_MODEL}
             else:
                 current = {'provider': 'openrouter', 'model': settings.OPENROUTER_MODEL}
     return jsonify({'providers': providers, 'current': current})
@@ -670,6 +701,9 @@ def api_switch_llm():
                 agents[email] = MockAgent(email)
             elif provider == 'groq':
                 agents[email] = GroqAgent(settings.GROQ_API_KEY, email)
+                agents[email].model = model
+            elif provider == 'gemini':
+                agents[email] = GeminiAgent(settings.GEMINI_API_KEY, email)
                 agents[email].model = model
             else:
                 agents[email] = OpenRouterAgent(settings.OPEN_ROUTER_API_key, email)
