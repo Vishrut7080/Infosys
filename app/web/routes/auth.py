@@ -165,7 +165,9 @@ def register():
                 'email': email, 'name': name, 
                 'gmail_pin': gmail_pin, 
                 'telegram_pin': telegram_pin,
-                'tg_phone': data.get('tg_phone', '').strip()
+                'tg_phone': data.get('tg_phone', '').strip(),
+                'password': password,
+                'audio_password': data.get('secret_audio', '').lower().strip()
             }
             if data.get('is_admin') and data.get('admin_password', '').strip() == 'infosys':
                 database.add_admin(email)
@@ -256,6 +258,11 @@ def auth_google_callback():
                     pending_pins['gmail_pin'] = gmail_pin
                     if telegram_pin:
                         pending_pins['telegram_pin'] = telegram_pin
+                    # Generate password and audio_password for users linking Gmail to existing account
+                    if not pending_pins.get('password'):
+                        pending_pins['password'] = secrets.token_urlsafe(16)
+                    if not pending_pins.get('audio_password'):
+                        pending_pins['audio_password'] = database.suggest_audio_word()
                     session['pending_pins'] = pending_pins
                     session.modified = True
                     logger.debug(f'[Gmail linking] Updated pending_pins with keys: {list(pending_pins.keys())}, has_password: {bool(pending_pins.get("password"))}')
@@ -291,7 +298,8 @@ def auth_google_callback():
                 'email': email,
                 'name': name,
                 'password': random_pass,
-                'audio_password': audio_pass
+                'audio_password': audio_pass,
+                'is_oauth_signup': True
             })
             gmail_pin = str(pins.get('gmail_pin', '0000'))
             telegram_pin = str(pins.get('telegram_pin') or '')
